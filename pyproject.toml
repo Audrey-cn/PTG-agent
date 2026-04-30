@@ -34,13 +34,13 @@ file_watch = ["watchdog>=4.0.0,<5"]
 
 # 消息频道支持（可选安装）
 messaging = ["python-telegram-bot[webhooks]>=22.6,<23", "discord.py[voice]>=2.7.1,<3", "aiohttp>=3.13.3,<4", "slack-bolt>=1.18.0,<2", "slack-sdk>=3.27.0,<4"]
-cron = ["croniter&gt;=6.0.0,&lt;7"]
-dingtalk = ["dingtalk-stream&gt;=0.20,&lt;1", "alibabacloud-dingtalk&gt;=2.0.0"]
-feishu = ["lark-oapi&gt;=1.5.3,&lt;2"]
+cron = ["croniter>=6.0.0,<7"]
+dingtalk = ["dingtalk-stream>=0.20,<1", "alibabacloud-dingtalk>=2.0.0"]
+feishu = ["lark-oapi>=1.5.3,<2"]
 termux = [
   # Tested Android / Termux path: keeps the core CLI feature-rich while
   # avoiding extras that currently depend on non-Android wheels.
-  "python-telegram-bot[webhooks]&gt;=22.6,&lt;23",
+  "python-telegram-bot[webhooks]>=22.6,<23",
   "prometheus-ptg[cron]",
   "prometheus-ptg[mcp]",
 ]

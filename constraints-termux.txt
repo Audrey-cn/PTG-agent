@@ -10,25 +10,25 @@
 # ============================================================================
 
 # Core dependencies (same as main, but may be adjusted for Termux)
-openai&gt;=2.21.0,&lt;3
-anthropic&gt;=0.39.0,&lt;1
-python-dotenv&gt;=1.2.1,&lt;2
-fire&gt;=0.7.1,&lt;1
-httpx[socks]&gt;=0.28.1,&lt;1
-rich&gt;=14.3.3,&lt;15
-tenacity&gt;=9.1.4,&lt;10
-pyyaml&gt;=6.0.2,&lt;7
-requests&gt;=2.33.0,&lt;3
-jinja2&gt;=3.1.5,&lt;4
-pydantic&gt;=2.12.5,&lt;3
-prompt_toolkit&gt;=3.0.52,&lt;4
+openai>=2.21.0,<3
+anthropic>=0.39.0,<1
+python-dotenv>=1.2.1,<2
+fire>=0.7.1,<1
+httpx[socks]>=0.28.1,<1
+rich>=14.3.3,<15
+tenacity>=9.1.4,<10
+pyyaml>=6.0.2,<7
+requests>=2.33.0,<3
+jinja2>=3.1.5,<4
+pydantic>=2.12.5,<3
+prompt_toolkit>=3.0.52,<4
 
 # NumPy: Avoid wheels that require advanced CPU features on Termux
-numpy&gt;=1.24.0,&lt;2
+numpy>=1.24.0,<2
 
 # Optional Termux extras (no voice or heavy dependencies)
-python-telegram-bot[webhooks]&gt;=22.6,&lt;23
-croniter&gt;=6.0.0,&lt;7
+python-telegram-bot[webhooks]>=22.6,<23
+croniter>=6.0.0,<7
 
 # Note: voice extra is excluded on Termux because faster-whisper
 # depends on ctranslate2 which doesn't have Android wheels.
