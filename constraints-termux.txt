@@ -7,6 +7,7 @@
 #
 # This file is used with `pip install -c constraints-termux.txt` to
 # override version ranges for Android compatibility.
+# Note: Constraints cannot have extras - those will be handled in setup.py
 # ============================================================================
 
 # Core dependencies (same as main, but may be adjusted for Termux)
@@ -14,7 +15,7 @@ openai>=2.21.0,<3
 anthropic>=0.39.0,<1
 python-dotenv>=1.2.1,<2
 fire>=0.7.1,<1
-httpx[socks]>=0.28.1,<1
+httpx>=0.28.1,<1
 rich>=14.3.3,<15
 tenacity>=9.1.4,<10
 pyyaml>=6.0.2,<7
@@ -27,8 +28,9 @@ prompt_toolkit>=3.0.52,<4
 numpy>=1.24.0,<2
 
 # Optional Termux extras (no voice or heavy dependencies)
-python-telegram-bot[webhooks]>=22.6,<23
+python-telegram-bot>=22.6,<23
 croniter>=6.0.0,<7
 
 # Note: voice extra is excluded on Termux because faster-whisper
 # depends on ctranslate2 which doesn't have Android wheels.
+
