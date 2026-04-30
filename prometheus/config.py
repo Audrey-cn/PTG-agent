@@ -104,6 +104,72 @@ DEFAULT_CONFIG = {
         "mode": "manual",
         "timeout": 60,
     },
+    "channels": {
+        "enabled": True,
+        "default_type": "cli",
+        "auto_start": True,
+        "cli": {
+            "enabled": True,
+            "history_size": 100,
+        },
+        "http_webhook": {
+            "enabled": False,
+            "host": "0.0.0.0",
+            "port": 9090,
+            "webhook_path": "/webhook",
+        },
+        "file_watch": {
+            "enabled": False,
+            "watch_dir": "~/.prometheus/inbox",
+            "pattern": "*.md",
+        },
+        "telegram": {
+            "enabled": False,
+            "token": "",
+            "webhook_url": "",
+            "allowed_chat_ids": [],
+        },
+        "discord": {
+            "enabled": False,
+            "token": "",
+            "allowed_channel_ids": [],
+        },
+        "slack": {
+            "enabled": False,
+            "bot_token": "",
+            "app_token": "",
+            "allowed_channel_ids": [],
+        },
+        "feishu": {
+            "enabled": False,
+            "app_id": "",
+            "app_secret": "",
+            "verification_token": "",
+        },
+        "dingtalk": {
+            "enabled": False,
+            "app_key": "",
+            "app_secret": "",
+        },
+        "qqbot": {
+            "enabled": False,
+            "appid": "",
+            "token": "",
+        },
+        "wecom": {
+            "enabled": False,
+            "corpid": "",
+            "secret": "",
+        },
+        "web_socket": {
+            "enabled": False,
+        },
+        "mqtt": {
+            "enabled": False,
+            "broker": "localhost",
+            "port": 1883,
+        },
+    },
     "logging": {
         "level": "INFO",
         "max_size_mb": 5,

@@ -59,7 +59,7 @@ BANNER = """
 def cmd_setup(args):
     """交互式初始化引导。"""
     try:
-        from prometheus.setup import run_setup
+        from prometheus.init_wizard import run_setup
         run_setup()
     except ImportError:
         # 降级到旧版本 setup
@@ -761,9 +761,32 @@ def build_parser():
     # skills (保留向后兼容)
     subparsers.add_parser('skills', help='列出 Skill 工作流')
     
+    # snapshot (sp) - 快照管理
+    snapshot_p = subparsers.add_parser('snapshot', help='创建快照')
+    snapshot_p.add_argument('name', nargs='?', help='快照名称（可选）')
+    snapshot_p.add_argument('--message', '-m', help='快照说明')
+    
+    snapshot_p_alias = subparsers.add_parser('sp', help='(别名) snapshot - 创建快照')
+    snapshot_p_alias.add_argument('name', nargs='?')
+    snapshot_p_alias.add_argument('--message', '-m')
+    
+    # list-snapshots (ls) - 列出快照
+    subparsers.add_parser('list-snapshots', help='列出所有快照')
+    subparsers.add_parser('ls', help='(别名) list-snapshots - 列出快照')
+    
+    # restore (rs) - 恢复快照
+    restore_p = subparsers.add_parser('restore', help='恢复快照')
+    restore_p.add_argument('name', nargs='?', default='latest', help='快照名称（默认 latest）')
+    
+    restore_p_alias = subparsers.add_parser('rs', help='(别名) restore - 恢复快照')
+    restore_p_alias.add_argument('name', nargs='?', default='latest')
+    
+    # resume (r) - 恢复上次状态
+    subparsers.add_parser('resume', help='恢复上次状态')
+    subparsers.add_parser('re', help='(别名) resume - 恢复上次状态')
+    
     # repl (r)
     subparsers.add_parser('repl', help='交互式 REPL 模式')
-    subparsers.add_parser('r', help='(别名) repl - 交互式模式')
 
     return parser
 
@@ -799,6 +822,10 @@ def main():
         'di': 'dict',
         'u': 'update',
         'sk': 'skill',
+        'sp': 'snapshot',
+        'ls': 'list-snapshots',
+        'rs': 'restore',
+        're': 'resume',
         'r': 'repl',
     }
 
@@ -820,6 +847,10 @@ def main():
         'update': cmd_update,
         'repl': cmd_repl,
         'skill': cmd_skill,
+        'snapshot': cmd_snapshot,
+        'list-snapshots': cmd_list_snapshots,
+        'restore': cmd_restore,
+        'resume': cmd_resume,
     }
 
     if actual_command == 'skills':
@@ -942,6 +973,96 @@ def cmd_skills():
         if s.meta.description:
             print(f"    {s.meta.description[:60]}")
         print()
+
+
+# ═══════════════════════════════════════════
+#   Snapshot 快照管理
+# ═══════════════════════════════════════════
+
+def cmd_snapshot(args):
+    """创建快照。"""
+    try:
+        from prometheus.checkpoint_system import get_checkpoint_system, get_session_logger
+    except ImportError:
+        from checkpoint_system import get_checkpoint_system, get_session_logger
+    
+    cp_sys = get_checkpoint_system()
+    session_logger = get_session_logger()
+    
+    additional_state = {}
+    if args.message:
+        additional_state['message'] = args.message
+    
+    cp = cp_sys.create_snapshot(args.name, additional_state)
+    session_logger.log_snapshot(cp.name)
+    
+    print(f"\n📸 快照已创建\n")
+    print(f"  名称: {cp.name}")
+    print(f"  时间: {cp.timestamp}")
+    try:
+        from prometheus.checkpoint_system import get_checkpoints_dir
+        print(f"  目录: {get_checkpoints_dir()}")
+    except ImportError:
+        from checkpoint_system import get_checkpoints_dir
+        print(f"  目录: {get_checkpoints_dir()}")
+    print()
+
+
+def cmd_list_snapshots(args):
+    """列出所有快照。"""
+    try:
+        from prometheus.checkpoint_system import get_checkpoint_system
+    except ImportError:
+        from checkpoint_system import get_checkpoint_system
+    
+    cp_sys = get_checkpoint_system()
+    snapshots = cp_sys.list_snapshots()
+    
+    if not snapshots:
+        print("\n📸 无快照记录\n")
+        return
+    
+    print(f"\n📸 快照列表 ({len(snapshots)} 个)\n")
+    for i, s in enumerate(snapshots, 1):
+        name = s.get('name', '?')
+        timestamp = s.get('timestamp', '?')
+        state = s.get('state', {})
+        message = state.get('message', '')
+        
+        line = f"  {i}. {name}"
+        if message:
+            line += f" — {message}"
+        print(line)
+        print(f"      {timestamp}")
+        print()
+
+
+def cmd_restore(args):
+    """恢复快照。"""
+    try:
+        from prometheus.checkpoint_system import get_checkpoint_system
+    except ImportError:
+        from checkpoint_system import get_checkpoint_system
+    
+    cp_sys = get_checkpoint_system()
+    found = cp_sys.restore_snapshot(args.name)
+    
+    if not found:
+        print(f"\n❌ 未找到快照: {args.name}\n")
+
+
+def cmd_resume(args):
+    """恢复上次状态（别名）。"""
+    try:
+        from prometheus.checkpoint_system import get_checkpoint_system
+    except ImportError:
+        from checkpoint_system import get_checkpoint_system
+    
+    cp_sys = get_checkpoint_system()
+    found = cp_sys.restore_snapshot('latest')
+    
+    if not found:
+        print("\n❌ 未找到快照\n")
 
 
 if __name__ == '__main__':

@@ -1,5 +1,16 @@
 # Prometheus 安装指南
 
+## 前置要求
+
+安装前需要确保系统已安装以下依赖：
+
+| 依赖 | 最低版本 | 说明 |
+|------|---------|------|
+| Python | 3.11+ | 运行环境 |
+| Git | 任意 | 克隆仓库 |
+
+---
+
 ## 方案一：一键安装（最快）
 
 使用 curl | bash 方式一键安装：
@@ -9,10 +20,52 @@ curl -fsSL https://raw.githubusercontent.com/Audrey-cn/PTG-agent/main/scripts/in
 ```
 
 脚本会自动：
+- 检测操作系统
+- 检查依赖（Python 3.11+、Git）
+- 如果依赖缺失，提供针对性的安装指导
 - 克隆/更新仓库
-- 检查依赖
 - 安装 ptg 命令
 - 配置 Shell 别名（可选）
+
+### 依赖安装指导
+
+如果脚本检测到依赖缺失，会自动显示安装指导。你也可以手动安装：
+
+#### macOS
+
+```bash
+# 使用 Homebrew（推荐）
+brew install python@3.11 git
+
+# 或者从官网下载
+# Python: https://www.python.org/downloads/
+# Git: https://git-scm.com/downloads
+```
+
+#### Ubuntu/Debian/Linux Mint
+
+```bash
+sudo apt update
+sudo apt install python3 python3-pip python3-venv git
+```
+
+#### Fedora/RHEL/CentOS
+
+```bash
+sudo dnf install python3 python3-pip git
+```
+
+#### Arch/Manjaro
+
+```bash
+sudo pacman -S python python-pip git
+```
+
+#### Windows
+
+从官网下载：
+- Python: https://www.python.org/downloads/
+- Git: https://git-scm.com/downloads/win
 
 ---
 

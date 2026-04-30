@@ -1,6 +1,49 @@
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
 .pytest_cache/
 *.db-shm
 *.db-wal
 .DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# 运行时数据
+data/
+prometheus/data/
+prometheus/context/
+prometheus/memory/data/working/
+prometheus/genes/_snapshots/
+prometheus/snapshots/
+prometheus/prometheus.log
+
+# 临时和测试文件
+test_*.py
+demo_*.py
+final_test.py
+doctor_cli.py
+quick_test.py
+IMPLEMENTATION_SUMMARY.md
+*.tmp
+
+# 日志文件
+*.log
+
+# 虚拟环境
+venv/
+env/
+.venv/
+ENV/
+
+# 用户配置目录（可在仓库外）
+~/.prometheus/

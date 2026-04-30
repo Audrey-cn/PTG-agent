@@ -3,12 +3,46 @@
 
 参照 OpenClaw gateway channel 抽象与 Hermes message handler 模式，
 定义频道的统一数据模型与接口。
+
+频道类型:
+- CLI: 默认命令行交互频道（始终启用）
+- HTTP_Webhook: HTTP API 接口频道（需要 fastapi/uvicorn）
+- File_Watch: 文件监听频道（需要 watchdog）
+- WEB_SOCKET: WebSocket 频道（可选）
+- MQTT: MQTT 订阅频道（可选）
 """
 
+import os
+import sys
+import json
+import threading
+import time
+from pathlib import Path
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, Any, Optional, Callable, List
 from abc import ABC, abstractmethod
+from collections import deque
+
+# Optional dependencies - check availability
+WATCHDOG_AVAILABLE = False
+try:
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler, FileModifiedEvent
+    WATCHDOG_AVAILABLE = True
+except ImportError:
+    pass
+
+FASTAPI_AVAILABLE = False
+try:
+    import fastapi
+    from fastapi import FastAPI, Request, HTTPException
+    from fastapi.responses import JSONResponse
+    from pydantic import BaseModel
+    import uvicorn
+    FASTAPI_AVAILABLE = True
+except ImportError:
+    pass
 
 
 class ChannelType(Enum):
@@ -86,6 +120,7 @@ class Channel(ABC):
         self.config = config
         self._started = False
         self._on_message: Optional[Callable[[ChannelMessage], Optional[ChannelResponse]]] = None
+        self._message_history: deque = deque(maxlen=100)  # 最近 100 条消息
 
     @property
     def name(self) -> str:
@@ -103,6 +138,7 @@ class Channel(ABC):
         self._on_message = handler
 
     def handle_message(self, message: ChannelMessage) -> Optional[ChannelResponse]:
+        self._message_history.append(message)
         if self._on_message:
             return self._on_message(message)
         return None
@@ -119,16 +155,29 @@ class Channel(ABC):
     def send(self, response: ChannelResponse) -> bool:
         pass
 
+    def get_message_history(self) -> List[ChannelMessage]:
+        return list(self._message_history)
+
     def status(self) -> dict:
         return {
             "name": self.name,
             "type": self.channel_type.value,
             "enabled": self.config.enabled,
             "started": self._started,
+            "messages_count": len(self._message_history),
         }
 
 
 class CLIChannel(Channel):
+    """
+    CLI 交互频道（默认启用）
+    不需要额外依赖
+    """
+
+    def __init__(self, config: ChannelConfig):
+        super().__init__(config)
+        self._history_size = config.settings.get("history_size", 100)
+
     def start(self) -> bool:
         self._started = True
         return True
@@ -156,15 +205,79 @@ class CLIChannel(Channel):
 
 
 class HTTPWebhookChannel(Channel):
+    """
+    HTTP Webhook 频道（需要 fastapi/uvicorn）
+    启动一个本地 API 服务器
+    """
+
+    def __init__(self, config: ChannelConfig):
+        super().__init__(config)
+        self._host = config.settings.get("host", "0.0.0.0")
+        self._port = int(config.settings.get("port", 9090))
+        self._webhook_path = config.settings.get("webhook_path", "/webhook")
+        self._server_thread = None
+        self._app = None
+        self._uvicorn_config = None
+
     def start(self) -> bool:
-        self._started = True
-        return True
+        if not FASTAPI_AVAILABLE:
+            print("⚠️ HTTP Webhook 需要 fastapi/uvicorn，请安装: pip install \"prometheus-ptg[web]\"")
+            return False
+
+        try:
+            self._app = FastAPI(title="Prometheus Webhook Channel")
+
+            # 定义请求模型
+            class WebhookPayload(BaseModel):
+                sender: str = "webhook"
+                content: str = ""
+                metadata: Dict[str, Any] = field(default_factory=dict)
+
+            # 定义路由
+            @self._app.get("/")
+            async def root():
+                return {"status": "ok", "channel": self.name, "path": self._webhook_path}
+
+            @self._app.post(self._webhook_path)
+            async def receive_webhook(payload: WebhookPayload):
+                if not self._started:
+                    raise HTTPException(status_code=503, detail="Channel not started")
+
+                message = ChannelMessage(
+                    channel=self.name,
+                    sender=payload.sender,
+                    content=payload.content,
+                    metadata=payload.metadata or {},
+                )
+
+                response = self.handle_message(message)
+                if response:
+                    return response.to_dict()
+                else:
+                    return {"status": "accepted"}
+
+            # 在后台线程运行服务器
+            def run_server():
+                uvicorn.run(self._app, host=self._host, port=self._port, log_level="warning")
+
+            self._server_thread = threading.Thread(target=run_server, daemon=True)
+            self._server_thread.start()
+            self._started = True
+            return True
+
+        except Exception as e:
+            print(f"⚠️ HTTP Webhook 启动失败: {e}")
+            return False
 
     def stop(self) -> bool:
         self._started = False
+        # 注意：uvicorn 在 daemon 线程会随程序退出自动结束
         return True
 
     def send(self, response: ChannelResponse) -> bool:
+        # HTTP Webhook send: 可以在这里实现回调通知
+        # 暂时只打印
+        print(f"[webhook] 发送响应: {response.content[:50] if response.content else ''}")
         return True
 
     def receive_request(self, sender: str, content: str, metadata: dict = None) -> Optional[ChannelResponse]:
@@ -180,31 +293,132 @@ class HTTPWebhookChannel(Channel):
 
 
 class FileWatchChannel(Channel):
+    """
+    文件监听频道（需要 watchdog）
+    监听文件/目录变化
+    """
+
+    def __init__(self, config: ChannelConfig):
+        super().__init__(config)
+        self._watch_dir = Path(config.settings.get("watch_dir", "~/.prometheus/inbox")).expanduser()
+        self._pattern = config.settings.get("pattern", "*")
+        self._observer = None
+        self._event_handler = None
+
     def start(self) -> bool:
-        self._started = True
+        if not WATCHDOG_AVAILABLE:
+            print("⚠️ File Watch 需要 watchdog，请安装: pip install watchdog")
+            return False
+
+        try:
+            self._watch_dir.mkdir(parents=True, exist_ok=True)
+
+            class WatchHandler(FileSystemEventHandler):
+                def __init__(self, channel: FileWatchChannel):
+                    self._channel = channel
+
+                def on_modified(self, event):
+                    if event.is_directory:
+                        return
+                    if self._pattern and self._pattern != "*":
+                        if not event.src_path.endswith(self._pattern.replace("*", "")):
+                            return
+
+                    self._channel.on_file_change(event.src_path, "modified")
+
+                def on_created(self, event):
+                    if event.is_directory:
+                        return
+                    self._channel.on_file_change(event.src_path, "created")
+
+            self._event_handler = WatchHandler(self)
+            self._observer = Observer()
+            self._observer.schedule(self._event_handler, str(self._watch_dir), recursive=True)
+            self._observer.start()
+            self._started = True
+            return True
+
+        except Exception as e:
+            print(f"⚠️ File Watch 启动失败: {e}")
+            return False
+
+    def stop(self) -> bool:
+        if self._observer:
+            self._observer.stop()
+            self._observer.join(timeout=2)
+        self._started = False
         return True
+
+    def send(self, response: ChannelResponse) -> bool:
+        # 保存到响应文件
+        try:
+            out_path = self._watch_dir / "responses"
+            out_path.mkdir(exist_ok=True)
+            out_file = out_path / f"response_{int(time.time())}.md"
+            out_file.write_text(response.content, encoding="utf-8")
+            return True
+        except Exception as e:
+            print(f"⚠️ 保存响应失败: {e}")
+            return False
+
+    def on_file_change(self, filepath: str, action: str = "modified") -> Optional[ChannelResponse]:
+        if not self._started:
+            return None
+
+        try:
+            path = Path(filepath)
+            if path.is_file() and not path.name.startswith("."):
+                # 读取文件内容
+                content = path.read_text(encoding="utf-8", errors="replace")
+                message = ChannelMessage(
+                    channel=self.name,
+                    sender=f"file_watcher:{path.name}",
+                    content=content,
+                    metadata={"filepath": filepath, "action": action},
+                )
+                return self.handle_message(message)
+        except Exception as e:
+            print(f"⚠️ 处理文件变化失败: {e}")
+
+        return None
+
+
+# Placeholder for WebSocket and MQTT (to be implemented later)
+class WebSocketChannel(Channel):
+    """WebSocket 频道（placeholder）"""
+
+    def start(self) -> bool:
+        print("⚠️ WebSocket 频道尚未完全实现")
+        return False
 
     def stop(self) -> bool:
         self._started = False
         return True
 
     def send(self, response: ChannelResponse) -> bool:
+        return False
+
+
+class MQTTChannel(Channel):
+    """MQTT 订阅频道（placeholder）"""
+
+    def start(self) -> bool:
+        print("⚠️ MQTT 频道尚未完全实现")
+        return False
+
+    def stop(self) -> bool:
+        self._started = False
         return True
 
-    def on_file_change(self, filepath: str, action: str = "modified") -> Optional[ChannelResponse]:
-        if not self._started:
-            return None
-        message = ChannelMessage(
-            channel=self.name,
-            sender=f"file_watcher:{filepath}",
-            content=f"文件{action}: {filepath}",
-            metadata={"filepath": filepath, "action": action},
-        )
-        return self.handle_message(message)
+    def send(self, response: ChannelResponse) -> bool:
+        return False
 
 
+# 频道类型映射
 CHANNEL_TYPE_MAP: Dict[ChannelType, type] = {
     ChannelType.CLI: CLIChannel,
     ChannelType.HTTP_WEBHOOK: HTTPWebhookChannel,
     ChannelType.FILE_WATCH: FileWatchChannel,
+    ChannelType.WEB_SOCKET: WebSocketChannel,
+    ChannelType.MQTT: MQTTChannel,
 }

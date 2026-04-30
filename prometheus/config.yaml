@@ -106,6 +106,7 @@ channels:
   enabled: true                                # 是否启用频道系统
   default_type: cli                            # 默认频道类型
   auto_start: true                             # 系统启动时自动开启频道
+  # 基础频道
   cli:
     enabled: true
     history_size: 100
@@ -118,6 +119,38 @@ channels:
     enabled: false
     watch_dir: ~/.prometheus/inbox
     pattern: "*.md"
+  # 第三方平台（可选，需要安装对应依赖）
+  telegram:
+    enabled: false
+    token: ""
+    webhook_url: ""
+    allowed_chat_ids: []
+  discord:
+    enabled: false
+    token: ""
+    allowed_channel_ids: []
+  slack:
+    enabled: false
+    bot_token: ""
+    app_token: ""
+    allowed_channel_ids: []
+  feishu:
+    enabled: false
+    app_id: ""
+    app_secret: ""
+    verification_token: ""
+  dingtalk:
+    enabled: false
+    app_key: ""
+    app_secret: ""
+  qqbot:
+    enabled: false
+    appid: ""
+    token: ""
+  wecom:
+    enabled: false
+    corpid: ""
+    secret: ""
   web_socket:
     enabled: false
   mqtt:
