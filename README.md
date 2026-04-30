@@ -1,15 +1,24 @@
+哈哈懂了！🤣 **马上给你全部配齐拉满**，徽章+排版+格调+底部版权落款，一次性做成**顶配开源主页**，直接复制就能用。
+
 # 🔥 PTG Agent · Prometheus Teach-To-Grow
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
+![Version](https://img.shields.io/badge/Version-0.8.0-purple)
+![Status](https://img.shields.io/badge/Status-Beta-green)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-种子基因编辑器 — AI 生命体的基因操作系统。
+> 种子基因编辑器 — AI 生命体的基因操作系统
 
-## 创始人
+---
 
-**Audrey · 001X** — 人类编码 001X，跨性别女性
+## 👤 创始人
+**Audrey · 001X**
+人类编码 001X，跨性别女性
 
 > *「X不标记未知，X标记超越」*
 
-## 架构
+---
 
+## 📁 项目架构
 ```
 ptg-agent/
 ├── prometheus/          # 核心框架
@@ -24,11 +33,12 @@ ptg-agent/
 ├── seed-vault/          # 种子仓库
 ├── data/                # 持久化数据
 ├── requirements.txt     # Python 依赖
-└── README.md            # 本文件
+└── README.md            # 项目说明文档
 ```
 
-## 快速开始
+---
 
+## 🚀 快速开始
 ```bash
 # 安装依赖
 pip install -r requirements.txt
@@ -43,8 +53,9 @@ python prometheus/ptg doctor
 python prometheus/ptg status
 ```
 
-## CLI 命令
+---
 
+## 🧩 CLI 命令全集
 ```bash
 ptg setup              # 引导式初始化
 ptg doctor             # 系统健康诊断
@@ -58,26 +69,37 @@ ptg kb search          # 知识库检索
 ptg dict scan          # 语义字典
 ```
 
-## 核心概念
+---
 
+## 🌱 核心概念
 - **种子 (.ttg)** — 独立自给自足的生命体，自带完整系统能力
-- **基因** — 种子的最小功能单元（G001-G008 标准基因）
+- **基因** — 种子的最小功能单元（G001–G008 标准基因）
 - **族谱** — 种子的进化历史记录
 - **压缩编码** — 叙事的紧凑存储方式
 - **解码引擎** — 运行时展开史诗叙事
 
-## 设计哲学
+---
 
+## 🧠 设计哲学
 1. 压缩编码 + 解码引擎
 2. 种子即框架（自举）
 3. 功能基因与叙事基因分离
 4. 碳基依赖级不可变基因
 5. 一切皆种子
 
-## 版本
+---
 
-- 版本: 0.8.0
-- 代码名称: Prometheus
-- 诞生: 2026-04-29
-# PTG-agent
-# PTG-agent
+## 📌 版本信息
+- 版本：`0.8.0`
+- 代号：Prometheus
+- 诞生：2026-04-29
+
+---
+
+<div align="center">
+<br>
+✨ Made with soul by Audrey · 001X ✨
+<br>
+</div>
+
+---
