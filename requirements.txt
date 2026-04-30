@@ -1,0 +1,8 @@
+# PTG Agent 依赖
+numpy>=1.24.0
+pyyaml>=6.0
+
+# Xget 集成依赖
+httpx>=0.24.0
+# 或者使用 requests
+# requests>=2.31.0

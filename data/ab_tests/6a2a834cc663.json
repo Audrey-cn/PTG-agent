@@ -1,0 +1,44 @@
+{
+  "test_id": "6a2a834cc663",
+  "name": "写作风格对比",
+  "description": "",
+  "seed_path": "/Users/audrey/.hermes/skills/teach-to-grow/teach-to-grow-core.ttg",
+  "status": "completed",
+  "created_at": "2026-04-30T11:56:03.907555",
+  "completed_at": "2026-04-30T11:58:57.246898",
+  "winner": "6a2a834cc663_a",
+  "confidence": 0.99,
+  "variant_a": {
+    "variant_id": "6a2a834cc663_a",
+    "name": "A (Baseline)",
+    "gene_config": {
+      "mode": "baseline"
+    },
+    "status": "selected",
+    "score": 0.8232,
+    "success_rate": 0.8,
+    "avg_time_ms": 0.0,
+    "runs": 5,
+    "successes": 4,
+    "metrics": {
+      "quality": 0.7161
+    }
+  },
+  "variant_b": {
+    "variant_id": "6a2a834cc663_b",
+    "name": "B (Mutant)",
+    "gene_config": {
+      "mutation_rate": 0.2,
+      "style": "formal"
+    },
+    "status": "rejected",
+    "score": 0.6018,
+    "success_rate": 0.4,
+    "avg_time_ms": 0.0,
+    "runs": 5,
+    "successes": 2,
+    "metrics": {
+      "quality": 0.8089
+    }
+  }
+}

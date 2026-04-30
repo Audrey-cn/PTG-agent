@@ -1,0 +1,20 @@
+[
+  {
+    "time": "2026-04-29T22:26:42.762167",
+    "gene_a": "G100-writer",
+    "gene_b": "G500-analyzer",
+    "result": "GG100G500-fusion",
+    "strategy": "merge",
+    "conflicts": [
+      "类别不同: creative vs analysis"
+    ],
+    "compatibility": {
+      "shared": [
+        "G002",
+        "G001"
+      ],
+      "unique_to_a": [],
+      "unique_to_b": []
+    }
+  }
+]

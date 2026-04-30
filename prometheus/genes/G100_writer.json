@@ -1,0 +1,13 @@
+{
+  "gene_id": "G100-writer",
+  "name": "写作风格注入器",
+  "category": "creative",
+  "description": "为种子注入特定写作风格能力（如卡兹克风格）",
+  "compatible_with": [
+    "G001",
+    "G002"
+  ],
+  "conflicts_with": [],
+  "version": 3,
+  "updated": "2026-04-29T22:26:52.819519"
+}

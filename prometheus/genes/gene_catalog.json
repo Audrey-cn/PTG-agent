@@ -1,0 +1,192 @@
+{
+  "standard": {
+    "G001-parser": {
+      "name": "TTG解析器",
+      "category": "foundation",
+      "carbon_bonded": false,
+      "description": "解析.ttg文件，提取生命元数据、族谱、DNA编码",
+      "biology_mapping": "对应碳基生物学的转录因子，识别并读取DNA序列",
+      "mutations_allowed": ["format_support", "parse_depth"],
+      "alleles": ["v1-standard", "v2-fast", "v3-strict"],
+      "signal_pathways": [],
+      "file": "G001_parser.json"
+    },
+    "G002-analyzer": {
+      "name": "技能分析器",
+      "category": "foundation",
+      "carbon_bonded": false,
+      "description": "从技能内容中提取核心原则、禁忌、气质特征",
+      "biology_mapping": "对应碳基生物学的核糖体，解读遗传信息并合成蛋白质",
+      "mutations_allowed": ["analysis_depth", "style_classifier"],
+      "alleles": ["v1-standard", "v2-deep", "v3-quick"],
+      "signal_pathways": ["content-generation"],
+      "file": "G002_analyzer.json"
+    },
+    "G003-tracker": {
+      "name": "生长追踪器",
+      "category": "growth",
+      "carbon_bonded": false,
+      "description": "三阶段培育追踪：生根→发芽→开花，记录生长日志",
+      "biology_mapping": "对应碳基生物学的细胞周期检查点，监控细胞分裂各阶段",
+      "mutations_allowed": ["log_format", "check_interval", "scoring_weights"],
+      "alleles": ["v1-standard"],
+      "signal_pathways": [],
+      "file": "G003_tracker.json"
+    },
+    "G004-packer": {
+      "name": "种子打包器",
+      "category": "reproduction",
+      "carbon_bonded": false,
+      "description": "将本地化技能打包为新一代.ttg种子文件",
+      "biology_mapping": "对应碳基生物学的DNA复制，半保留复制产生新基因组",
+      "mutations_allowed": ["compression", "template_style"],
+      "alleles": ["v1-standard"],
+      "signal_pathways": [],
+      "file": "G004_packer.json"
+    },
+    "G005-genealogist": {
+      "name": "族谱学者",
+      "category": "memory",
+      "carbon_bonded": false,
+      "description": "压缩标记+解码引擎，管理族谱谱系传承",
+      "biology_mapping": "对应碳基生物学的系统发育树，追踪物种演化历史",
+      "mutations_allowed": ["visualization", "query_methods"],
+      "alleles": ["v1-standard"],
+      "signal_pathways": [],
+      "file": "G005_genealogist.json"
+    },
+    "G006-gardener": {
+      "name": "自管理者",
+      "category": "ecosystem",
+      "carbon_bonded": false,
+      "description": "感知本地其他种子，分析生态关系，自我定位",
+      "biology_mapping": "对应碳基生物学的群体感应，细胞间通信与协作",
+      "mutations_allowed": ["scan_depth", "companion_algorithms"],
+      "alleles": ["v1-standard"],
+      "signal_pathways": ["team-collaboration"],
+      "file": "G006_gardener.json"
+    },
+    "G007-dormancy": {
+      "name": "休眠守卫",
+      "category": "safety",
+      "carbon_bonded": false,
+      "description": "种子默认休眠，需显式激活后才能使用",
+      "biology_mapping": "对应碳基生物学的孢子形成，逆境下进入休眠状态",
+      "mutations_allowed": ["activation_ritual_wording"],
+      "alleles": ["v1-standard"],
+      "signal_pathways": ["security-defense"],
+      "file": "G007_dormancy.json"
+    },
+    "G008-auditor": {
+      "name": "安全审计器",
+      "category": "safety",
+      "carbon_bonded": false,
+      "description": "四层纵深防御审计：形体·血脉·进化·力量",
+      "biology_mapping": "对应碳基生物学的免疫系统，识别并防御外来入侵",
+      "mutations_allowed": ["audit_depth", "risk_thresholds"],
+      "alleles": ["v1-standard", "v2-light", "v3-paranoid"],
+      "signal_pathways": ["security-defense", "network-awareness"],
+      "file": "G008_auditor.json"
+    }
+  },
+  "optional": [
+    {
+      "gene_id": "G100-writer",
+      "name": "写作风格注入器",
+      "category": "creative",
+      "description": "为种子注入特定写作风格能力（如卡兹克风格）",
+      "biology_mapping": "对应碳基生物学的表观遗传修饰，不改变DNA但影响表达",
+      "compatible_with": ["G001", "G002"],
+      "conflicts_with": [],
+      "alleles": ["v1-standard"],
+      "signal_pathways": ["content-generation"],
+      "version": 3,
+      "updated": "2026-04-29T22:26:52.819519"
+    },
+    {
+      "gene_id": "G101-vision",
+      "name": "视觉生成器",
+      "category": "creative",
+      "description": "图像生成与视觉分析能力",
+      "biology_mapping": "对应碳基生物学的光感受器，感知并处理视觉信号",
+      "compatible_with": ["G001"],
+      "conflicts_with": [],
+      "alleles": ["v1-standard"],
+      "signal_pathways": ["visual-enhancement"]
+    },
+    {
+      "gene_id": "G200-network",
+      "name": "网络感知器",
+      "category": "connectivity",
+      "description": "联网搜索与外部API调用能力",
+      "biology_mapping": "对应碳基生物学的信号转导，接收外部信号并响应",
+      "compatible_with": ["G001", "G006"],
+      "conflicts_with": [],
+      "alleles": ["v1-standard"],
+      "signal_pathways": ["network-awareness"],
+      "safety_note": "HIGH — 需安全审计确认"
+    },
+    {
+      "gene_id": "G300-memory",
+      "name": "持久记忆体",
+      "category": "memory",
+      "description": "跨会话持久记忆，全息存储系统",
+      "biology_mapping": "对应碳基生物学的长期记忆，突触可塑性变化",
+      "compatible_with": ["G005"],
+      "conflicts_with": [],
+      "alleles": ["v1-standard"],
+      "signal_pathways": []
+    },
+    {
+      "gene_id": "G400-team",
+      "name": "团队协作器",
+      "category": "social",
+      "description": "多Agent协作能力，消息传递与任务分配",
+      "biology_mapping": "对应碳基生物学的细胞间通讯，多细胞协作",
+      "compatible_with": ["G006", "G001"],
+      "conflicts_with": [],
+      "alleles": ["v1-standard"],
+      "signal_pathways": ["team-collaboration"]
+    }
+  ],
+  "narrative": {
+    "G000-origin": {
+      "name": "创始印记",
+      "category": "eternal",
+      "description": "Audrey · 001X 的创始印记。已融入族谱叙事系统（founder_chronicle + tag_lexicon），不再作为功能基因位点。",
+      "biology_mapping": "对应碳基生物学的线粒体DNA，母系遗传，永恒不变",
+      "storage": "genealogy_codex.founder_chronicle",
+      "decode": "解码引擎展开为史诗叙事",
+      "protection": "eternal标签 + 族谱只增不减规则",
+      "migration_note": "从标准基因移至叙事基因，2026-04-30"
+    }
+  },
+  "biology_mappings": {
+    "carbon_silicon_translation": {
+      "DNA_double_helix": "种子.ttg文件 — 遗传信息载体，Markdown+YAML混合结构",
+      "genome": "Agent全技能集 — 一个Agent的全部基因/能力总和",
+      "chromosome": "能力模块组 — 一组相关基因的打包",
+      "gene": "基因位点Locus — 单个功能单元（Gxxx-name）",
+      "allele": "基因变体Variant — 同一功能的不同实现版本",
+      "promoter": "能力开关Switch — 控制基因是否开启",
+      "enhancer": "能力放大器Booster — 增强基因表达强度",
+      "silencer": "能力抑制器Inhibitor — 临时抑制基因表达",
+      "epigenetics": "表观遗传层 — 不修改DNA只改表达状态",
+      "central_dogma": "能力执行流 — 种子→加载→实例化",
+      "DNA_replication": "种子克隆Clone — 半保留复制产生新种子",
+      "transcription": "能力加载Load — DNA→Runtime内存",
+      "translation": "能力实例化Instantiate — 定义→实际功能",
+      "mutation": "基因变异Forge — 碱基突变产生变异体",
+      "recombination": "基因融合Fusion — 交叉互换生成新种子",
+      "CRISPR": "精准基因编辑 — gene_insert/gene_remove",
+      "DNA_repair": "种子校验修复 — 损坏后自修复机制",
+      "natural_selection": "A/B测试筛选 — 环境筛选适应者",
+      "gene_pool": "基因银行GeneBank — 种群的全部基因",
+      "stem_cell": "原生种子OriginSeed — 未分化的全能种子",
+      "cell_differentiation": "Agent特化Specialization — 干细胞→特化细胞",
+      "cell_cycle": "种子生命周期 — 休眠→发芽→生长→开花",
+      "signal_pathway": "能力联动 — 基因间信号传递",
+      "immune_system": "安全审计Auditor — 识别外来入侵"
+    }
+  }
+}

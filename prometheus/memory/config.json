@@ -1,0 +1,61 @@
+{
+  "version": "1.0.0",
+  "name": "prometheus",
+  "description": "普罗米修斯记忆系统配置",
+  
+  "memory": {
+    "data_dir": "~/.prometheus/memory/data",
+    "budget": {
+      "working": 8000,
+      "episodic": 16000,
+      "longterm": 32000
+    },
+    "decay_rate": 0.01,
+    "auto_sync": true,
+    "sync_interval_seconds": 60
+  },
+  
+  "backup": {
+    "enabled": true,
+    "daily_retention": 30,
+    "hourly_retention": 24,
+    "backup_dir": "~/.prometheus/backup"
+  },
+  
+  "knowledge": {
+    "enabled": true,
+    "source_dir": "~/.prometheus/memory/data/knowledge/source",
+    "compiled_dir": "~/.prometheus/memory/data/knowledge/compiled",
+    "metadata_dir": "~/.prometheus/memory/data/knowledge/metadata",
+    "citation_required": true,
+    "maturity_levels": ["draft", "initial", "reviewed", "authoritative"]
+  },
+  
+  "compiler": {
+    "enabled": true,
+    "max_sources_per_run": 20,
+    "auto_discovery": true,
+    "discovery_hour": 2
+  },
+  
+  "accelerator": {
+    "enabled": true,
+    "default_node": "https://xget.xi-xu.me",
+    "fallback_enabled": true,
+    "timeout_seconds": 30,
+    "max_retries": 3,
+    "nodes": [
+      {
+        "url": "https://xget.xi-xu.me",
+        "priority": 0,
+        "weight": 3,
+        "enabled": true
+      }
+    ]
+  },
+  
+  "logging": {
+    "level": "INFO",
+    "file": "~/.prometheus/prometheus.log"
+  }
+}

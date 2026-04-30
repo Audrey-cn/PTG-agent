@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prometheus-ptg"
+version = "0.8.0"
+description = "Prometheus — Teach-To-Grow 种子基因编辑器，史诗编史官系统"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Audrey · 001X" }]
+license = { text = "MIT" }
+dependencies = [
+  "openai>=2.21.0,<3",
+  "anthropic>=0.39.0,<1",
+  "python-dotenv>=1.2.1,<2",
+  "fire>=0.7.1,<1",
+  "httpx[socks]>=0.28.1,<1",
+  "rich>=14.3.3,<15",
+  "tenacity>=9.1.4,<10",
+  "pyyaml>=6.0.2,<7",
+  "requests>=2.33.0,<3",
+  "jinja2>=3.1.5,<4",
+  "pydantic>=2.12.5,<3",
+  "prompt_toolkit>=3.0.52,<4",
+  "numpy>=1.24.0,<3",
+]
+
+[project.optional-dependencies]
+dev = ["debugpy>=1.8.0,<2", "pytest>=9.0.2,<10", "pytest-asyncio>=1.3.0,<2", "ruff"]
+mcp = ["mcp>=1.2.0,<2"]
+web = ["fastapi>=0.104.0,<1", "uvicorn[standard]>=0.24.0,<1"]
+all = [
+  "prometheus-ptg[dev]",
+  "prometheus-ptg[mcp]",
+  "prometheus-ptg[web]",
+]
+
+[project.scripts]
+ptg = "prometheus.cli.main:main"
+prometheus = "prometheus.cli.main:main"
+
+[tool.setuptools.packages.find]
+include = ["prometheus", "prometheus.*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,32 @@
+{
+  "b8bacf8d9893": {
+    "title": "新发现",
+    "type": "note",
+    "tags": [
+      "discovery"
+    ],
+    "created_at": "2026-04-30T17:10:32.825346",
+    "updated_at": "2026-04-30T17:10:32.825346",
+    "word_count": 10,
+    "path": "/Users/audrey/ptg-agent/prometheus/tools/data/local_knowledge/b8bacf8d9893_新发现.md"
+  },
+  "ai_agent_arch": {
+    "title": "AI Agent 架构模式知识库",
+    "type": "reference",
+    "tags": [
+      "agent",
+      "architecture",
+      "ReAct",
+      "AoT",
+      "ToT",
+      "GoT",
+      "error-handling"
+    ],
+    "created_at": "2026-04-30T13:15:00.000000",
+    "updated_at": "2026-04-30T13:15:00.000000",
+    "word_count": 3500,
+    "path": "/Users/audrey/ptg-agent/prometheus/tools/data/local_knowledge/ai_agent_architectures.md",
+    "source": "https://github.com/pguso/ai-agents-from-scratch",
+    "description": "AI Agent 架构模式综合知识，包括 ReAct、AoT、ToT、GoT 等推理模式"
+  }
+}
