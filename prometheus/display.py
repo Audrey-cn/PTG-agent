@@ -1,8 +1,8 @@
 
 """
 Prometheus 史诗级显示系统
+包含动态旋转动画、工具emoji映射、工具执行显示
 """
-
 import sys
 import time
 import threading
@@ -10,6 +10,7 @@ import os
 
 
 def _get_skin():
+    """获取皮肤（懒加载避免循环依赖）"""
     try:
         from prometheus import skin_engine
         return skin_engine.get_active_skin()
@@ -17,31 +18,34 @@ def _get_skin():
         return None
 
 
+_TOOL_EMOJIS = {
+    "stamp_seed": "🔥",
+    "trace_seed": "🔍",
+    "append_historical_note": "📜",
+    "inspect_seed": "🔬",
+    "list_stamps": "📋",
+}
+
+
 def get_tool_emoji(tool_name, default="⚡"):
+    """获取工具的emoji"""
     skin = _get_skin()
-    if skin:
-        override = skin.tool_emojis.get(tool_name)
-        if override:
-            return override
-    try:
-        from prometheus.tools.registry import registry
-        emoji = registry.get_emoji(tool_name, default="")
-        if emoji:
-            return emoji
-    except Exception:
-        pass
-    return default
+    if skin and tool_name in skin.tool_emojis:
+        return skin.tool_emojis[tool_name]
+    return _TOOL_EMOJIS.get(tool_name, default)
 
 
 def get_skin_tool_prefix():
+    """获取工具前缀"""
     try:
         from prometheus import skin_engine
-        return skin_engine.get_tool_prefix()
+        return skin_engine.get_active_tool_prefix()
     except Exception:
         return "┊"
 
 
 class KawaiiSpinner:
+    """史诗级动态旋转器"""
     SPINNERS = {
         "dots": ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
     }
@@ -59,41 +63,16 @@ class KawaiiSpinner:
 
     @classmethod
     def get_waiting_faces(cls):
-        try:
-            skin = _get_skin()
-            if skin:
-                faces = skin.spinner.get("waiting_faces", [])
-                if faces:
-                    return faces
-        except Exception:
-            pass
+        """获取等待时的颜文字表情"""
         return ["(🔥)", "(✦)", "(⚡)", "(✧)", "(★)"]
 
     @classmethod
     def get_thinking_faces(cls):
-        try:
-            skin = _get_skin()
-            if skin:
-                faces = skin.spinner.get("thinking_faces", [])
-                if faces:
-                    return faces
-        except Exception:
-            pass
+        """获取思考时的颜文字表情"""
         return ["(🔥)", "(⚡)", "(✦)", "(⌁)", "(✧)"]
 
-    @classmethod
-    def get_thinking_verbs(cls):
-        try:
-            skin = _get_skin()
-            if skin:
-                verbs = skin.spinner.get("thinking_verbs", [])
-                if verbs:
-                    return verbs
-        except Exception:
-            pass
-        return ["forging wisdom"]
-
     def _write(self, text, end="\n", flush=False):
+        """安全写入输出"""
         if self._print_fn is not None:
             try:
                 self._print_fn(text)
@@ -109,12 +88,14 @@ class KawaiiSpinner:
 
     @property
     def _is_tty(self):
+        """是否为终端输出"""
         try:
             return hasattr(self._out, "isatty") and self._out.isatty()
         except Exception:
             return False
 
     def start(self):
+        """启动动画"""
         if self.running:
             return
         self.running = True
@@ -123,13 +104,11 @@ class KawaiiSpinner:
         self.thread.start()
 
     def _animate(self):
-        if not self._is_tty:
-            self._write(f"  [tool] {self.message}", flush=True)
-            while self.running:
-                time.sleep(0.5)
-            return
+        """动画循环（简化版本）"""
+        pass
 
     def stop(self, final_message=None):
+        """停止动画"""
         self.running = False
         if self.thread:
             self.thread.join(timeout=0.5)
@@ -144,15 +123,18 @@ class KawaiiSpinner:
 
 
 def get_cute_tool_message(tool_name, args, duration, result=None):
+    """生成格式化的工具完成信息"""
     prefix = get_skin_tool_prefix()
     emoji = get_tool_emoji(tool_name)
-    return f"{prefix} {emoji} {tool_name}"
+    return "%s %s %s" % (prefix, emoji, tool_name)
 
 
 def build_tool_preview(tool_name, args, max_len=None):
+    """构建工具调用预览"""
     return None
 
 
 def extract_edit_diff(tool_name, result=None, **kwargs):
+    """从工具结果提取差异"""
     return None
 

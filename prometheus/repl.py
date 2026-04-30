@@ -19,6 +19,10 @@ try:
     HAS_PROMPT_TOOLKIT = True
 except ImportError:
     HAS_PROMPT_TOOLKIT = False
+    class Completer:
+        pass
+    class Completion:
+        pass
 
 from prometheus.tools.registry import registry, discover_builtin_tools
 
@@ -120,15 +124,58 @@ class PrometheusREPL:
     
     def print_banner(self):
         """打印史诗级欢迎横幅"""
-        banner = f"""
-🔥 Prometheus · Teach-To-Grow
-   史诗编史官系统
-   
-   创始人: Audrey · 001X
-   
-{self._get_welcome()}
-        """
-        print(banner)
+        try:
+            from prometheus.display.banner import print_simple_banner, HAS_RICH
+            if HAS_RICH:
+                try:
+                    from rich.console import Console
+                    console = Console()
+                    from prometheus.display.banner import build_welcome_banner
+                    console.print(build_welcome_banner(console))
+                    return
+                except Exception:
+                    pass
+            print_simple_banner()
+        except Exception:
+            lines = [
+                "",
+                "=" * 70,
+                "",
+                "        (  )@(   )@   )@   (   @(    )",
+                "     (@@@@)  (@@@@@@)  (@@@@@@)  (@@)",
+                "   (   @@    (   @@   (@@@   )  (   )",
+                "   (@@@@  @@@@)  (@@@@@@)  (@@@@@@@)",
+                "   (    @@       (@@@          @@    )",
+                "    @@@@   @@@@   (@@@@)    (@@@@",
+                "      (@@@@)        (@@@@@@@@)   @@",
+                "         (   @@@@)@@)     (@@@   @@",
+                "    (@@@@)  @@   )@@)@@)  (@@@@@@@",
+                "       (     )    )@)@@@)   (    )",
+                "     )@@@)   @@  (@@@@)@@)  @@   )",
+                "   (@@@@)    (@@)  )@@)@@@)   @@",
+                "     (   )   (   )   )@@)   )",
+                "      )       )   (   ) )   )",
+                "",
+                "  Prometheus · Teach-To-Grow",
+                "  Version: 0.8.0 · Epic Chronicler",
+                "  Founder: Audrey · 001X",
+                "",
+                "  Available Commands:",
+                "    System: /setup, /doctor, /status, /update, /repl",
+                "    Config: /config show, /model show, /model providers",
+                "    Seeds: /seed list, /seed search, /seed view",
+                "    Genes: /gene list",
+                "    Memory: /memory recall, /memory stats",
+                "    Knowledge: /kb search, /dict",
+                "    Skills: /skills",
+                "",
+                "  Tip: Run /help for interactive commands",
+                "  Tip: Run ptg doctor to check system health",
+                "",
+                "=" * 70,
+                "",
+            ]
+            print("\n".join(lines))
     
     def print_help(self):
         """打印史诗级帮助信息"""
@@ -242,7 +289,7 @@ Prometheus 命令帮助: {self._get_help_header()}
             return True
         
         if cmd == "skin":
-            if len(parts) &gt;= 2:
+            if len(parts) >= 2:
                 self.set_skin(parts[1])
             else:
                 self.list_skins()

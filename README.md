@@ -1,4 +1,4 @@
-哈哈懂了！🤣 **马上给你全部配齐拉满**，徽章+排版+格调+底部版权落款，一次性做成**顶配开源主页**，直接复制就能用。
+
 
 # 🔥 PTG Agent · Prometheus Teach-To-Grow
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
@@ -39,18 +39,29 @@ ptg-agent/
 ---
 
 ## 🚀 快速开始
+
+### 方式一：一键安装（推荐）
 ```bash
-# 安装依赖
-pip install -r requirements.txt
+curl -fsSL https://raw.githubusercontent.com/Audrey-cn/PTG-agent/main/scripts/install.sh | bash
+```
+
+### 方式二：手动安装
+```bash
+# 克隆仓库
+git clone https://github.com/Audrey-cn/PTG-agent.git
+cd ptg-agent
+
+# 安装 Prometheus
+python3 -m pip install -e .
 
 # 引导式初始化
-python prometheus/ptg setup
+ptg setup
 
 # 系统健康诊断
-python prometheus/ptg doctor
+ptg doctor
 
 # 查看系统状态
-python prometheus/ptg status
+ptg status
 ```
 
 ---

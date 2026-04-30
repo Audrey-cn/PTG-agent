@@ -24,6 +24,8 @@ import yaml
 import hashlib
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
+import sys
+from pathlib import Path
 
 
 # ═══════════════════════════════════════════
@@ -37,9 +39,9 @@ SKILL_FILENAME = "SKILL.md"
 
 # 默认搜索路径
 DEFAULT_SKILL_PATHS = [
+    os.path.expanduser("~/.prometheus/skills"),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skills"),
     os.path.expanduser("~/.hermes/skills"),
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "skills"),
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "skills"),  # Prometheus 内置技能目录
 ]
 
 

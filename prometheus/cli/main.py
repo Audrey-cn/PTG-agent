@@ -5,18 +5,20 @@
 ║                                                              ║
 ║   Teach-To-Grow 种子管理的统一命令行入口。                    ║
 ║                                                              ║
-║   参照 Hermes Agent CLI 架构设计：                            ║
-║     ptg setup     引导式初始化                               ║
-║     ptg doctor    系统健康诊断                               ║
-║     ptg model     模型/提供者配置                            ║
-║     ptg config    配置管理                                   ║
-║     ptg status    系统状态总览                               ║
-║     ptg seed      种子管理                                   ║
-║     ptg gene      基因编辑                                   ║
-║     ptg memory    向量记忆                                   ║
-║     ptg kb        知识库管理                                 ║
-║     ptg dict      语义字典                                   ║
-║     ptg update    自我更新                                   ║
+║   命令支持缩写 (推荐使用简短形式):                           ║
+║     ptg setup     (s)  引导式初始化                          ║
+║     ptg doctor    (d)  系统健康诊断                          ║
+║     ptg model     (m)  模型/提供者配置                       ║
+║     ptg config    (c)  配置管理                              ║
+║     ptg status    (st) 系统状态总览                          ║
+║     ptg seed      (se) 种子管理                              ║
+║     ptg gene      (g)  基因编辑                              ║
+║     ptg memory    (mem) 向量记忆                              ║
+║     ptg kb        (k)  知识库管理                            ║
+║     ptg dict      (di) 语义字典                              ║
+║     ptg skill     (sk) 技能管理                              ║
+║     ptg update    (u)  自我更新                              ║
+║     ptg repl      (r)  交互式 REPL                           ║
 ╚══════════════════════════════════════════════════════════════╝
 """
 
@@ -56,66 +58,71 @@ BANNER = """
 
 def cmd_setup(args):
     """交互式初始化引导。"""
-    print(BANNER)
-    print("📋 Prometheus Setup 引导\n")
-
-    from config import Config as PrometheusConfig
-    cfg = PrometheusConfig()
-
-    # Step 1: 检查目录
-    print("━━━ Step 1/4: 目录检查 ━━━")
-    dirs_to_check = {
-        "种子仓库": os.path.expanduser("~/.hermes/seed-vault"),
-        "数据目录": os.path.join(_PROMETHEUS_DIR, "data"),
-        "快照目录": os.path.join(_PROMETHEUS_DIR, "snapshots"),
-        "Wiki 知识库": os.path.expanduser("~/.hermes/local-wiki/wiki"),
-    }
-    for name, path in dirs_to_check.items():
-        exists = os.path.isdir(path)
-        icon = "✅" if exists else "⚠️ "
-        status = "已存在" if exists else "将创建"
-        if not exists:
-            os.makedirs(path, exist_ok=True)
-        print(f"  {icon} {name}: {path} ({status})")
-
-    # Step 2: 检查依赖
-    print("\n━━━ Step 2/4: 依赖检查 ━━━")
-    deps = {}
     try:
-        import numpy
-        deps["numpy"] = f"✅ {numpy.__version__}"
+        from prometheus.setup import run_setup
+        run_setup()
     except ImportError:
-        deps["numpy"] = "❌ 未安装 (pip install numpy)"
-    try:
-        import yaml
-        deps["pyyaml"] = f"✅ {yaml.__version__}"
-    except ImportError:
-        deps["pyyaml"] = "⚠️  未安装 (pip install pyyaml)"
-    try:
-        import sqlite3
-        deps["sqlite3"] = f"✅ 内置"
-    except ImportError:
-        deps["sqlite3"] = "❌ 不可用"
-    for name, status in deps.items():
-        print(f"  {status} — {name}")
+        # 降级到旧版本 setup
+        print(BANNER)
+        print("📋 Prometheus Setup 引导\n")
 
-    # Step 3: Wiki 连接
-    print("\n━━━ Step 3/4: Wiki 连接 ━━━")
-    from knowledge import WikiConnector
-    wc = WikiConnector()
-    if wc.is_connected:
-        print(f"  ✅ Wiki 已连接 ({wc.page_count} 页)")
-    else:
-        print(f"  ⚠️  Wiki 未连接，将使用本地知识库 fallback")
+        from config import Config as PrometheusConfig
+        cfg = PrometheusConfig()
 
-    # Step 4: 种子仓库
-    print("\n━━━ Step 4/4: 种子仓库 ━━━")
-    from knowledge import SeedIndex
-    si = SeedIndex()
-    ss = si.stats()
-    print(f"  🌱 发现 {ss['total_seeds']} 个种子 · {ss['total_genes']} 个基因")
+        # Step 1: 检查目录
+        print("━━━ Step 1/4: 目录检查 ━━━")
+        dirs_to_check = {
+            "种子仓库": os.path.expanduser("~/.hermes/seed-vault"),
+            "数据目录": os.path.join(_PROMETHEUS_DIR, "data"),
+            "快照目录": os.path.join(_PROMETHEUS_DIR, "snapshots"),
+            "Wiki 知识库": os.path.expanduser("~/.hermes/local-wiki/wiki"),
+        }
+        for name, path in dirs_to_check.items():
+            exists = os.path.isdir(path)
+            icon = "✅" if exists else "⚠️ "
+            status = "已存在" if exists else "将创建"
+            if not exists:
+                os.makedirs(path, exist_ok=True)
+            print(f"  {icon} {name}: {path} ({status})")
 
-    print(f"\n✅ Setup 完成！使用 'ptg status' 查看系统状态。")
+        # Step 2: 检查依赖
+        print("\n━━━ Step 2/4: 依赖检查 ━━━")
+        deps = {}
+        try:
+            import numpy
+            deps["numpy"] = f"✅ {numpy.__version__}"
+        except ImportError:
+            deps["numpy"] = "❌ 未安装 (pip install numpy)"
+        try:
+            import yaml
+            deps["pyyaml"] = f"✅ {yaml.__version__}"
+        except ImportError:
+            deps["pyyaml"] = "⚠️  未安装 (pip install pyyaml)"
+        try:
+            import sqlite3
+            deps["sqlite3"] = f"✅ 内置"
+        except ImportError:
+            deps["sqlite3"] = "❌ 不可用"
+        for name, status in deps.items():
+            print(f"  {status} — {name}")
+
+        # Step 3: Wiki 连接
+        print("\n━━━ Step 3/4: Wiki 连接 ━━━")
+        from knowledge import WikiConnector
+        wc = WikiConnector()
+        if wc.is_connected:
+            print(f"  ✅ Wiki 已连接 ({wc.page_count} 页)")
+        else:
+            print(f"  ⚠️  Wiki 未连接，将使用本地知识库 fallback")
+
+        # Step 4: 种子仓库
+        print("\n━━━ Step 4/4: 种子仓库 ━━━")
+        from knowledge import SeedIndex
+        si = SeedIndex()
+        ss = si.stats()
+        print(f"  🌱 发现 {ss['total_seeds']} 个种子 · {ss['total_genes']} 个基因")
+
+        print(f"\n✅ Setup 完成！使用 'ptg status' 查看系统状态。")
 
 
 # ═══════════════════════════════════════════
@@ -123,104 +130,42 @@ def cmd_setup(args):
 # ═══════════════════════════════════════════
 
 def cmd_doctor(args):
-    """系统健康诊断。"""
+    """系统健康诊断与修复。"""
     print(BANNER)
-    print("🩺 Prometheus Doctor\n")
-
-    issues = []
-    warnings = []
-
-    # 1. Python 版本
-    py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-    if sys.version_info >= (3, 10):
-        print(f"  ✅ Python {py_ver}")
-    else:
-        print(f"  ⚠️  Python {py_ver} (建议 3.10+)")
-        warnings.append(f"Python {py_ver} 版本较低")
-
-    # 2. 核心依赖
-    print("\n  依赖:")
+    
     try:
-        import numpy
-        print(f"    ✅ numpy {numpy.__version__}")
+        from doctor import (
+            PrometheusDoctor,
+            run_doctor_diagnose,
+            run_doctor_full,
+            run_doctor_fix,
+            run_doctor_backups,
+            run_doctor_restore,
+            emergency_repair
+        )
     except ImportError:
-        print(f"    ❌ numpy 未安装")
-        issues.append("numpy 未安装 (向量记忆需要)")
-    try:
-        import yaml
-        print(f"    ✅ pyyaml {yaml.__version__}")
-    except ImportError:
-        print(f"    ⚠️  pyyaml 未安装 (配置系统需要)")
-        warnings.append("pyyaml 未安装")
-
-    # 3. 数据库
-    print("\n  存储:")
-    db_path = os.path.join(_PROMETHEUS_DIR, "data", "prometheus.db")
-    if os.path.exists(db_path):
-        size_kb = os.path.getsize(db_path) / 1024
-        print(f"    ✅ 主数据库 ({size_kb:.1f} KB)")
+        from prometheus.doctor import (
+            PrometheusDoctor,
+            run_doctor_diagnose,
+            run_doctor_full,
+            run_doctor_fix,
+            run_doctor_backups,
+            run_doctor_restore,
+            emergency_repair
+        )
+    
+    if args.emergency:
+        emergency_repair()
+    elif args.backups:
+        run_doctor_backups()
+    elif args.restore:
+        run_doctor_restore(args.restore)
+    elif args.fix:
+        run_doctor_fix()
+    elif args.full:
+        run_doctor_full()
     else:
-        print(f"    ⚠️  主数据库不存在 (首次使用时自动创建)")
-
-    vec_db = os.path.join(_PROMETHEUS_DIR, "data", "vector_memory.db")
-    if os.path.exists(vec_db):
-        size_kb = os.path.getsize(vec_db) / 1024
-        print(f"    ✅ 向量记忆 ({size_kb:.1f} KB)")
-    else:
-        print(f"    ⚠️  向量记忆未初始化 (首次使用时自动创建)")
-
-    # 4. Wiki 连接
-    print("\n  知识库:")
-    from knowledge import WikiConnector, SeedIndex
-    wc = WikiConnector()
-    if wc.is_connected:
-        print(f"    ✅ Wiki 连接正常 ({wc.page_count} 页)")
-    else:
-        print(f"    ⚠️  Wiki 未连接 (将使用本地 fallback)")
-        warnings.append("Wiki 未连接")
-
-    si = SeedIndex()
-    ss = si.stats()
-    print(f"    ✅ 种子索引 ({ss['total_seeds']} 种子 · {ss['total_genes']} 基因)")
-
-    # 5. 配置
-    print("\n  配置:")
-    from config import Config as PrometheusConfig
-    cfg = PrometheusConfig()
-    config_dict = cfg.to_dict()
-    if config_dict:
-        print(f"    ✅ 配置已加载 ({len(config_dict)} 节)")
-    else:
-        print(f"    ⚠️  配置为空")
-        warnings.append("配置为空")
-
-    # 6. 种子健康
-    print("\n  种子健康:")
-    vault = os.path.expanduser("~/.hermes/seed-vault")
-    if os.path.isdir(vault):
-        ttg_files = [f for f in os.listdir(vault) if f.endswith('.ttg')]
-        if ttg_files:
-            print(f"    ✅ 发现 {len(ttg_files)} 个 .ttg 种子")
-        else:
-            print(f"    ⚠️  种子仓库为空")
-            warnings.append("种子仓库为空")
-    else:
-        print(f"    ⚠️  种子仓库不存在")
-
-    # 汇总
-    print(f"\n{'━' * 40}")
-    if not issues and not warnings:
-        print("  🎉 全部通过！Prometheus 状态良好。")
-    else:
-        if issues:
-            print(f"  ❌ {len(issues)} 个问题需要修复:")
-            for i in issues:
-                print(f"    · {i}")
-        if warnings:
-            print(f"  ⚠️  {len(warnings)} 个警告:")
-            for w in warnings:
-                print(f"    · {w}")
-    print()
+        run_doctor_diagnose()
 
 
 # ═══════════════════════════════════════════
@@ -676,16 +621,13 @@ def build_parser():
         description='🔥 Prometheus · Teach-To-Grow 种子基因编辑器',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-示例:
-  ptg setup                    引导式初始化
-  ptg doctor                   系统健康诊断
-  ptg status                   系统状态总览
-  ptg seed list                列出所有种子
-  ptg seed view <路径>         查看种子 DNA
-  ptg gene list <路径>         列出基因位点
-  ptg memory recall <查询>     语义检索记忆
-  ptg kb search <查询>         统一知识检索
-  ptg config show              查看配置
+示例 (推荐使用简短形式):
+  ptg setup      (s)  引导式初始化
+  ptg doctor     (d)  系统健康诊断
+  ptg status     (st) 系统状态总览
+  ptg seed list  (se) 列出所有种子
+  ptg skill      (sk) 技能管理
+  ptg repl       (r)  交互式模式
 
 创始人: Audrey · 001X
 """,
@@ -695,67 +637,133 @@ def build_parser():
 
     subparsers = parser.add_subparsers(dest='command', help='可用命令')
 
-    # setup
-    subparsers.add_parser('setup', help='引导式初始化')
+    # setup (s)
+    setup_p = subparsers.add_parser('setup', help='引导式初始化')
+    subparsers.add_parser('s', help='(别名) setup - 引导式初始化')
 
-    # doctor
-    subparsers.add_parser('doctor', help='系统健康诊断')
+    # doctor (d)
+    doctor_p = subparsers.add_parser('doctor', help='系统健康诊断与修复（守门员模式）')
+    doctor_p.add_argument('--full', action='store_true', help='深度诊断（全部 8 项检查）')
+    doctor_p.add_argument('--fix', action='store_true', help='自动修复网关问题')
+    doctor_p.add_argument('--backups', action='store_true', help='列出配置备份')
+    doctor_p.add_argument('--restore', help='从指定备份恢复')
+    doctor_p.add_argument('--emergency', action='store_true', help='紧急修复模式')
+    
+    doctor_p_alias = subparsers.add_parser('d', help='(别名) doctor - 系统健康诊断')
+    doctor_p_alias.add_argument('--full', action='store_true')
+    doctor_p_alias.add_argument('--fix', action='store_true')
+    doctor_p_alias.add_argument('--backups', action='store_true')
+    doctor_p_alias.add_argument('--restore')
+    doctor_p_alias.add_argument('--emergency', action='store_true')
 
-    # model
+    # model (m)
     model_p = subparsers.add_parser('model', help='模型配置')
     model_p.add_argument('action', nargs='?', default='show', choices=['show', 'set', 'providers'])
     model_p.add_argument('key', nargs='?')
     model_p.add_argument('value', nargs='?')
+    
+    model_p_alias = subparsers.add_parser('m', help='(别名) model - 模型配置')
+    model_p_alias.add_argument('action', nargs='?', default='show', choices=['show', 'set', 'providers'])
+    model_p_alias.add_argument('key', nargs='?')
+    model_p_alias.add_argument('value', nargs='?')
 
-    # config
+    # config (c)
     config_p = subparsers.add_parser('config', help='配置管理')
     config_p.add_argument('action', nargs='?', default='show', choices=['show', 'set', 'path'])
     config_p.add_argument('key', nargs='?')
     config_p.add_argument('value', nargs='?')
+    
+    config_p_alias = subparsers.add_parser('c', help='(别名) config - 配置管理')
+    config_p_alias.add_argument('action', nargs='?', default='show', choices=['show', 'set', 'path'])
+    config_p_alias.add_argument('key', nargs='?')
+    config_p_alias.add_argument('value', nargs='?')
 
-    # status
+    # status (st)
     subparsers.add_parser('status', help='系统状态总览')
+    subparsers.add_parser('st', help='(别名) status - 系统状态总览')
 
-    # seed
+    # seed (se)
     seed_p = subparsers.add_parser('seed', help='种子管理')
     seed_p.add_argument('action', choices=['list', 'search', 'view', 'decode', 'health', 'vault', 'create'])
     seed_p.add_argument('seed_path', nargs='?')
     seed_p.add_argument('--query', '-q')
+    
+    seed_p_alias = subparsers.add_parser('se', help='(别名) seed - 种子管理')
+    seed_p_alias.add_argument('action', choices=['list', 'search', 'view', 'decode', 'health', 'vault', 'create'])
+    seed_p_alias.add_argument('seed_path', nargs='?')
+    seed_p_alias.add_argument('--query', '-q')
 
-    # gene
+    # gene (g)
     gene_p = subparsers.add_parser('gene', help='基因编辑')
     gene_p.add_argument('action', choices=['list', 'library', 'edit', 'fusion'])
     gene_p.add_argument('seed_path', nargs='?')
     gene_p.add_argument('--other', '-o')
+    
+    gene_p_alias = subparsers.add_parser('g', help='(别名) gene - 基因编辑')
+    gene_p_alias.add_argument('action', choices=['list', 'library', 'edit', 'fusion'])
+    gene_p_alias.add_argument('seed_path', nargs='?')
+    gene_p_alias.add_argument('--other', '-o')
 
-    # memory
+    # memory (mem)
     mem_p = subparsers.add_parser('memory', help='向量记忆')
     mem_p.add_argument('action', choices=['remember', 'recall', 'status', 'dump'])
     mem_p.add_argument('text', nargs='*')
     mem_p.add_argument('--query', '-q')
     mem_p.add_argument('--limit', '-l', type=int, default=10)
+    
+    mem_p_alias = subparsers.add_parser('mem', help='(别名) memory - 向量记忆')
+    mem_p_alias.add_argument('action', choices=['remember', 'recall', 'status', 'dump'])
+    mem_p_alias.add_argument('text', nargs='*')
+    mem_p_alias.add_argument('--query', '-q')
+    mem_p_alias.add_argument('--limit', '-l', type=int, default=10)
 
-    # kb
+    # kb (k)
     kb_p = subparsers.add_parser('kb', help='知识库')
     kb_p.add_argument('action', choices=['search', 'stats', 'add', 'wiki'])
     kb_p.add_argument('query', nargs='*')
     kb_p.add_argument('--title', '-t')
     kb_p.add_argument('--content', '-c')
+    
+    kb_p_alias = subparsers.add_parser('k', help='(别名) kb - 知识库')
+    kb_p_alias.add_argument('action', choices=['search', 'stats', 'add', 'wiki'])
+    kb_p_alias.add_argument('query', nargs='*')
+    kb_p_alias.add_argument('--title', '-t')
+    kb_p_alias.add_argument('--content', '-c')
 
-    # dict
+    # dict (di)
     dict_p = subparsers.add_parser('dict', help='语义字典')
     dict_p.add_argument('action', choices=['scan', 'view'])
     dict_p.add_argument('filepath', nargs='?')
     dict_p.add_argument('seed_path', nargs='?')
+    
+    dict_p_alias = subparsers.add_parser('di', help='(别名) dict - 语义字典')
+    dict_p_alias.add_argument('action', choices=['scan', 'view'])
+    dict_p_alias.add_argument('filepath', nargs='?')
+    dict_p_alias.add_argument('seed_path', nargs='?')
 
-    # update
+    # update (u)
     subparsers.add_parser('update', help='检查更新')
+    subparsers.add_parser('u', help='(别名) update - 检查更新')
 
-    # skills
+    # skill (sk) - 技能管理
+    skill_p = subparsers.add_parser('skill', help='技能管理')
+    skill_p.add_argument('action', nargs='?', default='list', choices=['list', 'view', 'create', 'suggest', 'search'])
+    skill_p.add_argument('name', nargs='?', help='技能名称')
+    skill_p.add_argument('--category', '-c', help='技能分类')
+    skill_p.add_argument('--query', '-q', help='搜索查询')
+    
+    skill_p_alias = subparsers.add_parser('sk', help='(别名) skill - 技能管理')
+    skill_p_alias.add_argument('action', nargs='?', default='list', choices=['list', 'view', 'create', 'suggest', 'search'])
+    skill_p_alias.add_argument('name', nargs='?')
+    skill_p_alias.add_argument('--category', '-c')
+    skill_p_alias.add_argument('--query', '-q')
+
+    # skills (保留向后兼容)
     subparsers.add_parser('skills', help='列出 Skill 工作流')
     
-    # repl
+    # repl (r)
     subparsers.add_parser('repl', help='交互式 REPL 模式')
+    subparsers.add_parser('r', help='(别名) repl - 交互式模式')
 
     return parser
 
@@ -777,6 +785,26 @@ def main():
 
     args = parser.parse_args()
 
+    # 命令别名映射
+    command_aliases = {
+        's': 'setup',
+        'd': 'doctor',
+        'm': 'model',
+        'c': 'config',
+        'st': 'status',
+        'se': 'seed',
+        'g': 'gene',
+        'mem': 'memory',
+        'k': 'kb',
+        'di': 'dict',
+        'u': 'update',
+        'sk': 'skill',
+        'r': 'repl',
+    }
+
+    # 解析实际命令
+    actual_command = command_aliases.get(args.command, args.command)
+
     # 路由到命令处理函数
     commands = {
         'setup': cmd_setup,
@@ -791,29 +819,129 @@ def main():
         'dict': cmd_dict,
         'update': cmd_update,
         'repl': cmd_repl,
+        'skill': cmd_skill,
     }
 
-    if args.command == 'skills':
+    if actual_command == 'skills':
         cmd_skills()
-    elif args.command in commands:
-        commands[args.command](args)
+    elif actual_command in commands:
+        commands[actual_command](args)
     else:
         print(BANNER)
         parser.print_help()
 
 
-def cmd_skills():
-    """列出可用 Skill 工作流。"""
-    from skill_loader import SkillLoader
+def cmd_skill(args):
+    """技能管理命令。"""
+    try:
+        from prometheus.tools.skill_loader import SkillLoader
+    except ImportError:
+        try:
+            from skill_loader import SkillLoader
+        except ImportError:
+            print("\n❌ 技能加载器不可用\n")
+            return
+
+    action = args.action
     loader = SkillLoader()
-    skills = loader.scan()
+    loader.scan()
+
+    if action == 'list':
+        # 列出技能
+        category = args.category
+        print(f"\n🔧 技能列表\n")
+        
+        if category:
+            skills = loader.by_category(category)
+            print(f"  分类: {category} ({len(skills)} 个)\n")
+        else:
+            skills = list(loader._skills.values())
+            print(f"  总计: {len(skills)} 个技能\n")
+        
+        for s in skills:
+            print(f"  · {s.meta.name}")
+            if s.meta.description:
+                print(f"    {s.meta.description[:60]}")
+            if s.meta.tags:
+                print(f"    标签: {', '.join(s.meta.tags)}")
+            print()
+    
+    elif action == 'view' and args.name:
+        # 查看技能
+        skill = loader.get(args.name)
+        if not skill:
+            print(f"\n❌ 未找到技能: {args.name}\n")
+            return
+        
+        print(f"\n🔍 技能详情\n")
+        print(f"  名称: {skill.meta.name}")
+        print(f"  描述: {skill.meta.description}")
+        print(f"  版本: {skill.meta.version}")
+        print(f"  作者: {skill.meta.author}")
+        print(f"  分类: {skill.category}")
+        print(f"  标签: {', '.join(skill.meta.tags)}")
+        print(f"  路径: {skill.path}")
+        print(f"\n  内容:\n")
+        print("  " + "\n  ".join(skill.body.split("\n")))
+    
+    elif action == 'search' and args.query:
+        # 搜索技能
+        results = loader.search(args.query)
+        print(f"\n🔎 搜索: {args.query} ({len(results)} 个结果)\n")
+        
+        for s in results:
+            print(f"  · {s.meta.name}")
+            if s.meta.description:
+                print(f"    {s.meta.description[:60]}")
+            print()
+    
+    elif action == 'create':
+        # 创建技能
+        print("\n🛠️  技能创建\n")
+        print("  提示: 使用内置技能作为参考")
+        print("  位置: prometheus/skills/\n")
+        
+        if args.name:
+            print(f"  创建技能: {args.name}")
+            category = args.category or "custom"
+            print(f"  分类: {category}")
+            print("\n  示例:")
+            print("    prometheus/skills/system/doctor_quick_fix/SKILL.md")
+    
+    elif action == 'suggest':
+        # 技能建议
+        print("\n💡 技能建议\n")
+        print("  分析工作流模式，建议创建新技能")
+        print("  提示: 使用长工具链或重复任务触发建议")
+    
+    else:
+        # 默认帮助
+        print("\n🔧 技能管理\n")
+        print("  用法:")
+        print("    ptg skill list [--category <分类>]  列出技能")
+        print("    ptg skill view <名称>               查看技能")
+        print("    ptg skill search <查询>              搜索技能")
+        print("    ptg skill create <名称> [--category] 创建技能")
+        print("    ptg skill suggest                    获取建议")
+
+
+def cmd_skills():
+    """列出可用 Skill 工作流 (向后兼容)。"""
+    try:
+        from prometheus.tools.skill_loader import SkillLoader
+    except ImportError:
+        from skill_loader import SkillLoader
+    
+    loader = SkillLoader()
+    loader.scan()
+    skills = loader.all_skills
+    
     print(f"\n🔧 Skill 工作流 ({len(skills)} 个)\n")
-    for s in sorted(skills, key=lambda x: x.get('name', '')):
-        name = s.get('name', '?')
-        desc = s.get('description', '')[:60]
-        print(f"  · {name}")
-        if desc:
-            print(f"    {desc}")
+    for s in skills:
+        print(f"  · {s.meta.name}")
+        if s.meta.description:
+            print(f"    {s.meta.description[:60]}")
+        print()
 
 
 if __name__ == '__main__':

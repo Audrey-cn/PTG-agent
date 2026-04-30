@@ -1,0 +1,227 @@
+"""
+Prometheus Banner System
+参考 Hermes Agent 的 banner.py 设计
+包含启动 logo、命令列表、系统状态摘要
+"""
+import os
+import shutil
+import sys
+from dataclasses import dataclass
+from typing import Dict, List, Optional
+from pathlib import Path
+
+try:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+    HAS_RICH = True
+except ImportError:
+    HAS_RICH = False
+
+
+__version__ = "0.8.0"
+__codename__ = "Prometheus"
+
+
+@dataclass(frozen=True)
+class CommandDef:
+    name: str
+    description: str
+    category: str
+    aliases: tuple = ()
+    args_hint: str = ""
+
+
+COMMAND_REGISTRY: List[CommandDef] = [
+    CommandDef("setup", "引导式初始化", "System"),
+    CommandDef("doctor", "系统诊断与修复（守门员模式）", "System"),
+    CommandDef("doctor --full", "深度诊断（全部 8 项检查）", "System"),
+    CommandDef("doctor --fix", "自动修复网关问题", "System"),
+    CommandDef("doctor --emergency", "紧急修复模式", "System"),
+    CommandDef("status", "系统状态总览", "Info"),
+    CommandDef("config", "配置管理", "Config"),
+    CommandDef("config show", "查看完整配置", "Config"),
+    CommandDef("model", "模型/提供者配置", "Config"),
+    CommandDef("model show", "查看当前模型", "Config"),
+    CommandDef("model providers", "列出支持的提供者", "Config"),
+    CommandDef("seed list", "列出所有种子", "Seeds"),
+    CommandDef("seed search", "搜索种子", "Seeds"),
+    CommandDef("seed view", "查看种子 DNA", "Seeds"),
+    CommandDef("seed decode", "解码种子", "Seeds"),
+    CommandDef("seed health", "种子健康检查", "Seeds"),
+    CommandDef("gene list", "列出基因位点", "Genes"),
+    CommandDef("memory recall", "语义检索记忆", "Memory"),
+    CommandDef("memory stats", "记忆统计", "Memory"),
+    CommandDef("kb search", "统一知识检索", "Knowledge"),
+    CommandDef("dict", "语义字典管理", "Knowledge"),
+    CommandDef("update", "自我更新", "System"),
+    CommandDef("skills", "列出 Skill 工作流", "Skills"),
+    CommandDef("repl", "交互式 REPL 模式", "System"),
+]
+
+
+PROMPT_TOOLKIT_LOGO = """[bold #FF6B00]██╗  ██╗[/][bold #FF8C00]██╗  ██╗[/][bold #FFAA00]██╗  ██╗[/][bold #FFC800]██╗  ██╗[/][bold #FFE600]██╗  ██╗[/]
+[bold #FF6B00]██║[/][bold #FF8C00] ██║[/][bold #FFAA00]██║[/][bold #FFC800] ██║[/][bold #FFE600]██║[/][bold #FF6B00] ██║[/][bold #FF8C00]██║[/][bold #FFAA00] ██║[/][bold #FFC800]██║[/][bold #FFE600] ██║[/][bold #FFAA00] ██║[/][bold #FFC800]██╗[/]
+[bold #FFAA00]██║[/][bold #FFC800] ██║[/][bold #FFE600]██║[/][bold #FFAA00] ██║[/][bold #FFC800]██║[/][bold #FFE600] ██║[/][bold #FF8C00]██║[/][bold #FFAA00] ██║[/][bold #FFC800]██║[/][bold #FFE600] ██║[/][bold #FFAA00] ██║[/][bold #FF8C00]██║[/]
+[bold #FF8C00]██║[/][bold #FFAA00] ██║[/][bold #FFC800]██║[/][bold #FFE600] ██║[/][bold #FF8C00]██║[/][bold #FFAA00] ██║[/][bold #FFC800]██║[/][bold #FFE600] ██║[/][bold #FF8C00]██║[/][bold #FFAA00] ██║[/][bold #FFC800]██║[/][bold #FF6B00]██║[/]
+[bold #FF6B00]╚██╗[/][bold #FF8C00]██╔╝[/][bold #FFAA00]██╔╝[/][bold #FFC800]██╔╝[/][bold #FFE600]██╔╝[/][bold #FFAA00]██╔╝[/][bold #FFC800]██╔╝[/][bold #FFE600]██╔╝[/][bold #FF8C00]██╔╝[/]
+[bold #FF6B00] ╚████╔╝[/] [bold #FF8C00]╚████╔╝[/] [bold #FFAA00]╚████╔╝[/] [bold #FFC800]╚████╔╝[/] [bold #FFE600] ╚████╔╝[/]
+[bold #FF6B00]  ╚═══╝[/]  [bold #FF8C00] ╚═══╝[/]  [bold #FFAA00] ╚═══╝[/]  [bold #FFC800] ╚═══╝[/]  [bold #FFE600]  ╚═══╝[/]"""
+
+
+SIMPLE_LOGO = """
+        (  )@(   )@   )@   (   @(    )
+     (@@@@)  (@@@@@@)  (@@@@@@)  (@@)
+   (   @@    (   @@   (@@@   )  (   )
+   (@@@@  @@@@)  (@@@@@@)  (@@@@@@@)
+   (    @@       (@@@          @@    )
+    @@@@   @@@@   (@@@@)    (@@@@
+      (@@@@)        (@@@@@@@@)   @@
+         (   @@@@)@@)     (@@@   @@
+    (@@@@)  @@   )@@)@@)  (@@@@@@@
+       (     )    )@)@@@)   (    )
+     )@@@)   @@  (@@@@)@@)  @@   )
+   (@@@@)    (@@)  )@@)@@@)   @@
+     (   )   (   )   )@@)   )
+      )       )   (   ) )   )
+"""
+
+
+def get_commands_by_category() -> Dict[str, List[str]]:
+    """按分类返回命令列表"""
+    categories: Dict[str, List[str]] = {}
+    for cmd in COMMAND_REGISTRY:
+        cat = cmd.category
+        if cat not in categories:
+            categories[cat] = []
+        cmd_str = f"/{cmd.name}"
+        if cmd.args_hint:
+            cmd_str += f" {cmd.args_hint}"
+        categories[cat].append(cmd_str)
+    return categories
+
+
+def get_system_info() -> Dict[str, str]:
+    """获取系统信息"""
+    info = {}
+    info["Python"] = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    info["Version"] = f"v{__version__}"
+    info["CWD"] = os.getcwd()
+    home = Path.home() / ".prometheus"
+    if home.exists():
+        config_path = home / "config.yaml"
+        if config_path.exists():
+            info["Config"] = "OK"
+        else:
+            info["Config"] = "Missing"
+    return info
+
+
+def _get_term_width() -> int:
+    """获取终端宽度"""
+    try:
+        return shutil.get_terminal_size().columns
+    except Exception:
+        return 80
+
+
+def build_welcome_banner(console=None) -> str:
+    """构建欢迎 banner 并返回字符串"""
+    lines = []
+    lines.append("=" * 70)
+    lines.append("")
+
+    if HAS_RICH and console:
+        term_width = _get_term_width()
+        if term_width >= 90:
+            lines.append(PROMPT_TOOLKIT_LOGO)
+        else:
+            lines.append(SIMPLE_LOGO)
+    else:
+        lines.append(SIMPLE_LOGO)
+
+    lines.append("")
+    lines.append(f"  [bold #FFD700]Prometheus[/] · [dim]Teach-To-Grow[/]")
+    lines.append(f"  [dim]Version:[/] [bold]{__version__}[/] · [dim]Epic Chronicler[/]")
+    lines.append(f"  [dim]Founder:[/] Audrey · 001X")
+    lines.append("")
+
+    categories = get_commands_by_category()
+
+    lines.append(f"  [bold #FF8C00]Available Commands[/]")
+    lines.append("")
+
+    for cat_name, commands in sorted(categories.items()):
+        lines.append(f"  [dim #CD7F32]{cat_name}:[/]")
+        for cmd in commands[:6]:
+            lines.append(f"    {cmd}")
+        if len(commands) > 6:
+            lines.append(f"    ... (+{len(commands) - 6} more)")
+        lines.append("")
+
+    lines.append("  [dim]Tip:[/] Run [bold]/help[/] for interactive commands")
+    lines.append("  [dim]Tip:[/] Run [bold]ptg doctor[/] to check system health")
+    lines.append("")
+    lines.append("=" * 70)
+
+    return "\n".join(lines)
+
+
+def print_banner(console=None):
+    """打印 banner 到控制台"""
+    if HAS_RICH and console:
+        console.print(build_welcome_banner(console))
+    else:
+        print(build_welcome_banner())
+
+
+def print_simple_banner():
+    """打印简单 banner（无 Rich 库）"""
+    banner = f"""
+{'=' * 70}
+
+{SIMPLE_LOGO}
+
+  Prometheus · Teach-To-Grow
+  Version: {__version__} · Epic Chronicler
+  Founder: Audrey · 001X
+
+  Available Commands:
+
+    System:
+      /setup          引导式初始化
+      /doctor         系统诊断与修复
+      /status         系统状态总览
+      /update         自我更新
+      /repl           交互式 REPL
+
+    Config:
+      /config show    查看完整配置
+      /model show     查看当前模型
+      /model providers 列出提供者
+
+    Seeds:
+      /seed list      列出所有种子
+      /seed search    搜索种子
+      /seed view      查看种子 DNA
+
+    Genes:
+      /gene list      列出基因位点
+
+    Memory:
+      /memory recall  语义检索记忆
+      /memory stats   记忆统计
+
+    Knowledge:
+      /kb search      统一知识检索
+      /dict           语义字典
+
+    Skills:
+      /skills         列出 Skill 工作流
+
+  Tip: Run /help for interactive commands
+  Tip: Run ptg doctor to check system health
+
+{'=' * 70}
+"""
+    print(banner)
