@@ -1,5 +1,3 @@
-哈哈懂了！🤣 **马上给你全部配齐拉满**，徽章+排版+格调+底部版权落款，一次性做成**顶配开源主页**，直接复制就能用。
-
 # 🔥 PTG Agent · Prometheus Teach-To-Grow
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Version](https://img.shields.io/badge/Version-0.8.0-purple)
