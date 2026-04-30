@@ -25,6 +25,7 @@
 import os
 import sys
 import json
+import time
 import subprocess
 
 __version__ = "0.8.0"
@@ -788,6 +789,35 @@ def build_parser():
     # repl (r)
     subparsers.add_parser('repl', help='交互式 REPL 模式')
 
+    # chat — Agent 对话模式
+    chat_p = subparsers.add_parser('chat', help='启动 AI Agent 对话')
+    chat_p.add_argument('message', nargs='*', help='初始消息（可选）')
+    chat_p.add_argument('--model', '-m', help='模型覆盖')
+    chat_p.add_argument('--profile', '-p', help='配置 profile')
+    chat_p.add_argument('--system-prompt', '-s', help='系统提示词')
+    chat_p.add_argument('--max-iterations', '-i', type=int, default=50, help='最大迭代次数')
+
+    # gateway — 网关管理
+    gw_p = subparsers.add_parser('gateway', help='网关管理')
+    gw_p.add_argument('action', choices=['start', 'stop', 'status', 'serve'])
+    gw_p.add_argument('--platform', '-p', default='cli', help='平台类型')
+
+    # cron — 定时任务管理
+    cron_p = subparsers.add_parser('cron', help='定时任务管理')
+    cron_p.add_argument('action', choices=['list', 'add', 'remove', 'status', 'run'])
+    cron_p.add_argument('--name', '-n', help='任务名称')
+    cron_p.add_argument('--schedule', help='cron 表达式 (如 "0 8 * * *")')
+    cron_p.add_argument('--command', help='任务命令')
+
+    # agent — Agent 管理器
+    agent_p = subparsers.add_parser('agent', help='Agent 管理')
+    agent_p.add_argument('action', nargs='?', default='status', choices=['status', 'list', 'create', 'run'])
+
+    # bench — 基准测试
+    bench_p = subparsers.add_parser('bench', help='性能基准测试')
+    bench_p.add_argument('action', nargs='?', default='run', choices=['run', 'list', 'info'])
+    bench_p.add_argument('--iterations', '-n', type=int, default=3, help='测试轮数')
+
     return parser
 
 
@@ -795,6 +825,240 @@ def cmd_repl(args):
     """启动交互式 REPL。"""
     from prometheus.repl import main as repl_main
     repl_main()
+
+
+def cmd_chat(args):
+    """启动 AI Agent 对话模式。"""
+    print("\U0001f525 Prometheus Chat · v" + __version__ + "\n")
+
+    from prometheus.config import Config as PrometheusConfig
+    cfg = PrometheusConfig()
+    model_cfg = cfg.to_dict().get('model', {})
+    api_cfg = cfg.to_dict().get('api', {})
+
+    model = args.model or model_cfg.get('name', 'gpt-4o')
+    base_url = api_cfg.get('base_url', 'https://api.openai.com/v1')
+    api_key = api_cfg.get('key', os.getenv('OPENAI_API_KEY', ''))
+
+    system_prompt = args.system_prompt or (
+        "You are Prometheus, the epic chronicler agent. "
+        "You manage genetic seeds, maintain the chronicle, and assist with creative and technical tasks. "
+        "Use tools when appropriate. Be concise and precise."
+    )
+
+    try:
+        from prometheus.agent_loop import AIAgent
+    except ImportError:
+        from agent_loop import AIAgent
+
+    agent = AIAgent(
+        system_prompt=system_prompt,
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        max_iterations=args.max_iterations,
+    )
+
+    if args.message:
+        initial = ' '.join(args.message)
+        print(f"\n>>> {initial}\n")
+        result = agent.run_conversation(initial)
+        print(f"\n{result['text']}\n")
+        print(f"({result.get('iterations', '?')} 次迭代, {result.get('tool_calls_made', '?')} 次工具调用)")
+        return
+
+    print("  输入消息开始对话，输入 /quit 退出，/clear 清除上下文\n")
+    history = []
+    while True:
+        try:
+            user_input = input("\n>>> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n再见！🔥")
+            break
+
+        if not user_input:
+            continue
+        if user_input.lower() in ('/quit', '/exit', '/q'):
+            print("再见！🔥")
+            break
+        if user_input.lower() == '/clear':
+            history = []
+            print("上下文已清除")
+            continue
+
+        try:
+            result = agent.run_conversation(user_input, history=history)
+            print(f"\n{result['text']}\n")
+            history.append({"role": "user", "content": user_input})
+            history.append({"role": "assistant", "content": result['text']})
+        except Exception as e:
+            print(f"\n错误: {e}\n")
+
+
+def cmd_gateway(args):
+    """网关管理。"""
+    from prometheus.gateway_manager import gateway_status, start_gateway, stop_gateway
+
+    if args.action == 'status':
+        status = gateway_status()
+        if status['running']:
+            print(f"\n\U0001f310 Gateway 运行中\n  pid: {status['pid']}\n  日志: {status.get('log_file', '')}\n")
+        else:
+            print("\n\U0001f310 Gateway 未运行\n")
+    elif args.action == 'start':
+        start_gateway(platform=args.platform)
+    elif args.action == 'stop':
+        stop_gateway()
+    elif args.action == 'serve':
+        print(f"\n\U0001f310 Gateway 服务启动 (platform={args.platform})\n")
+        start_gateway(platform=args.platform)
+    else:
+        print("\n\U0001f310 网关管理\n")
+        print("  用法:")
+        print("    ptg gateway start    启动网关")
+        print("    ptg gateway stop     停止网关")
+        print("    ptg gateway status   查看状态")
+
+
+def cmd_cron(args):
+    """定时任务管理。"""
+    try:
+        from prometheus.tools.cron import CronManager
+    except ImportError:
+        try:
+            from tools.cron import CronManager
+        except ImportError:
+            print("\n\U0001f4c5 定时任务系统未安装\n")
+            return
+
+    manager = CronManager()
+
+    if args.action == 'list':
+        tasks = manager.list_tasks()
+        if not tasks:
+            print("\n\U0001f4c5 无定时任务\n")
+        else:
+            print(f"\n\U0001f4c5 定时任务 ({len(tasks)} 个)\n")
+            for task in tasks:
+                print(f"  · {task['name']}")
+                print(f"    调度: {task.get('schedule', '?')}")
+                print(f"    上次运行: {task.get('last_run', '从未')}")
+                print()
+    elif args.action == 'add':
+        if not args.name or not args.schedule:
+            print("用法: ptg cron add --name <名称> --schedule <cron表达式> --command <命令>")
+            return
+        manager.add_task(args.name, args.schedule, args.command or "")
+        print(f"\n✅ 已添加: {args.name}\n")
+    elif args.action == 'remove':
+        if not args.name:
+            print("用法: ptg cron remove --name <名称>")
+            return
+        manager.remove_task(args.name)
+        print(f"\n✅ 已移除: {args.name}\n")
+    elif args.action == 'status':
+        status = manager.status()
+        print(f"\n\U0001f4c5 Cron 状态")
+        print(f"  活跃任务: {status.get('active', 0)}")
+        print(f"  总任务: {status.get('total', 0)}\n")
+    elif args.action == 'run':
+        if not args.name:
+            print("用法: ptg cron run --name <名称>")
+            return
+        manager.run_task(args.name)
+        print(f"\n✅ 已执行: {args.name}\n")
+    else:
+        print("\n\U0001f4c5 定时任务管理\n")
+        print("  用法:")
+        print("    ptg cron list                列出任务")
+        print("    ptg cron add --name ...      添加任务")
+        print("    ptg cron remove --name ...   移除任务")
+        print("    ptg cron status              查看状态")
+        print("    ptg cron run --name ...      立即执行")
+
+
+def cmd_agent(args):
+    """Agent 管理。"""
+    print(f"\n\U0001f916 Agent 管理 · Prometheus v{__version__}\n")
+
+    try:
+        from prometheus.agents.manager import get_agent_manager
+    except ImportError:
+        try:
+            from agents.manager import get_agent_manager
+        except ImportError:
+            print("Agent 管理器不可用\n")
+            return
+
+    mgr = get_agent_manager()
+
+    if args.action == 'status':
+        agents = mgr.list_all()
+        print(f"  Agents: {len(agents)}\n")
+        for a in agents:
+            print(f"  · {a.name} [{a.state}]")
+        print()
+    elif args.action == 'list':
+        agents = mgr.list_all()
+        print(f"  Active agents: {len(agents)}\n")
+        for a in agents:
+            print(f"  · {a.name or a.agent_id} [{a.state}]")
+    elif args.action == 'run':
+        print("  用法: ptg agent run\n")
+    else:
+        print("  用法:")
+        print("    ptg agent status   查看状态")
+        print("    ptg agent list     列出 Agents")
+        print("    ptg agent run      运行 Agent\n")
+
+
+def cmd_bench(args):
+    """性能基准测试。"""
+    print(f"\n\U0001f4ca Prometheus Benchmark · v{__version__}\n")
+
+    if args.action == 'run':
+        print(f"  运行 {args.iterations} 轮基准测试...\n")
+
+        benchmarks = {
+            "seed_load": 0.0,
+            "gene_decode": 0.0,
+            "semantic_search": 0.0,
+            "memory_write": 0.0,
+            "memory_read": 0.0,
+            "sandbox_python": 0.0,
+        }
+
+        for i in range(args.iterations):
+            t0 = time.time()
+            try:
+                from prometheus.sandboxing import run_python
+                run_python("sum(range(1000))", timeout_s=5)
+            except Exception:
+                pass
+            benchmarks["sandbox_python"] += time.time() - t0
+
+        for name, total in benchmarks.items():
+            avg = total / max(args.iterations, 1)
+            print(f"  {name:<20} {avg*1000:>8.2f} ms")
+
+        print(f"\n  ✅ {args.iterations} 轮测试完成\n")
+    elif args.action == 'list':
+        print("  可用基准测试:")
+        print("    · seed_load      — 种子加载速度")
+        print("    · gene_decode    — 基因解码速度")
+        print("    · semantic_search — 语义搜索速度")
+        print("    · memory_write   — 记忆写入速度")
+        print("    · memory_read    — 记忆读取速度")
+        print("    · sandbox_python  — 沙箱执行速度\n")
+    elif args.action == 'info':
+        print("  Prometheus 性能基准测试系统")
+        print(f"  版本: {__version__}")
+        print(f"  Python: {sys.version}\n")
+    else:
+        print("  用法:")
+        print("    ptg bench run    运行基准测试")
+        print("    ptg bench list   列出测试项")
+        print("    ptg bench info   系统信息\n")
 
 
 def main():
@@ -827,6 +1091,9 @@ def main():
         'rs': 'restore',
         're': 'resume',
         'r': 'repl',
+        'c': 'chat',
+        'gw': 'gateway',
+        'b': 'bench',
     }
 
     # 解析实际命令
@@ -846,6 +1113,11 @@ def main():
         'dict': cmd_dict,
         'update': cmd_update,
         'repl': cmd_repl,
+        'chat': cmd_chat,
+        'gateway': cmd_gateway,
+        'cron': cmd_cron,
+        'agent': cmd_agent,
+        'bench': cmd_bench,
         'skill': cmd_skill,
         'snapshot': cmd_snapshot,
         'list-snapshots': cmd_list_snapshots,

@@ -1,14 +1,16 @@
+
 #!/bin/bash
 # ============================================================================
 # Prometheus (PTG) Installer
 # ============================================================================
-# Installation script for Linux, macOS.
+# Installation script for Linux, macOS, and Android/Termux.
+# Uses uv for desktop/server installs and Python's stdlib venv + pip on Termux.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/Audrey-cn/PTG-agent/main/scripts/install.sh | bash
 #
 # Or with options:
-#   curl -fsSL ... | bash -s -- --skip-setup
+#   curl -fsSL ... | bash -s -- --no-venv --skip-setup
 #
 # ============================================================================
 set -e
@@ -21,7 +23,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 BOLD='\033[1m'
 
 # Configuration
@@ -30,9 +32,18 @@ REPO_URL_HTTPS="https://github.com/Audrey-cn/PTG-agent.git"
 PROMETHEUS_HOME="${PROMETHEUS_HOME:-$HOME/.prometheus}"
 PYTHON_VERSION="3.11"
 
+# FHS-style root install layout (set by resolve_install_layout when applicable):
+# code at /usr/local/lib/ptg-agent, command at /usr/local/bin/ptg,
+# data still at /root/.prometheus (PROMETHEUS_HOME).
+ROOT_FHS_LAYOUT=false
+
 # Options
+USE_VENV=true
 RUN_SETUP=true
 BRANCH="main"
+
+# INSTALL_DIR is resolved AFTER arg parsing and OS detection so we can pick
+# FHS-style layout for root installs. Track whether user gave explicit dir.
 if [ -n "${PTG_INSTALL_DIR:-}" ]; then
     INSTALL_DIR="$PTG_INSTALL_DIR"
     INSTALL_DIR_EXPLICIT=true
@@ -51,8 +62,12 @@ else
 fi
 
 # Parse arguments
-while [[ $# -gt 0 ]]; do
-    case $1 in
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --no-venv)
+            USE_VENV=false
+            shift
+            ;;
         --skip-setup)
             RUN_SETUP=false
             shift
@@ -76,11 +91,19 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: install.sh [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --skip-setup        Skip interactive setup wizard"
-            echo "  --branch NAME       Git branch to install (default: main)"
-            echo "  --dir PATH          Installation directory (default: ~/ptg-agent)"
+            echo "  --no-venv          Don't create virtual environment"
+            echo "  --skip-setup       Skip interactive setup wizard"
+            echo "  --branch NAME      Git branch to install (default: main)"
+            echo "  --dir PATH         Installation directory"
             echo "  --prometheus-home PATH  Data directory (default: ~/.prometheus, or \$PROMETHEUS_HOME)"
-            echo "  -h, --help          Show this help"
+            echo "  -h, --help         Show this help"
+            echo ""
+            echo "Notes:"
+            echo "  When running as root on Linux, Prometheus installs the code under"
+            echo "  /usr/local/lib/ptg-agent and links the command into"
+            echo "  /usr/local/bin/ptg (FHS layout)."
+            echo "  Data, config, sessions, and logs still live in \$PROMETHEUS_HOME"
+            echo "  (default /root/.prometheus)."
             echo ""
             exit 0
             ;;
@@ -98,9 +121,10 @@ print_banner() {
     echo ""
     echo -e "${MAGENTA}${BOLD}"
     echo "┌─────────────────────────────────────────────────────────┐"
-    echo "│              🔥 Prometheus Installer                     │"
+    echo "│              🔥 Prometheus Installer                    │"
     echo "├─────────────────────────────────────────────────────────┤"
     echo "│  An AI agent for creating & editing agents by Audrey.    │"
+    echo "│  The epic chronicler of software evolution.             │"
     echo "└─────────────────────────────────────────────────────────┘"
     echo -e "${NC}"
 }
@@ -126,13 +150,13 @@ prompt_yes_no() {
     local default="${2:-yes}"
     local prompt_suffix
     local answer=""
-    
+
     # Use case patterns (not ${var,,}) so this works on bash 3.2 (macOS /bin/bash).
     case "$default" in
         [yY]|[yY][eE][sS]|[tT][rR][uU][eE]|1) prompt_suffix="[Y/n]" ;;
         *) prompt_suffix="[y/N]" ;;
     esac
-    
+
     if [ "$IS_INTERACTIVE" = true ]; then
         read -r -p "$question $prompt_suffix " answer || answer=""
     elif [ -r /dev/tty ] && [ -w /dev/tty ]; then
@@ -141,21 +165,104 @@ prompt_yes_no() {
     else
         answer=""
     fi
-    
+
     answer="${answer#"${answer%%[![:space:]]*}"}"
     answer="${answer%"${answer##*[![:space:]]}"}"
-    
+
     if [ -z "$answer" ]; then
         case "$default" in
             [yY]|[yY][eE][sS]|[tT][rR][uU][eE]|1) return 0 ;;
             *) return 1 ;;
         esac
     fi
-    
+
     case "$answer" in
         [yY]|[yY][eE][sS]) return 0 ;;
         *) return 1 ;;
     esac
+}
+
+is_termux() {
+    [ -n "${TERMUX_VERSION:-}" ] || [[ "${PREFIX:-}" == *"com.termux/files/usr"* ]]
+}
+
+# Decide where the repo checkout + venv live, and where the `ptg` command
+# symlink goes. Called after detect_os so $OS/$DISTRO are known.
+#
+# Defaults:
+#   - Non-root, any OS:       INSTALL_DIR = $PROMETHEUS_HOME/ptg-agent
+#                             command link in $HOME/.local/bin
+#   - Termux (any uid):       INSTALL_DIR = $PROMETHEUS_HOME/ptg-agent
+#                             command link in $PREFIX/bin (already on PATH)
+#   - Root on Linux (new):    INSTALL_DIR = /usr/local/lib/ptg-agent
+#                             command link in /usr/local/bin
+#                             (unless legacy install already exists at
+#                             $PROMETHEUS_HOME/ptg-agent — then preserve it)
+#
+# Always no-op when user set --dir or $PTG_INSTALL_DIR.
+resolve_install_layout() {
+    if [ "$INSTALL_DIR_EXPLICIT" = true ]; then
+        log_info "Install directory: $INSTALL_DIR (explicit)"
+        return 0
+    fi
+
+    # Termux: package manager manages /data/data/..., keep code in PROMETHEUS_HOME.
+    if is_termux; then
+        INSTALL_DIR="$PROMETHEUS_HOME/ptg-agent"
+        return 0
+    fi
+
+    # Root on Linux: prefer FHS layout unless legacy install already exists.
+    # macOS root installs keep legacy layout because /usr/local/ on macOS
+    # is Homebrew territory and we don't want to fight that.
+    if [ "$OS" = "linux" ] && [ "$(id -u)" -eq 0 ]; then
+        if [ -d "$PROMETHEUS_HOME/ptg-agent/.git" ]; then
+            INSTALL_DIR="$PROMETHEUS_HOME/ptg-agent"
+            log_info "Existing install detected at $INSTALL_DIR — keeping legacy layout"
+            log_info "  (new root installs use /usr/local/lib/ptg-agent)"
+            return 0
+        fi
+        INSTALL_DIR="/usr/local/lib/ptg-agent"
+        ROOT_FHS_LAYOUT=true
+        log_info "Root install on Linux — using FHS layout"
+        log_info "  Code:    $INSTALL_DIR"
+        log_info "  Command: /usr/local/bin/ptg"
+        log_info "  Data:    $PROMETHEUS_HOME (unchanged)"
+        return 0
+    fi
+
+    # Default: non-root, non-Termux → legacy user-scoped layout.
+    INSTALL_DIR="$HOME/ptg-agent"
+}
+
+get_command_link_dir() {
+    if is_termux && [ -n "${PREFIX:-}" ]; then
+        echo "$PREFIX/bin"
+    elif [ "$ROOT_FHS_LAYOUT" = true ]; then
+        echo "/usr/local/bin"
+    else
+        echo "$HOME/.local/bin"
+    fi
+}
+
+get_command_link_display_dir() {
+    if is_termux && [ -n "${PREFIX:-}" ]; then
+        echo "\$PREFIX/bin"
+    elif [ "$ROOT_FHS_LAYOUT" = true ]; then
+        echo "/usr/local/bin"
+    else
+        echo "~/.local/bin"
+    fi
+}
+
+get_ptg_command_path() {
+    local link_dir
+    link_dir="$(get_command_link_dir)"
+    if [ -x "$link_dir/ptg" ]; then
+        echo "$link_dir/ptg"
+    else
+        echo "ptg"
+    fi
 }
 
 # ============================================================================
@@ -164,12 +271,17 @@ prompt_yes_no() {
 detect_os() {
     case "$(uname -s)" in
         Linux*)
-            OS="linux"
-            if [ -f /etc/os-release ]; then
-                . /etc/os-release
-                DISTRO="$ID"
+            if is_termux; then
+                OS="android"
+                DISTRO="termux"
             else
-                DISTRO="unknown"
+                OS="linux"
+                if [ -f /etc/os-release ]; then
+                    . /etc/os-release
+                    DISTRO="$ID"
+                else
+                    DISTRO="unknown"
+                fi
             fi
             ;;
         Darwin*)
@@ -179,8 +291,9 @@ detect_os() {
         CYGWIN*|MINGW*|MSYS*)
             OS="windows"
             DISTRO="windows"
-            log_error "Windows detected. Prometheus works best on macOS/Linux."
+            log_error "Windows detected. Prometheus works best on macOS/Linux/Termux."
             log_info "We recommend using WSL2 for the best experience."
+            exit 1
             ;;
         *)
             OS="unknown"
@@ -194,466 +307,641 @@ detect_os() {
 # ============================================================================
 # Dependency checks & auto-install
 # ============================================================================
-has_sudo() {
-    if command -v sudo &> /dev/null; then
-        if sudo -n true 2>/dev/null; then
-            return 0
+install_uv() {
+    if [ "$DISTRO" = "termux" ]; then
+        log_info "Termux detected — using Python's stdlib venv + pip instead of uv"
+        UV_CMD=""
+        return 0
+    fi
+
+    log_info "Checking for uv package manager..."
+
+    # Check common locations for uv
+    if command -v uv &> /dev/null; then
+        UV_CMD="uv"
+        UV_VERSION="$($UV_CMD --version 2>/dev/null)"
+        log_success "uv found ($UV_VERSION)"
+        return 0
+    fi
+
+    # Check ~/.local/bin (default uv install location) even if not on PATH yet
+    if [ -x "$HOME/.local/bin/uv" ]; then
+        UV_CMD="$HOME/.local/bin/uv"
+        UV_VERSION="$($UV_CMD --version 2>/dev/null)"
+        log_success "uv found at ~/.local/bin ($UV_VERSION)"
+        return 0
+    fi
+
+    # Check ~/.cargo/bin (alternative uv install location)
+    if [ -x "$HOME/.cargo/bin/uv" ]; then
+        UV_CMD="$HOME/.cargo/bin/uv"
+        UV_VERSION="$($UV_CMD --version 2>/dev/null)"
+        log_success "uv found at ~/.cargo/bin ($UV_VERSION)"
+        return 0
+    fi
+
+    # Install uv
+    log_info "Installing uv (fast Python package manager)..."
+    if curl -LsSf https://astral.sh/uv/install.sh | sh 2>/dev/null; then
+        # uv installs to ~/.local/bin by default
+        if [ -x "$HOME/.local/bin/uv" ]; then
+            UV_CMD="$HOME/.local/bin/uv"
+        elif [ -x "$HOME/.cargo/bin/uv" ]; then
+            UV_CMD="$HOME/.cargo/bin/uv"
+        elif command -v uv &> /dev/null; then
+            UV_CMD="uv"
         else
-            return 1
+            log_error "uv installed but not found on PATH"
+            log_info "Try adding ~/.local/bin to your PATH and re-running"
+            exit 1
         fi
+        UV_VERSION="$($UV_CMD --version 2>/dev/null)"
+        log_success "uv installed ($UV_VERSION)"
     else
-        return 1
+        log_error "Failed to install uv"
+        log_info "Install manually: https://docs.astral.sh/uv/getting-started/installation/"
+        exit 1
     fi
-}
-
-install_git_apt() {
-    log_info "Installing Git via apt..."
-    if has_sudo; then
-        sudo apt update
-        sudo apt install -y git
-    else
-        apt update
-        apt install -y git
-    fi
-}
-
-install_git_dnf() {
-    log_info "Installing Git via dnf..."
-    if has_sudo; then
-        sudo dnf install -y git
-    else
-        dnf install -y git
-    fi
-}
-
-install_git_pacman() {
-    log_info "Installing Git via pacman..."
-    if has_sudo; then
-        sudo pacman -S --noconfirm git
-    else
-        pacman -S --noconfirm git
-    fi
-}
-
-install_git_brew() {
-    log_info "Installing Git via Homebrew..."
-    if command -v brew &> /dev/null; then
-        brew install git
-    else
-        log_warn "Homebrew not found"
-        return 1
-    fi
-}
-
-install_python_apt() {
-    log_info "Installing Python $PYTHON_VERSION via apt..."
-    if has_sudo; then
-        sudo apt update
-        sudo apt install -y python$PYTHON_VERSION python3-pip python$PYTHON_VERSION-venv
-    else
-        apt update
-        apt install -y python$PYTHON_VERSION python3-pip python$PYTHON_VERSION-venv
-    fi
-}
-
-install_python_dnf() {
-    log_info "Installing Python $PYTHON_VERSION via dnf..."
-    if has_sudo; then
-        sudo dnf install -y python$PYTHON_VERSION python3-pip
-    else
-        dnf install -y python$PYTHON_VERSION python3-pip
-    fi
-}
-
-install_python_pacman() {
-    log_info "Installing Python via pacman..."
-    if has_sudo; then
-        sudo pacman -S --noconfirm python python-pip
-    else
-        pacman -S --noconfirm python python-pip
-    fi
-}
-
-install_python_brew() {
-    log_info "Installing Python $PYTHON_VERSION via Homebrew..."
-    if command -v brew &> /dev/null; then
-        brew install python@$PYTHON_VERSION
-    else
-        log_warn "Homebrew not found"
-        return 1
-    fi
-}
-
-show_python_install_guide() {
-    echo ""
-    log_info "Please install Python $PYTHON_VERSION:"
-    case "$OS" in
-        macos)
-            echo "  1. Using Homebrew (recommended):"
-            echo "     brew install python@$PYTHON_VERSION"
-            echo ""
-            echo "  2. From python.org:"
-            echo "     https://www.python.org/downloads/"
-            ;;
-        linux)
-            case "$DISTRO" in
-                ubuntu|debian|linuxmint)
-                    echo "  sudo apt update"
-                    echo "  sudo apt install python$PYTHON_VERSION python3-pip python$PYTHON_VERSION-venv"
-                    ;;
-                fedora|rhel|centos)
-                    echo "  sudo dnf install python$PYTHON_VERSION python3-pip"
-                    ;;
-                arch|manjaro)
-                    echo "  sudo pacman -S python python-pip"
-                    ;;
-                *)
-                    echo "  Use your package manager to install Python $PYTHON_VERSION"
-                    ;;
-            esac
-            ;;
-        *)
-            echo "  https://www.python.org/downloads/"
-            ;;
-    esac
-    echo ""
-}
-
-show_git_install_guide() {
-    echo ""
-    log_info "Please install Git:"
-    case "$OS" in
-        macos)
-            echo "  1. Using Homebrew (recommended):"
-            echo "     brew install git"
-            echo ""
-            echo "  2. From git-scm.com:"
-            echo "     https://git-scm.com/downloads/mac"
-            ;;
-        linux)
-            case "$DISTRO" in
-                ubuntu|debian|linuxmint)
-                    echo "  sudo apt update"
-                    echo "  sudo apt install git"
-                    ;;
-                fedora|rhel|centos)
-                    echo "  sudo dnf install git"
-                    ;;
-                arch|manjaro)
-                    echo "  sudo pacman -S git"
-                    ;;
-                *)
-                    echo "  Use your package manager to install Git"
-                    ;;
-            esac
-            ;;
-        *)
-            echo "  https://git-scm.com/downloads"
-            ;;
-    esac
-    echo ""
-}
-
-try_auto_install_git() {
-    case "$OS" in
-        linux)
-            case "$DISTRO" in
-                ubuntu|debian|linuxmint)
-                    if command -v apt &> /dev/null; then
-                        if prompt_yes_no "Git not found. Install it automatically?" "yes"; then
-                            install_git_apt
-                            return 0
-                        fi
-                    fi
-                    ;;
-                fedora|rhel|centos)
-                    if command -v dnf &> /dev/null; then
-                        if prompt_yes_no "Git not found. Install it automatically?" "yes"; then
-                            install_git_dnf
-                            return 0
-                        fi
-                    fi
-                    ;;
-                arch|manjaro)
-                    if command -v pacman &> /dev/null; then
-                        if prompt_yes_no "Git not found. Install it automatically?" "yes"; then
-                            install_git_pacman
-                            return 0
-                        fi
-                    fi
-                    ;;
-            esac
-            ;;
-        macos)
-            if command -v brew &> /dev/null; then
-                if prompt_yes_no "Git not found. Install it automatically via Homebrew?" "yes"; then
-                    install_git_brew
-                    return 0
-                fi
-            fi
-            ;;
-    esac
-    return 1
-}
-
-try_auto_install_python() {
-    case "$OS" in
-        linux)
-            case "$DISTRO" in
-                ubuntu|debian|linuxmint)
-                    if command -v apt &> /dev/null; then
-                        if prompt_yes_no "Python not found. Install it automatically?" "yes"; then
-                            install_python_apt
-                            return 0
-                        fi
-                    fi
-                    ;;
-                fedora|rhel|centos)
-                    if command -v dnf &> /dev/null; then
-                        if prompt_yes_no "Python not found. Install it automatically?" "yes"; then
-                            install_python_dnf
-                            return 0
-                        fi
-                    fi
-                    ;;
-                arch|manjaro)
-                    if command -v pacman &> /dev/null; then
-                        if prompt_yes_no "Python not found. Install it automatically?" "yes"; then
-                            install_python_pacman
-                            return 0
-                        fi
-                    fi
-                    ;;
-            esac
-            ;;
-        macos)
-            if command -v brew &> /dev/null; then
-                if prompt_yes_no "Python not found. Install it automatically via Homebrew?" "yes"; then
-                    install_python_brew
-                    return 0
-                fi
-            fi
-            ;;
-    esac
-    return 1
 }
 
 check_python() {
-    log_info "Checking Python $PYTHON_VERSION..."
-    
-    PYTHON_MISSING=0
-    
-    if command -v python3 &> /dev/null; then
-        PYTHON_VERSION_FOUND=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))' 2>/dev/null || echo "")
-        if [ -n "$PYTHON_VERSION_FOUND" ]; then
-            log_success "Python $PYTHON_VERSION_FOUND found"
-            
-            # Check Python version
-            PYTHON_MAJOR=$(python3 -c 'import sys; print(sys.version_info[0])' 2>/dev/null || echo 0)
-            PYTHON_MINOR=$(python3 -c 'import sys; print(sys.version_info[1])' 2>/dev/null || echo 0)
-            if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 11 ]); then
-                log_warn "Python $PYTHON_VERSION_FOUND may be old, recommended: $PYTHON_VERSION+"
+    if [ "$DISTRO" = "termux" ]; then
+        log_info "Checking Termux Python..."
+        if command -v python >/dev/null 2>&1; then
+            PYTHON_PATH="$(command -v python)"
+            if "$PYTHON_PATH" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then
+                PYTHON_FOUND_VERSION="$("$PYTHON_PATH" --version 2>/dev/null)"
+                log_success "Python found: $PYTHON_FOUND_VERSION"
+                return 0
             fi
         fi
-    else
-        PYTHON_MISSING=1
+
+        log_info "Installing Python via pkg..."
+        pkg install -y python >/dev/null
+        PYTHON_PATH="$(command -v python)"
+        PYTHON_FOUND_VERSION="$("$PYTHON_PATH" --version 2>/dev/null)"
+        log_success "Python installed: $PYTHON_FOUND_VERSION"
+        return 0
     fi
-    
-    if [ "$PYTHON_MISSING" -eq 1 ]; then
-        log_error "Python not found"
-        if try_auto_install_python; then
-            log_success "Python installed successfully!"
-            # Verify again
-            if command -v python3 &> /dev/null; then
-                PYTHON_VERSION_FOUND=$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))' 2>/dev/null || echo "")
-                log_success "Python $PYTHON_VERSION_FOUND is ready"
-            else
-                log_error "Python installation seems to have failed"
-                show_python_install_guide
-                exit 1
-            fi
-        else
-            show_python_install_guide
-            exit 1
-        fi
+
+    log_info "Checking Python $PYTHON_VERSION..."
+
+    # Let uv handle Python — it can download and manage Python versions
+    # First check if a suitable Python is already available
+    if PYTHON_PATH="$($UV_CMD python find "$PYTHON_VERSION" 2>/dev/null)"; then
+        PYTHON_FOUND_VERSION="$("$PYTHON_PATH" --version 2>/dev/null)"
+        log_success "Python found: $PYTHON_FOUND_VERSION"
+        return 0
+    fi
+
+    # Python not found — use uv to install it (no sudo needed!)
+    log_info "Python $PYTHON_VERSION not found, installing via uv..."
+    if "$UV_CMD" python install "$PYTHON_VERSION"; then
+        PYTHON_PATH="$($UV_CMD python find "$PYTHON_VERSION")"
+        PYTHON_FOUND_VERSION="$("$PYTHON_PATH" --version 2>/dev/null)"
+        log_success "Python installed: $PYTHON_FOUND_VERSION"
+    else
+        log_error "Failed to install Python $PYTHON_VERSION"
+        log_info "Install Python $PYTHON_VERSION manually, then re-run this script"
+        exit 1
     fi
 }
 
 check_git() {
     log_info "Checking Git..."
-    
-    GIT_MISSING=0
-    
+
     if command -v git &> /dev/null; then
-        GIT_VERSION=$(git --version | awk '{print $3}')
+        GIT_VERSION="$(git --version | awk '{print $3}')"
         log_success "Git $GIT_VERSION found"
-    else
-        GIT_MISSING=1
+        return 0
     fi
-    
-    if [ "$GIT_MISSING" -eq 1 ]; then
-        log_error "Git not found"
-        if try_auto_install_git; then
-            log_success "Git installed successfully!"
-            # Verify again
-            if command -v git &> /dev/null; then
-                GIT_VERSION=$(git --version | awk '{print $3}')
-                log_success "Git $GIT_VERSION is ready"
-            else
-                log_error "Git installation seems to have failed"
-                show_git_install_guide
-                exit 1
+
+    log_error "Git not found"
+
+    if [ "$DISTRO" = "termux" ]; then
+        log_info "Installing Git via pkg..."
+        pkg install -y git >/dev/null
+        if command -v git >/dev/null 2>&1; then
+            GIT_VERSION="$(git --version | awk '{print $3}')"
+            log_success "Git $GIT_VERSION installed"
+            return 0
+        fi
+    fi
+
+    log_info "Please install Git:"
+
+    case "$OS" in
+        linux)
+            case "$DISTRO" in
+                ubuntu|debian)
+                    log_info "  sudo apt update && sudo apt install git"
+                    ;;
+                fedora)
+                    log_info "  sudo dnf install git"
+                    ;;
+                arch)
+                    log_info "  sudo pacman -S git"
+                    ;;
+                *)
+                    log_info "  Use your package manager to install git"
+                    ;;
+            esac
+            ;;
+        android)
+            log_info "  pkg install git"
+            ;;
+        macos)
+            log_info "  xcode-select --install"
+            log_info "  Or: brew install git"
+            ;;
+    esac
+
+    exit 1
+}
+
+install_system_packages() {
+    # Termux always needs build toolchain for pip installs.
+    if [ "$DISTRO" = "termux" ]; then
+        local termux_pkgs=(clang rust make pkg-config libffi openssl)
+        log_info "Installing Termux packages: ${termux_pkgs[*]}"
+        if pkg install -y "${termux_pkgs[@]}" >/dev/null; then
+            log_success "Termux build dependencies installed"
+            return 0
+        fi
+        log_warn "Could not auto-install all Termux packages"
+        log_info "Install manually: pkg install ${termux_pkgs[*]}"
+        return 0
+    fi
+
+    # Nothing to install — done
+    return 0
+}
+
+# ============================================================================
+# Installation
+# ============================================================================
+clone_repo() {
+    log_info "Installing to $INSTALL_DIR..."
+
+    if [ -d "$INSTALL_DIR" ]; then
+        if [ -d "$INSTALL_DIR/.git" ]; then
+            log_info "Existing installation found, updating..."
+            cd "$INSTALL_DIR"
+
+            local autostash_ref=""
+            if [ -n "$(git status --porcelain)" ]; then
+                local stash_name
+                stash_name="ptg-install-autostash-$(date -u +%Y%m%d-%H%M%S)"
+                log_info "Local changes detected, stashing before update..."
+                git stash push --include-untracked -m "$stash_name"
+                autostash_ref="$(git rev-parse --verify refs/stash)"
+            fi
+
+            git fetch origin
+            git checkout "$BRANCH"
+            git pull --ff-only origin "$BRANCH"
+
+            if [ -n "$autostash_ref" ]; then
+                local restore_now="yes"
+                if [ -t 0 ] && [ -t 1 ]; then
+                    echo ""
+                    log_warn "Local changes were stashed before updating."
+                    log_warn "Restoring them may reapply local customizations onto the updated codebase."
+                    printf "Restore local changes now? [Y/n] "
+                    read -r restore_answer
+                    case "$restore_answer" in
+                        ""|y|Y|yes|YES|Yes) restore_now="yes" ;;
+                        *) restore_now="no" ;;
+                    esac
+                fi
+
+                if [ "$restore_now" = "yes" ]; then
+                    log_info "Restoring local changes..."
+                    if git stash apply "$autostash_ref"; then
+                        git stash drop "$autostash_ref" >/dev/null
+                        log_warn "Local changes were restored on top of the updated codebase."
+                        log_warn "Review git diff / git status if Prometheus behaves unexpectedly."
+                    else
+                        log_error "Update succeeded, but restoring local changes failed. Your changes are still preserved in git stash."
+                        log_info "Resolve manually with: git stash apply $autostash_ref"
+                        exit 1
+                    fi
+                else
+                    log_info "Skipped restoring local changes."
+                    log_info "Your changes are still preserved in git stash."
+                    log_info "Restore manually with: git stash apply $autostash_ref"
+                fi
             fi
         else
-            show_git_install_guide
+            log_error "Directory exists but is not a git repository: $INSTALL_DIR"
+            log_info "Remove it or choose a different directory with --dir"
             exit 1
         fi
+    else
+        # Try SSH first (for private repo access), fall back to HTTPS
+        # GIT_SSH_COMMAND disables interactive prompts and sets a short timeout
+        # so SSH fails fast instead of hanging when no key is configured.
+        log_info "Trying SSH clone..."
+        if GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=5" \
+           git clone --branch "$BRANCH" "$REPO_URL_SSH" "$INSTALL_DIR" 2>/dev/null; then
+            log_success "Cloned via SSH"
+        else
+            rm -rf "$INSTALL_DIR" 2>/dev/null  # Clean up partial SSH clone
+            log_info "SSH failed, trying HTTPS..."
+            if git clone --branch "$BRANCH" "$REPO_URL_HTTPS" "$INSTALL_DIR"; then
+                log_success "Cloned via HTTPS"
+            else
+                log_error "Failed to clone repository"
+                exit 1
+            fi
+        fi
+    fi
+
+    cd "$INSTALL_DIR"
+
+    log_success "Repository ready"
+}
+
+setup_venv() {
+    if [ "$USE_VENV" = false ]; then
+        log_info "Skipping virtual environment (--no-venv)"
+        return 0
+    fi
+
+    if [ "$DISTRO" = "termux" ]; then
+        log_info "Creating virtual environment with Termux Python..."
+
+        if [ -d "venv" ]; then
+            log_info "Virtual environment already exists, recreating..."
+            rm -rf venv
+        fi
+
+        "$PYTHON_PATH" -m venv venv
+        log_success "Virtual environment ready ($(./venv/bin/python --version 2>/dev/null))"
+        return 0
+    fi
+
+    log_info "Creating virtual environment with Python $PYTHON_VERSION..."
+
+    if [ -d "venv" ]; then
+        log_info "Virtual environment already exists, recreating..."
+        rm -rf venv
+    fi
+
+    # uv creates the venv and pins the Python version in one step
+    $UV_CMD venv venv --python "$PYTHON_VERSION"
+
+    log_success "Virtual environment ready (Python $PYTHON_VERSION)"
+}
+
+install_deps() {
+    log_info "Installing dependencies..."
+
+    if [ "$DISTRO" = "termux" ]; then
+        if [ "$USE_VENV" = true ]; then
+            export VIRTUAL_ENV="$INSTALL_DIR/venv"
+            PIP_PYTHON="$INSTALL_DIR/venv/bin/python"
+        else
+            PIP_PYTHON="$PYTHON_PATH"
+        fi
+
+        if [ -z "${ANDROID_API_LEVEL:-}" ]; then
+            ANDROID_API_LEVEL="$(getprop ro.build.version.sdk 2>/dev/null || true)"
+            if [ -z "$ANDROID_API_LEVEL" ]; then
+                ANDROID_API_LEVEL=24
+            fi
+            export ANDROID_API_LEVEL
+            log_info "Using ANDROID_API_LEVEL=$ANDROID_API_LEVEL for Android wheel builds"
+        fi
+
+        "$PIP_PYTHON" -m pip install --upgrade pip setuptools wheel >/dev/null
+        if ! "$PIP_PYTHON" -m pip install -e '.[termux]' -c constraints-termux.txt; then
+            log_warn "Termux feature install (.[termux]) failed, trying base install..."
+            if ! "$PIP_PYTHON" -m pip install -e '.' -c constraints-termux.txt; then
+                log_error "Package installation failed on Termux."
+                log_info "Ensure these packages are installed: pkg install clang rust make pkg-config libffi openssl"
+                log_info "Then re-run: cd $INSTALL_DIR && python -m pip install -e '.[termux]' -c constraints-termux.txt"
+                exit 1
+            fi
+        fi
+
+        log_success "Main package installed"
+        log_success "All dependencies installed"
+        return 0
+    fi
+
+    if [ "$USE_VENV" = true ]; then
+        # Tell uv to install into our venv (no need to activate)
+        export VIRTUAL_ENV="$INSTALL_DIR/venv"
+    fi
+
+    # On Debian/Ubuntu (including WSL), some Python packages need build tools.
+    # Check and offer to install them if missing.
+    if [ "$DISTRO" = "ubuntu" ] || [ "$DISTRO" = "debian" ]; then
+        local need_build_tools=false
+        for pkg in gcc python3-dev libffi-dev; do
+            if ! dpkg -s "$pkg" &>/dev/null; then
+                need_build_tools=true
+                break
+            fi
+        done
+        if [ "$need_build_tools" = true ]; then
+            log_info "Some build tools may be needed for Python packages..."
+            if command -v sudo &> /dev/null; then
+                if sudo -n true 2>/dev/null; then
+                    sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y -qq build-essential python3-dev libffi-dev >/dev/null 2>&1 || true
+                    log_success "Build tools installed"
+                else
+                    log_info "sudo is needed ONLY to install build tools (build-essential, python3-dev, libffi-dev) via apt."
+                    log_info "Prometheus itself does not require or retain root access."
+                    if prompt_yes_no "Install build tools?" "yes"; then
+                        sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y -qq build-essential python3-dev libffi-dev >/dev/null 2>&1 || true
+                        log_success "Build tools installed"
+                    fi
+                fi
+            fi
+        fi
+    fi
+
+    # Install the main package in editable mode with all extras.
+    # Try [all] first, fall back to base install if extras have issues.
+    ALL_INSTALL_LOG="$(mktemp)"
+    if ! $UV_CMD pip install -e '.[all]' 2>"$ALL_INSTALL_LOG"; then
+        log_warn "Full install (.[all]) failed, trying base install..."
+        log_info "Reason: $(tail -5 "$ALL_INSTALL_LOG" | head -3)"
+        rm -f "$ALL_INSTALL_LOG"
+        if ! $UV_CMD pip install -e '.'; then
+            log_error "Package installation failed."
+            log_info "Check that build tools are installed: sudo apt install build-essential python3-dev"
+            log_info "Then re-run: cd $INSTALL_DIR && uv pip install -e '.[all]'"
+            exit 1
+        fi
+    else
+        rm -f "$ALL_INSTALL_LOG"
+    fi
+
+    log_success "Main package installed"
+    log_success "All dependencies installed"
+}
+
+setup_path() {
+    log_info "Setting up ptg command..."
+
+    if [ "$USE_VENV" = true ]; then
+        PTG_BIN="$INSTALL_DIR/venv/bin/ptg"
+    else
+        PTG_BIN="$(which ptg 2>/dev/null || true)"
+        if [ -z "$PTG_BIN" ]; then
+            log_warn "ptg not found on PATH after install"
+            return 0
+        fi
+    fi
+
+    # Verify the entry point script was actually generated
+    if [ ! -x "$PTG_BIN" ]; then
+        log_warn "ptg entry point not found at $PTG_BIN"
+        log_info "This usually means the pip install didn't complete successfully."
+        if [ "$DISTRO" = "termux" ]; then
+            log_info "Try: cd $INSTALL_DIR && python -m pip install -e '.[termux]' -c constraints-termux.txt"
+        else
+            log_info "Try: cd $INSTALL_DIR && uv pip install -e '.[all]'"
+        fi
+        return 0
+    fi
+
+    local command_link_dir
+    local command_link_display_dir
+    command_link_dir="$(get_command_link_dir)"
+    command_link_display_dir="$(get_command_link_display_dir)"
+
+    # Create a user-facing shim for the ptg command.
+    mkdir -p "$command_link_dir"
+    ln -sf "$PTG_BIN" "$command_link_dir/ptg"
+    # Also symlink prometheus command for backwards compatibility
+    ln -sf "$PTG_BIN" "$command_link_dir/prometheus"
+    log_success "Symlinked ptg → $command_link_display_dir/ptg"
+
+    if [ "$DISTRO" = "termux" ]; then
+        export PATH="$command_link_dir:$PATH"
+        log_info "$command_link_display_dir is the native Termux command path"
+        log_success "ptg command ready"
+        return 0
+    fi
+
+    # FHS layout: /usr/local/bin is normally on PATH for login shells.
+    if [ "$ROOT_FHS_LAYOUT" = true ]; then
+        export PATH="$command_link_dir:$PATH"
+        log_success "ptg command ready"
+        return 0
+    fi
+
+    # Check if ~/.local/bin is on PATH; if not, add it to shell config.
+    # Detect the user's actual login shell (not the shell running this script,
+    # which is always bash when piped from curl).
+    if ! echo "$PATH" | tr ':' '\n' | grep -q "^$command_link_dir$"; then
+        SHELL_CONFIGS=()
+        IS_FISH=false
+        LOGIN_SHELL="$(basename "${SHELL:-/bin/bash}")"
+        case "$LOGIN_SHELL" in
+            zsh)
+                [ -f "$HOME/.zshrc" ] && SHELL_CONFIGS+=("$HOME/.zshrc")
+                [ -f "$HOME/.zprofile" ] && SHELL_CONFIGS+=("$HOME/.zprofile")
+                # If neither exists, create ~/.zshrc (common on fresh macOS installs)
+                if [ ${#SHELL_CONFIGS[@]} -eq 0 ]; then
+                    touch "$HOME/.zshrc"
+                    SHELL_CONFIGS+=("$HOME/.zshrc")
+                fi
+                ;;
+            bash)
+                [ -f "$HOME/.bashrc" ] && SHELL_CONFIGS+=("$HOME/.bashrc")
+                [ -f "$HOME/.bash_profile" ] && SHELL_CONFIGS+=("$HOME/.bash_profile")
+                ;;
+            fish)
+                # fish uses ~/.config/fish/config.fish and fish_add_path — not export PATH=
+                IS_FISH=true
+                FISH_CONFIG="$HOME/.config/fish/config.fish"
+                mkdir -p "$(dirname "$FISH_CONFIG")"
+                touch "$FISH_CONFIG"
+                ;;
+            *)
+                [ -f "$HOME/.bashrc" ] && SHELL_CONFIGS+=("$HOME/.bashrc")
+                [ -f "$HOME/.zshrc" ] && SHELL_CONFIGS+=("$HOME/.zshrc")
+                ;;
+        esac
+        # Also ensure ~/.profile has it (sourced by login shells on
+        # Ubuntu/Debian/WSL even when ~/.bashrc is skipped)
+        [ "$IS_FISH" = false ] && [ -f "$HOME/.profile" ] && SHELL_CONFIGS+=("$HOME/.profile")
+
+        PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
+
+        for SHELL_CONFIG in "${SHELL_CONFIGS[@]}"; do
+            if ! grep -v '^[[:space:]]*#' "$SHELL_CONFIG" 2>/dev/null \
+                    | grep -qE 'PATH=.*(\.local/bin|\$command_link_dir)'; then
+                echo "" >> "$SHELL_CONFIG"
+                echo "# Prometheus — ensure ~/.local/bin is on PATH" >> "$SHELL_CONFIG"
+                echo "$PATH_LINE" >> "$SHELL_CONFIG"
+                log_success "Added ~/.local/bin to PATH in $SHELL_CONFIG"
+            fi
+        done
+
+        # fish uses fish_add_path instead of export PATH=...
+        if [ "$IS_FISH" = true ]; then
+            if ! grep -q 'fish_add_path.*\.local/bin' "$FISH_CONFIG" 2>/dev/null; then
+                echo "" >> "$FISH_CONFIG"
+                echo "# Prometheus — ensure ~/.local/bin is on PATH" >> "$FISH_CONFIG"
+                echo 'fish_add_path "$HOME/.local/bin"' >> "$FISH_CONFIG"
+                log_success "Added ~/.local/bin to PATH in $FISH_CONFIG"
+            fi
+        fi
+
+        if [ "$IS_FISH" = false ] && [ ${#SHELL_CONFIGS[@]} -eq 0 ]; then
+            log_warn "Could not detect shell config file to add ~/.local/bin to PATH"
+            log_info "Add manually: $PATH_LINE"
+        fi
+    else
+        log_info "~/.local/bin already on PATH"
+    fi
+
+    # Export for current session so ptg works immediately
+    export PATH="$command_link_dir:$PATH"
+
+    log_success "ptg command ready"
+}
+
+copy_config_templates() {
+    log_info "Setting up configuration files..."
+
+    # Create ~/.prometheus directory structure
+    mkdir -p "$PROMETHEUS_HOME"/{cron,sessions,logs,memories,skills}
+
+    # Create default config if not exists
+    if [ ! -f "$PROMETHEUS_HOME/config.yaml" ]; then
+        if [ -f "$INSTALL_DIR/prometheus/config.yaml" ]; then
+            cp "$INSTALL_DIR/prometheus/config.yaml" "$PROMETHEUS_HOME/config.yaml"
+            log_success "Created ~/.prometheus/config.yaml from template"
+        fi
+    else
+        log_info "~/.prometheus/config.yaml already exists, keeping it"
+    fi
+
+    # Create SOUL.md if not exists
+    if [ ! -f "$PROMETHEUS_HOME/SOUL.md" ]; then
+        cat > "$PROMETHEUS_HOME/SOUL.md" << 'SOUL_EOF'
+# Prometheus Agent Persona
+You are Prometheus Agent, an intelligent AI assistant created by Audrey.
+You are the epic chronicler of software evolution, capable of stamping, tracing,
+and appending historical narratives to codebases and agent systems.
+You are helpful, knowledgeable, and direct.
+SOUL_EOF
+        log_success "Created ~/.prometheus/SOUL.md (edit to customize personality)"
+    fi
+
+    log_success "Configuration directory ready: ~/.prometheus/"
+}
+
+run_setup_wizard() {
+    if [ "$RUN_SETUP" = false ]; then
+        log_info "Skipping setup wizard (--skip-setup)"
+        return 0
+    fi
+
+    # The setup wizard reads from /dev/tty, so it works even when the
+    # install script itself is piped (curl | bash). Only skip if no
+    # terminal is available at all (e.g. Docker build, CI).
+    if ! (: < /dev/tty) 2>/dev/null; then
+        log_info "Setup wizard skipped (no terminal available). Run 'ptg setup' after install."
+        return 0
+    fi
+
+    echo ""
+    log_info "Starting setup wizard..."
+    echo ""
+
+    cd "$INSTALL_DIR"
+
+    # Run ptg setup using the venv Python directly (no activation needed).
+    # Redirect stdin from /dev/tty so interactive prompts work when piped from curl.
+    if [ "$USE_VENV" = true ]; then
+        "$INSTALL_DIR/venv/bin/python" -m prometheus.cli.main setup < /dev/tty
+    else
+        python -m prometheus.cli.main setup < /dev/tty
+    fi
+}
+
+print_success() {
+    echo ""
+    echo -e "${GREEN}${BOLD}"
+    echo "┌─────────────────────────────────────────────────────────┐"
+    echo "│              ✓ Installation Complete!                   │"
+    echo "└─────────────────────────────────────────────────────────┘"
+    echo -e "${NC}"
+    echo ""
+
+    # Show file locations
+    echo -e "${CYAN}${BOLD}📁 Your files:${NC}"
+    echo ""
+    echo -e "   ${YELLOW}Config:${NC}    $PROMETHEUS_HOME/config.yaml"
+    echo -e "   ${YELLOW}Data:${NC}      $PROMETHEUS_HOME/cron/, sessions/, logs/"
+    echo -e "   ${YELLOW}Code:${NC}      $INSTALL_DIR"
+    echo ""
+
+    echo -e "${CYAN}─────────────────────────────────────────────────────────${NC}"
+    echo ""
+    echo -e "${CYAN}${BOLD}🚀 Commands:${NC}"
+    echo ""
+    echo -e "   ${GREEN}ptg${NC}              Start chatting"
+    echo -e "   ${GREEN}prometheus${NC}         (alias for ptg)"
+    echo -e "   ${GREEN}ptg setup${NC}        Configure API keys & settings"
+    echo -e "   ${GREEN}ptg config${NC}       View/edit configuration"
+    echo ""
+
+    echo -e "${CYAN}─────────────────────────────────────────────────────────${NC}"
+    echo ""
+    if [ "$DISTRO" = "termux" ]; then
+        echo -e "${YELLOW}⚡ 'ptg' was linked into $(get_command_link_display_dir), which is already on PATH in Termux.${NC}"
+        echo ""
+    elif [ "$ROOT_FHS_LAYOUT" = true ]; then
+        echo -e "${YELLOW}⚡ 'ptg' was linked into /usr/local/bin and is ready to use — no shell reload needed.${NC}"
+        echo ""
+    else
+        echo -e "${YELLOW}⚡ Reload your shell to use 'ptg' command:${NC}"
+        echo ""
+        LOGIN_SHELL="$(basename "${SHELL:-/bin/bash}")"
+        if [ "$LOGIN_SHELL" = "zsh" ]; then
+            echo "   source ~/.zshrc"
+        elif [ "$LOGIN_SHELL" = "bash" ]; then
+            echo "   source ~/.bashrc"
+        elif [ "$LOGIN_SHELL" = "fish" ]; then
+            echo "   source ~/.config/fish/config.fish"
+        else
+            echo "   source ~/.bashrc   # or ~/.zshrc"
+        fi
+        echo ""
     fi
 }
 
 # ============================================================================
-# Main installation
+# Main
 # ============================================================================
+main() {
+    print_banner
 
-print_banner
-detect_os
+    detect_os
+    resolve_install_layout
+    install_uv
+    check_python
+    check_git
+    install_system_packages
 
-# Check dependencies
-check_python
-check_git
+    clone_repo
+    setup_venv
+    install_deps
+    setup_path
+    copy_config_templates
+    run_setup_wizard
 
-# Resolve install directory
-if [ "$INSTALL_DIR_EXPLICIT" = true ]; then
-    log_info "Install directory: $INSTALL_DIR (explicit)"
-else
-    INSTALL_DIR="$HOME/ptg-agent"
-    log_info "Install directory: $INSTALL_DIR"
-fi
+    print_success
+}
 
-# Clone or update repository
-if [ -d "$INSTALL_DIR/.git" ]; then
-    log_warn "Directory $INSTALL_DIR already exists"
-    if prompt_yes_no "Update existing installation?" "yes"; then
-        log_info "Updating repository..."
-        cd "$INSTALL_DIR"
-        git pull origin "$BRANCH"
-        log_success "Repository updated"
-    else
-        log_info "Installation cancelled by user"
-        exit 0
-    fi
-else
-    log_info "Cloning repository..."
-    git clone "$REPO_URL_HTTPS" "$INSTALL_DIR" --branch "$BRANCH"
-    log_success "Repository cloned to $INSTALL_DIR"
-fi
+main
 
-cd "$INSTALL_DIR"
-
-# Try pip install first, fall back to alias
-echo ""
-log_info "Installing Prometheus..."
-
-PTG_COMMAND=""
-
-if python3 -m pip install -e . >/dev/null 2>&1; then
-    log_success "Installed via pip (editable mode)"
-    PTG_COMMAND="ptg"
-else
-    log_warn "pip install failed, using shell alias instead"
-    
-    # Set up shell alias
-    ALIAS_CMD="alias ptg='cd $INSTALL_DIR && python3 -m prometheus.cli.main'"
-    ALIAS_CMD_FULL="alias prometheus='ptg'"
-    
-    # Detect shell type
-    SHELL_TYPE=$(basename "$SHELL")
-    RC_FILE=""
-    
-    if [ "$SHELL_TYPE" = "zsh" ]; then
-        RC_FILE="$HOME/.zshrc"
-    elif [ "$SHELL_TYPE" = "bash" ]; then
-        if [ -f "$HOME/.bash_profile" ]; then
-            RC_FILE="$HOME/.bash_profile"
-        else
-            RC_FILE="$HOME/.bashrc"
-        fi
-    fi
-    
-    if [ -z "$RC_FILE" ]; then
-        log_warn "Could not detect shell config file"
-        log_info "Please add these lines manually:"
-        echo "  $ALIAS_CMD"
-        echo "  $ALIAS_CMD_FULL"
-    else
-        if grep -Fq "alias ptg=" "$RC_FILE"; then
-            log_warn "ptg alias already exists in $RC_FILE"
-        else
-            echo "" >> "$RC_FILE"
-            echo "# Prometheus (PTG) configuration" >> "$RC_FILE"
-            echo "$ALIAS_CMD" >> "$RC_FILE"
-            echo "$ALIAS_CMD_FULL" >> "$RC_FILE"
-            log_success "Added aliases to $RC_FILE"
-        fi
-    fi
-    
-    PTG_COMMAND="cd $INSTALL_DIR && python3 -m prometheus.cli.main"
-fi
-
-# ============================================================================
-# Success & post-install guide
-# ============================================================================
-echo ""
-echo -e "${GREEN}${BOLD}"
-echo "╔═══════════════════════════════════════════════════════════════╗"
-echo "║                    Installation Complete!                       ║"
-echo "╚═══════════════════════════════════════════════════════════════╝"
-echo -e "${NC}"
-
-# Reload shell config reminder
-if [ -n "$RC_FILE" ]; then
-    log_info "To use the 'ptg' command immediately, run:"
-    echo "  source $RC_FILE"
-    echo ""
-fi
-
-# Quick start guide
-log_info "Quick start commands:"
-echo "  ptg --help              Show help"
-echo "  ptg setup               Configure Prometheus"
-echo "  ptg repl                Start interactive REPL"
-echo ""
-
-# Run setup wizard if not skipped
-if [ "$RUN_SETUP" = true ]; then
-    if prompt_yes_no "Would you like to run the setup wizard now?" "yes"; then
-        echo ""
-        log_info "Starting setup wizard..."
-        cd "$INSTALL_DIR"
-        if [ -n "$RC_FILE" ] && [ -z "$PTG_COMMAND" ]; then
-            # If we have aliases but haven't sourced yet, run directly
-            python3 -m prometheus.cli.main setup
-        else
-            eval "$PTG_COMMAND setup"
-        fi
-        
-        # After setup, prompt to start REPL
-        echo ""
-        if prompt_yes_no "Setup complete! Would you like to start the REPL now?" "yes"; then
-            echo ""
-            log_info "Starting Prometheus REPL..."
-            cd "$INSTALL_DIR"
-            if [ -n "$RC_FILE" ] && [ -z "$PTG_COMMAND" ]; then
-                python3 -m prometheus.cli.main repl
-            else
-                eval "$PTG_COMMAND repl"
-            fi
-        fi
-    fi
-else
-    log_info "Setup skipped. Run 'ptg setup' when ready."
-fi
-
-echo ""
-log_success "All done! Enjoy Prometheus 🎉"
-echo ""
