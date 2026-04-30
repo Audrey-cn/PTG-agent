@@ -1,0 +1,82 @@
+# 🔥 PTG Agent · Prometheus Teach-To-Grow
+
+种子基因编辑器 — AI 生命体的基因操作系统。
+
+## 创始人
+
+**Audrey · 001X** — 人类编码 001X，跨性别女性
+
+> *「X不标记未知，X标记超越」*
+
+## 架构
+
+```
+ptg-agent/
+├── prometheus/          # 核心框架
+│   ├── prometheus.py    # 主入口
+│   ├── ptg              # CLI 入口脚本
+│   ├── cli/             # CLI 模块
+│   ├── tools/           # 工具模块
+│   ├── genes/           # 基因库/分析器
+│   ├── tests/           # 399 个测试
+│   └── config.yaml      # 默认配置
+├── seeds/               # TTG 始祖种子
+├── seed-vault/          # 种子仓库
+├── data/                # 持久化数据
+├── requirements.txt     # Python 依赖
+└── README.md            # 本文件
+```
+
+## 快速开始
+
+```bash
+# 安装依赖
+pip install -r requirements.txt
+
+# 引导式初始化
+python prometheus/ptg setup
+
+# 系统健康诊断
+python prometheus/ptg doctor
+
+# 查看系统状态
+python prometheus/ptg status
+```
+
+## CLI 命令
+
+```bash
+ptg setup              # 引导式初始化
+ptg doctor             # 系统健康诊断
+ptg status             # 系统状态总览
+ptg model              # 模型配置
+ptg config show        # 配置管理
+ptg seed list          # 种子管理
+ptg gene list <路径>   # 基因编辑
+ptg memory recall      # 向量记忆
+ptg kb search          # 知识库检索
+ptg dict scan          # 语义字典
+```
+
+## 核心概念
+
+- **种子 (.ttg)** — 独立自给自足的生命体，自带完整系统能力
+- **基因** — 种子的最小功能单元（G001-G008 标准基因）
+- **族谱** — 种子的进化历史记录
+- **压缩编码** — 叙事的紧凑存储方式
+- **解码引擎** — 运行时展开史诗叙事
+
+## 设计哲学
+
+1. 压缩编码 + 解码引擎
+2. 种子即框架（自举）
+3. 功能基因与叙事基因分离
+4. 碳基依赖级不可变基因
+5. 一切皆种子
+
+## 版本
+
+- 版本: 0.8.0
+- 代码名称: Prometheus
+- 诞生: 2026-04-29
+# PTG-agent
