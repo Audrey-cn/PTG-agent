@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> adcdd34cd4b9166a05fb1329f5fd04551684f029
 # 🔥 PTG Agent · Prometheus Teach-To-Grow
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Version](https://img.shields.io/badge/Version-0.8.0-purple)
