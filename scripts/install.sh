@@ -614,18 +614,34 @@ install_deps() {
             log_info "Using ANDROID_API_LEVEL=$ANDROID_API_LEVEL for Android wheel builds"
         fi
 
-        "$PIP_PYTHON" -m pip install --upgrade pip setuptools wheel >/dev/null
-        if ! "$PIP_PYTHON" -m pip install -e '.[termux]' -c constraints-termux.txt; then
-            log_warn "Termux feature install (.[termux]) failed, trying base install..."
-            if ! "$PIP_PYTHON" -m pip install -e '.' -c constraints-termux.txt; then
-                log_error "Package installation failed on Termux."
-                log_info "Ensure these packages are installed: pkg install clang rust make pkg-config libffi openssl"
-                log_info "Then re-run: cd $INSTALL_DIR && python -m pip install -e '.[termux]' -c constraints-termux.txt"
-                exit 1
-            fi
+        # Configure pip for better network stability
+        export PIP_DEFAULT_TIMEOUT=120
+        export PIP_RETRIES=10
+        export PIP_TIMEOUT=120
+
+        log_info "Upgrading pip (this may take a while)..."
+        if ! "$PIP_PYTHON" -m pip install --upgrade pip setuptools wheel; then
+            log_warn "pip upgrade failed, continuing with existing version"
         fi
 
-        log_success "Main package installed"
+        log_info "Installing Prometheus..."
+        # Try base install first (most reliable on Termux)
+        if "$PIP_PYTHON" -m pip install -e '.' -c constraints-termux.txt; then
+            log_success "Base install succeeded"
+            # Try optional Termux extras (gentle)
+            log_info "Trying Termux extras..."
+            if "$PIP_PYTHON" -m pip install -e '.[termux]' -c constraints-termux.txt 2>/dev/null; then
+                log_success "Termux extras installed"
+            else
+                log_warn "Some Termux extras skipped, but core is working"
+            fi
+        else
+            log_error "Package installation failed on Termux."
+            log_info "Ensure these packages are installed: pkg install clang rust make pkg-config libffi openssl"
+            log_info "Then re-run: cd $INSTALL_DIR && python -m pip install -e '.[termux]' -c constraints-termux.txt"
+            exit 1
+        fi
+
         log_success "All dependencies installed"
         return 0
     fi
