@@ -3,7 +3,7 @@
 Public API for the Prometheus Agent framework.
 """
 
-__version__ = "0.8.0"
+from prometheus.cli.main import __version__
 
 from prometheus._paths import get_paths
 from prometheus.chronicler import (
@@ -13,7 +13,6 @@ from prometheus.chronicler import (
     TraceReport,
     format_trace_report,
 )
-from prometheus.cli.main import __version__
 from prometheus.prometheus import (
     FOUNDER_CHRONICLE_SIGNATURE,
     FOUNDER_TAG_LEXICON,
