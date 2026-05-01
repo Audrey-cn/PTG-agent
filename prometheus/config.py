@@ -244,6 +244,9 @@ class PrometheusConfig:
         self.set("display.skin", name)
 
 
+Config = PrometheusConfig
+
+
 def ensure_prometheus_home():
     """Ensure ~/.prometheus directory structure exists."""
     home = get_prometheus_home()
