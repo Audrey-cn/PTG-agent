@@ -15,8 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_prometheus_home():
-    """Get the Prometheus home directory (~/.prometheus/)."""
-    return Path.home() / ".prometheus"
+    """Get the Prometheus home directory, respecting PROMETHEUS_HOME env var."""
+    from prometheus._paths import get_prometheus_home as _paths_get_home
+
+    return _paths_get_home()
 
 
 def get_config_path():

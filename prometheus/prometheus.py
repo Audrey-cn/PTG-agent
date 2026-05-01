@@ -22,9 +22,9 @@ import yaml
 #   配置
 # ═══════════════════════════════════════════
 
-PROMETHEUS_HOME = os.path.expanduser("~/.hermes/tools/prometheus")
+PROMETHEUS_HOME = os.environ.get("PROMETHEUS_HOME", os.path.expanduser("~/.prometheus"))
 SNAPSHOT_DIR = os.path.join(PROMETHEUS_HOME, "snapshots")
-VAULT_DIR = os.path.expanduser("~/.hermes/seed-vault")
+VAULT_DIR = os.path.expanduser("~/.prometheus/seed-vault")
 LOG_FILE = os.path.join(PROMETHEUS_HOME, "prometheus.log")
 
 IMMUTABLE_GENES = {

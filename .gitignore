@@ -51,8 +51,8 @@ env/
 .venv/
 ENV/
 
-# 用户配置目录（可在仓库外）
-~/.prometheus/
+# 运行时备份目录
+prometheus/backup/
 
 # 大文件（不提交到Git）
 *.png

@@ -23,6 +23,15 @@ modules =
     prometheus.memory
     prometheus.channels
     prometheus.bootstrap
+    prometheus.cron
+    prometheus.codec
+    prometheus.environments
+    prometheus.accelerator
+    prometheus.acp_adapter
+    prometheus.models
+    prometheus.providers
+    prometheus.hooks
+    prometheus.integration
 
 [importlinter:contract:2]
 name = 工具层不应依赖Agent核心

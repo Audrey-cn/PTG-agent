@@ -227,16 +227,13 @@ class ChannelManager:
                 )
                 return FileWatchChannel(config)
             else:
-                # 平台 Adapter
-                from .platforms import (
-                    DingtalkAdapter,
-                    DiscordAdapter,
-                    FeishuAdapter,
-                    TelegramAdapter,
-                )
+                from prometheus.gateway.platforms.dingtalk import DingTalkAdapter
+                from prometheus.gateway.platforms.discord import DiscordAdapter
+                from prometheus.gateway.platforms.feishu import FeishuAdapter
+                from prometheus.gateway.platforms.telegram import TelegramAdapter
 
                 channel_config = ChannelConfig(
-                    ChannelType.HTTP_WEBHOOK,  # 通用类型
+                    ChannelType.HTTP_WEBHOOK,
                     name or platform.config_key,
                     cfg.get("enabled", False),
                     cfg,
@@ -248,9 +245,8 @@ class ChannelManager:
                 elif platform_type == PlatformType.FEISHU:
                     return FeishuAdapter(channel_config)
                 elif platform_type == PlatformType.DINGTALK:
-                    return DingtalkAdapter(channel_config)
+                    return DingTalkAdapter(channel_config)
                 else:
-                    # 其他平台返回占位提示
                     print(f"ℹ️ 平台 {platform.name} 适配器待实现，配置已启用")
                     return None
         except Exception as e:

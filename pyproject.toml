@@ -110,11 +110,11 @@ ptg = "prometheus.cli.main:main"
 prometheus = "prometheus.cli.main:main"
 
 [project.urls]
-Homepage = "https://github.com/audrey/prometheus-ptg"
-Documentation = "https://github.com/audrey/prometheus-ptg#readme"
-Repository = "https://github.com/audrey/prometheus-ptg"
-Issues = "https://github.com/audrey/prometheus-ptg/issues"
-Changelog = "https://github.com/audrey/prometheus-ptg/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Audrey-cn/PTG-agent"
+Documentation = "https://github.com/Audrey-cn/PTG-agent#readme"
+Repository = "https://github.com/Audrey-cn/PTG-agent"
+Issues = "https://github.com/Audrey-cn/PTG-agent/issues"
+Changelog = "https://github.com/Audrey-cn/PTG-agent/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 include = ["prometheus", "prometheus.*"]

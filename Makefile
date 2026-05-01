@@ -21,10 +21,10 @@ install-dev:
 	pip install -e ".[dev]"
 
 test:
-	python -m pytest prometheus/tests/ -v
+	python -m pytest tests/ -v
 
 test-cov:
-	python -m pytest prometheus/tests/ -v --cov=prometheus --cov-report=term-missing --cov-report=html
+	python -m pytest tests/ -v --cov=prometheus --cov-report=term-missing --cov-report=html
 
 lint:
 	python -m ruff check prometheus/
