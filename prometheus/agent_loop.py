@@ -16,12 +16,12 @@ from pathlib import Path
 try:
     from .context_compressor import CompressionStrategy, ContextCompressor
     from .memory_system import get_soul_path
-    from .tools.registry import registry, tool_error, tool_result
+    from .tools.security.registry import registry, tool_error, tool_result
 except ImportError:
     from context_compressor import CompressionStrategy, ContextCompressor
     from memory_system import get_soul_path
 
-    from prometheus.tools.registry import registry
+    from prometheus.tools.security.registry import registry, tool_error, tool_result
 
 logger = logging.getLogger("prometheus.agent")
 

@@ -192,6 +192,8 @@ DEFAULT_CONFIG = {
 class PrometheusConfig:
     """Prometheus configuration manager."""
 
+    _change_listeners = []
+
     def __init__(self, config_dict=None, config_path=None):
         self._config = config_dict or DEFAULT_CONFIG.copy()
         self._config_path = config_path
@@ -243,6 +245,80 @@ class PrometheusConfig:
                 config[k] = {}
             config = config[k]
         config[keys[-1]] = value
+        self._notify_listeners(key, value)
+
+    def update(self, updates: dict):
+        """Batch update multiple config values."""
+        for key, value in updates.items():
+            self.set(key, value)
+
+    def validate(self) -> list[str]:
+        """Validate config structure and values.
+        
+        Returns:
+            List of validation error messages (empty if valid).
+        """
+        errors = []
+        
+        if not isinstance(self._config, dict):
+            errors.append("Config must be a dictionary")
+            return errors
+        
+        model = self._config.get("model", {})
+        if not isinstance(model, dict):
+            errors.append("'model' section must be a dictionary")
+        else:
+            if "name" in model and not isinstance(model["name"], str):
+                errors.append("'model.name' must be a string")
+            if "max_tokens" in model and not isinstance(model["max_tokens"], int):
+                errors.append("'model.max_tokens' must be an integer")
+            if "temperature" in model:
+                temp = model["temperature"]
+                if not isinstance(temp, (int, float)) or temp < 0 or temp > 2:
+                    errors.append("'model.temperature' must be between 0 and 2")
+        
+        display = self._config.get("display", {})
+        if not isinstance(display, dict):
+            errors.append("'display' section must be a dictionary")
+        else:
+            if "compact" in display and not isinstance(display["compact"], bool):
+                errors.append("'display.compact' must be a boolean")
+            if "streaming" in display and not isinstance(display["streaming"], bool):
+                errors.append("'display.streaming' must be a boolean")
+        
+        agent = self._config.get("agent", {})
+        if not isinstance(agent, dict):
+            errors.append("'agent' section must be a dictionary")
+        else:
+            if "max_turns" in agent and not isinstance(agent["max_turns"], int):
+                errors.append("'agent.max_turns' must be an integer")
+            if "gateway_timeout" in agent and not isinstance(agent["gateway_timeout"], int):
+                errors.append("'agent.gateway_timeout' must be an integer")
+        
+        return errors
+
+    @classmethod
+    def add_change_listener(cls, callback):
+        """Add a listener for config changes.
+        
+        Args:
+            callback: Function to call when config changes, receives (key, value)
+        """
+        cls._change_listeners.append(callback)
+
+    @classmethod
+    def remove_change_listener(cls, callback):
+        """Remove a config change listener."""
+        if callback in cls._change_listeners:
+            cls._change_listeners.remove(callback)
+
+    def _notify_listeners(self, key, value):
+        """Notify all listeners of a config change."""
+        for listener in self._change_listeners:
+            try:
+                listener(key, value)
+            except Exception as e:
+                logger.warning("Config change listener failed: %s", e)
 
     def to_dict(self):
         """Return the raw config dictionary."""

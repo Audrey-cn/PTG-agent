@@ -1694,18 +1694,19 @@ def cmd_chat(args):
     )
 
     try:
-        from prometheus.agent_loop import AIAgent
+        from prometheus.agent_loop import AIAgent, AgentConfig
     except ImportError:
-        from agent_loop import AIAgent
+        from agent_loop import AIAgent, AgentConfig
 
-    agent = AIAgent(
-        system_prompt=system_prompt,
-        api_key=api_key,
-        base_url=base_url,
+    agent_config = AgentConfig(
         model=model,
-        max_iterations=getattr(args, "max_iterations", 50),
         provider=provider,
+        base_url=base_url,
+        api_key=api_key,
+        max_iterations=getattr(args, "max_iterations", 50),
     )
+
+    agent = AIAgent(config=agent_config, system_prompt=system_prompt)
 
     if getattr(args, "message", None):
         initial = " ".join(getattr(args, "message", []))
