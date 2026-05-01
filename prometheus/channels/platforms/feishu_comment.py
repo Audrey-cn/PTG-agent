@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import json
 import logging
-from typing import Optional, Any
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
@@ -12,6 +11,7 @@ logger = logging.getLogger(__name__)
 try:
     import lark_oapi as lark
     from lark_oapi.api.drive.v1 import GetFileCommentRequest
+
     FEISHU_AVAILABLE = True
 except ImportError:
     FEISHU_AVAILABLE = False
@@ -46,7 +46,7 @@ class FeishuCommentAdapter(PlatformAdapter):
             logger.error("飞书评论 send failed: %s", e)
             return False
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_comments:
             msg = self._pending_comments.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)
@@ -61,11 +61,14 @@ class FeishuCommentAdapter(PlatformAdapter):
             return False
         try:
             import lark_oapi as lark
-            self._client = lark.Client.builder() \
-                .app_id(self.app_id) \
-                .app_secret(self.app_secret) \
-                .log_level(lark.LogLevel.INFO) \
+
+            self._client = (
+                lark.Client.builder()
+                .app_id(self.app_id)
+                .app_secret(self.app_secret)
+                .log_level(lark.LogLevel.INFO)
                 .build()
+            )
             self._started = True
             logger.info("飞书评论适配器已启动")
             return True
@@ -87,12 +90,14 @@ class FeishuCommentAdapter(PlatformAdapter):
             text = comment.get("content", "")
             file_token = event.get("file_token", "")
             user_id = event.get("user_id", "")
-            self._pending_comments.append({
-                "text": text,
-                "file_token": file_token,
-                "user": user_id,
-                "platform": "feishu_comment",
-            })
+            self._pending_comments.append(
+                {
+                    "text": text,
+                    "file_token": file_token,
+                    "user": user_id,
+                    "platform": "feishu_comment",
+                }
+            )
             if self._message_handler:
                 self._message_handler(text, file_token=file_token)
         except Exception as e:

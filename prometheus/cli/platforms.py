@@ -1,0 +1,94 @@
+"""Shared platform registry for Prometheus Agent."""
+
+from collections import OrderedDict
+from typing import NamedTuple
+
+
+class PlatformInfo(NamedTuple):
+    """Metadata for a single platform entry."""
+
+    label: str
+    default_toolset: str
+
+
+PLATFORMS: OrderedDict[str, PlatformInfo] = OrderedDict(
+    [
+        ("cli", PlatformInfo(label="🖥️  CLI", default_toolset="prometheus-cli")),
+        ("telegram", PlatformInfo(label="📱 Telegram", default_toolset="prometheus-telegram")),
+        ("discord", PlatformInfo(label="💬 Discord", default_toolset="prometheus-discord")),
+        ("slack", PlatformInfo(label="💼 Slack", default_toolset="prometheus-slack")),
+        ("whatsapp", PlatformInfo(label="📱 WhatsApp", default_toolset="prometheus-whatsapp")),
+        ("signal", PlatformInfo(label="📡 Signal", default_toolset="prometheus-signal")),
+        (
+            "bluebubbles",
+            PlatformInfo(label="💙 BlueBubbles", default_toolset="prometheus-bluebubbles"),
+        ),
+        ("email", PlatformInfo(label="📧 Email", default_toolset="prometheus-email")),
+        (
+            "homeassistant",
+            PlatformInfo(label="🏠 Home Assistant", default_toolset="prometheus-homeassistant"),
+        ),
+        (
+            "mattermost",
+            PlatformInfo(label="💬 Mattermost", default_toolset="prometheus-mattermost"),
+        ),
+        ("matrix", PlatformInfo(label="💬 Matrix", default_toolset="prometheus-matrix")),
+        ("dingtalk", PlatformInfo(label="💬 DingTalk", default_toolset="prometheus-dingtalk")),
+        ("feishu", PlatformInfo(label="🪽 Feishu", default_toolset="prometheus-feishu")),
+        ("wecom", PlatformInfo(label="💬 WeCom", default_toolset="prometheus-wecom")),
+        (
+            "wecom_callback",
+            PlatformInfo(label="💬 WeCom Callback", default_toolset="prometheus-wecom-callback"),
+        ),
+        ("weixin", PlatformInfo(label="💬 Weixin", default_toolset="prometheus-weixin")),
+        ("qqbot", PlatformInfo(label="💬 QQBot", default_toolset="prometheus-qqbot")),
+        ("yuanbao", PlatformInfo(label="🤖 Yuanbao", default_toolset="prometheus-yuanbao")),
+        ("webhook", PlatformInfo(label="🔗 Webhook", default_toolset="prometheus-webhook")),
+        (
+            "api_server",
+            PlatformInfo(label="🌐 API Server", default_toolset="prometheus-api-server"),
+        ),
+        ("cron", PlatformInfo(label="⏰ Cron", default_toolset="prometheus-cron")),
+    ]
+)
+
+
+def platform_label(key: str, default: str = "") -> str:
+    """Return the display label for a platform key, or *default*.
+
+    Checks the static PLATFORMS dict first, then the plugin platform
+    registry for dynamically registered platforms.
+    """
+    info = PLATFORMS.get(key)
+    if info is not None:
+        return info.label
+    try:
+        from prometheus.gateway.platform_registry import platform_registry
+
+        entry = platform_registry.get(key)
+        if entry:
+            return f"{entry.emoji}  {entry.label}" if entry.emoji else entry.label
+    except Exception:
+        pass
+    return default
+
+
+def get_all_platforms() -> "OrderedDict[str, PlatformInfo]":
+    """Return PLATFORMS merged with any plugin-registered platforms.
+
+    Plugin platforms are appended after builtins.  This is the function
+    that tools_config and skills_config should use for platform menus.
+    """
+    merged = OrderedDict(PLATFORMS)
+    try:
+        from prometheus.gateway.platform_registry import platform_registry
+
+        for entry in platform_registry.plugin_entries():
+            if entry.name not in merged:
+                merged[entry.name] = PlatformInfo(
+                    label=f"{entry.emoji}  {entry.label}" if entry.emoji else entry.label,
+                    default_toolset=f"prometheus-{entry.name}",
+                )
+    except Exception:
+        pass
+    return merged

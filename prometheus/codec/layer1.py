@@ -1,34 +1,10 @@
 #!/usr/bin/env python3
-"""
-╔══════════════════════════════════════════════════════════════╗
-║   🧬 普罗米修斯 · 种子编解码器 · Seed Codec                ║
-║                                                              ║
-║   Layer 1 结构压缩 —— 去冗余、去格式、字典去重。           ║
-║                                                              ║
-║   设计哲学（类比 DNA）：                                     ║
-║     DNA 不存储"描述"，只存储"指令"。描述是解码后的涌现。    ║
-║     种子也不应该存储格式开销。有效信息用紧凑格式编码，       ║
-║     运行时由解码器还原为完整结构。                           ║
-║                                                              ║
-║   压缩策略：                                                 ║
-║     1. 去除 Markdown 包装和 YAML 格式开销                    ║
-║     2. 字符串值去重，存入共享字典，用整数引用                ║
-║     3. 结构用紧凑 JSON（无缩进、无冗余键名）                ║
-║     4. 校验和保证完整性                                      ║
-║                                                              ║
-║   兼容性：                                                   ║
-║     - 编码器输出 .ttg.compact 文件                           ║
-║     - 解码器自动识别压缩/非压缩格式                          ║
-║     - load_seed() 透明支持两种格式                           ║
-╚══════════════════════════════════════════════════════════════╝
-"""
+"""╔══════════════════════════════════════════════════════════════╗."""
 
-import os
-import json
 import hashlib
-import re
-from typing import Any, Dict, List, Tuple, Optional
-
+import json
+import os
+from typing import Any
 
 # ═══════════════════════════════════════════
 #   常量
@@ -45,16 +21,17 @@ COMPACT_SUFFIX = ".compact"
 #   字符串字典编码器
 # ═══════════════════════════════════════════
 
+
 class StringDictEncoder:
     """字符串去重编码器。
-    
+
     将所有字符串值提取到共享字典中，用整数索引替代。
     类似 DNA 的碱基编码——有限的符号集编码无限的语义。
     """
 
     def __init__(self):
-        self.string_to_id: Dict[str, int] = {}
-        self.id_to_string: Dict[int, str] = {}
+        self.string_to_id: dict[str, int] = {}
+        self.id_to_string: dict[int, str] = {}
         self._next_id = 0
 
     def encode_string(self, s: str) -> Any:
@@ -98,11 +75,11 @@ class StringDictEncoder:
         else:
             return self.encode_string(data)
 
-    def get_dict(self) -> List[str]:
+    def get_dict(self) -> list[str]:
         """获取编码字典（按 ID 排序）。"""
         return [self.id_to_string.get(i, "") for i in range(self._next_id)]
 
-    def set_dict(self, dict_list: List[str]):
+    def set_dict(self, dict_list: list[str]):
         """设置解码字典。"""
         self.id_to_string = {i: s for i, s in enumerate(dict_list)}
         self.string_to_id = {s: i for i, s in enumerate(dict_list)}
@@ -140,6 +117,7 @@ class StringDictEncoder:
 #   }
 # }
 
+
 def _checksum(data: bytes) -> bytes:
     """计算校验和"""
     return hashlib.md5(data).digest()[:4]
@@ -149,13 +127,14 @@ def _checksum(data: bytes) -> bytes:
 #   编码器
 # ═══════════════════════════════════════════
 
+
 def encode_seed(seed_data: dict, original_size: int = 0) -> bytes:
     """将种子数据编码为紧凑二进制格式。
-    
+
     Args:
         seed_data: load_seed() 返回的 dict
         original_size: 原始文件大小（用于统计）
-        
+
     Returns:
         编码后的字节流
     """
@@ -175,34 +154,34 @@ def encode_seed(seed_data: dict, original_size: int = 0) -> bytes:
             "checksum": hashlib.md5(
                 json.dumps(seed_data, ensure_ascii=False, sort_keys=True).encode()
             ).hexdigest()[:16],
-        }
+        },
     }
 
     # 序列化为紧凑 JSON（无缩进）
-    json_bytes = json.dumps(compact, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+    json_bytes = json.dumps(compact, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
     # 计算压缩后大小
     compact["meta"]["compressed_size"] = len(json_bytes)
-    compact["meta"]["compression_ratio"] = round(
-        original_size / len(json_bytes), 1
-    ) if original_size > 0 else 0
+    compact["meta"]["compression_ratio"] = (
+        round(original_size / len(json_bytes), 1) if original_size > 0 else 0
+    )
 
     # 重新序列化（因为 meta 变了）
-    json_bytes = json.dumps(compact, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+    json_bytes = json.dumps(compact, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
     # 构建二进制文件
-    data_len = len(json_bytes).to_bytes(4, 'big')
+    data_len = len(json_bytes).to_bytes(4, "big")
     cs = _checksum(json_bytes)
 
     return MAGIC + bytes([VERSION]) + data_len + json_bytes + cs
 
 
-def decode_seed(raw: bytes) -> Optional[dict]:
+def decode_seed(raw: bytes) -> dict | None:
     """从紧凑二进制格式解码种子数据。
-    
+
     Args:
         raw: encode_seed() 输出的字节流
-        
+
     Returns:
         解码后的种子 dict（等同于 load_seed() 返回值），失败返回 None
     """
@@ -219,16 +198,16 @@ def decode_seed(raw: bytes) -> Optional[dict]:
         return None
 
     # 读取数据长度
-    data_len = int.from_bytes(raw[5:9], 'big')
+    data_len = int.from_bytes(raw[5:9], "big")
 
     if 9 + data_len + 4 > len(raw):
         return None
 
     # 读取 JSON 数据
-    json_bytes = raw[9:9 + data_len]
+    json_bytes = raw[9 : 9 + data_len]
 
     # 验证校验和
-    expected_cs = raw[9 + data_len:9 + data_len + 4]
+    expected_cs = raw[9 + data_len : 9 + data_len + 4]
     actual_cs = _checksum(json_bytes)
     if expected_cs != actual_cs:
         return None
@@ -253,17 +232,19 @@ def decode_seed(raw: bytes) -> Optional[dict]:
 #   便捷函数
 # ═══════════════════════════════════════════
 
+
 def compress_file(input_path: str, output_path: str = None) -> dict:
     """压缩 .ttg 文件。
-    
+
     Args:
         input_path: 原始 .ttg 文件路径
         output_path: 输出路径（默认 .ttg.compact）
-        
+
     Returns:
         {success, input_size, output_size, ratio}
     """
     import sys
+
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from prometheus import load_seed
 
@@ -284,7 +265,7 @@ def compress_file(input_path: str, output_path: str = None) -> dict:
     if not output_path:
         output_path = input_path + COMPACT_SUFFIX
 
-    with open(output_path, 'wb') as f:
+    with open(output_path, "wb") as f:
         f.write(encoded)
 
     output_size = len(encoded)
@@ -306,7 +287,7 @@ def decompress_file(input_path: str, output_path: str = None) -> dict:
     if not os.path.exists(input_path):
         return {"success": False, "error": f"文件不存在: {input_path}"}
 
-    with open(input_path, 'rb') as f:
+    with open(input_path, "rb") as f:
         raw = f.read()
 
     seed_data = decode_seed(raw)
@@ -319,20 +300,25 @@ def decompress_file(input_path: str, output_path: str = None) -> dict:
 
     # 重新生成 YAML 格式
     import sys
+
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from prometheus import save_seed
 
     # 先写一个临时文件让 save_seed 处理
     import tempfile
-    with tempfile.NamedTemporaryFile(suffix='.ttg', delete=False, mode='w', encoding='utf-8') as f:
+
+    with tempfile.NamedTemporaryFile(suffix=".ttg", delete=False, mode="w", encoding="utf-8") as f:
         # 写入最简结构让 save_seed 能处理
         import yaml
-        yaml_content = yaml.dump(seed_data, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+        yaml_content = yaml.dump(
+            seed_data, default_flow_style=False, allow_unicode=True, sort_keys=False
+        )
         f.write(yaml_content)
         tmp_path = f.name
 
     # 复制到目标
     import shutil
+
     shutil.copy2(tmp_path, output_path)
     os.unlink(tmp_path)
 
@@ -353,11 +339,11 @@ def codec_info(path: str) -> dict:
     size = os.path.getsize(path)
 
     if path.endswith(COMPACT_SUFFIX):
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             raw = f.read(13)
 
         if raw[:4] == MAGIC:
-            data_len = int.from_bytes(raw[5:9], 'big')
+            data_len = int.from_bytes(raw[5:9], "big")
             return {
                 "format": "compressed",
                 "size": size,
@@ -377,7 +363,7 @@ def is_compressed(path: str) -> bool:
     if not os.path.exists(path):
         return False
     try:
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             header = f.read(4)
         return header == MAGIC
     except:
@@ -387,6 +373,7 @@ def is_compressed(path: str) -> bool:
 # ═══════════════════════════════════════════
 #   CLI 入口
 # ═══════════════════════════════════════════
+
 
 def main():
     import sys
@@ -405,12 +392,12 @@ def main():
 
     action = sys.argv[1]
 
-    if action == 'compress' and len(sys.argv) > 2:
+    if action == "compress" and len(sys.argv) > 2:
         input_path = sys.argv[2]
         output_path = sys.argv[3] if len(sys.argv) > 3 else None
         result = compress_file(input_path, output_path)
         if result["success"]:
-            print(f"✅ 压缩完成")
+            print("✅ 压缩完成")
             print(f"   原始: {result['input_size']:,} bytes")
             print(f"   压缩: {result['output_size']:,} bytes")
             print(f"   比率: {result['ratio']}:1 (节省 {result['saved_pct']}%)")
@@ -418,7 +405,7 @@ def main():
         else:
             print(f"❌ {result.get('error', '未知错误')}")
 
-    elif action == 'decompress' and len(sys.argv) > 2:
+    elif action == "decompress" and len(sys.argv) > 2:
         input_path = sys.argv[2]
         output_path = sys.argv[3] if len(sys.argv) > 3 else None
         result = decompress_file(input_path, output_path)
@@ -427,17 +414,18 @@ def main():
         else:
             print(f"❌ {result.get('error', '未知错误')}")
 
-    elif action == 'info' and len(sys.argv) > 2:
+    elif action == "info" and len(sys.argv) > 2:
         info = codec_info(sys.argv[2])
-        print(f"\n📋 文件信息:")
+        print("\n📋 文件信息:")
         for k, v in info.items():
             print(f"  {k}: {v}")
 
-    elif action == 'benchmark' and len(sys.argv) > 2:
+    elif action == "benchmark" and len(sys.argv) > 2:
         path = sys.argv[2]
         original_size = os.path.getsize(path)
 
         import sys as _sys
+
         _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         from prometheus import load_seed
 

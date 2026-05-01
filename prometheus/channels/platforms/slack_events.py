@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Optional, Any
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
 
 try:
     from slack_bolt import App as SlackApp
+
     SLACK_AVAILABLE = True
 except ImportError:
     SLACK_AVAILABLE = False
@@ -48,7 +49,7 @@ class SlackEventsAdapter(PlatformAdapter):
             logger.error("Slack Events send failed: %s", e)
             return False
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_events:
             msg = self._pending_events.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)
@@ -81,7 +82,7 @@ class SlackEventsAdapter(PlatformAdapter):
     def handle_url_verification(self, challenge: str) -> dict:
         return {"challenge": challenge}
 
-    def handle_event(self, event_data: dict) -> Optional[str]:
+    def handle_event(self, event_data: dict) -> str | None:
         if not self._started:
             return None
         event_type = event_data.get("type", "")
@@ -95,13 +96,15 @@ class SlackEventsAdapter(PlatformAdapter):
             user = event.get("user", "")
             if self.allowed_channels and channel_id not in self.allowed_channels:
                 return "ignored"
-            self._pending_events.append({
-                "text": text,
-                "channel": channel_id,
-                "user": user,
-                "event_type": event_type_inner,
-                "platform": "slack_events",
-            })
+            self._pending_events.append(
+                {
+                    "text": text,
+                    "channel": channel_id,
+                    "user": user,
+                    "event_type": event_type_inner,
+                    "platform": "slack_events",
+                }
+            )
             if self._message_handler:
                 self._message_handler(text, channel=channel_id)
         return "ok"

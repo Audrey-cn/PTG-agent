@@ -1,5 +1,5 @@
 # Prometheus genes package
-# 
+#
 # 基因系统模块 - 对应碳基生物学的遗传机制
 # 灵感来自：分子生物学、再生医学、免疫学前沿
 #
@@ -24,269 +24,236 @@
 # - apoptosis.py         → 细胞凋亡（程序性基因死亡、有序清理归档）
 # - autophagy.py         → 细胞自噬（自我清理、资源回收、稳态维持）
 
-from .analyzer import (
-    GeneLibrary,
-    GeneHealthAuditor,
-    GeneFusionAnalyzer,
-    ForeignGeneExtractor,
-    print_gene_health_report,
-    print_fusion_report,
-    print_extraction_report
-)
-
-from .bank import GeneBank
-
-from .forge import (
-    MutationSpace,
-    forge
-)
-
-from .nursery import (
-    GeneSieve,
-    Nursery
-)
-
-from .epigenetics import (
-    EpigeneticMark,
-    EpigeneticsManager,
-    print_epigenome_report
-)
-
 from .alleles import (
     Allele,
-    AllelicLocus,
     AlleleManager,
     AlleleType,
+    AllelicLocus,
     init_standard_alleles,
-    print_alleles_report
+    print_alleles_report,
 )
-
-from .pathways import (
-    SignalPathway,
-    PathwayStep,
-    PathwayManager,
-    PathwayAction,
-    FeedbackType,
-    init_standard_pathways,
-    print_pathways_report
+from .analyzer import (
+    ForeignGeneExtractor,
+    GeneFusionAnalyzer,
+    GeneHealthAuditor,
+    GeneLibrary,
+    print_extraction_report,
+    print_fusion_report,
+    print_gene_health_report,
 )
-
-from .repair import (
-    DNARepairMechanism,
-    DamageReport,
-    RepairResult,
-    DamageType,
-    RepairStrategy,
-    print_damage_report,
-    print_repair_report
+from .apoptosis import (
+    ApoptosisPathway,
+    ApoptosisResult,
+    ApoptosisStage,
+    Apoptosome,
+    CaspaseCascade,
+    DeathSignal,
 )
-
-from .genetic_circuits import (
-    GeneticCircuit,
-    GeneticLogicGate,
-    GeneticSwitch,
-    GeneticOscillator,
-    CircuitFactory,
-    CircuitEngine,
-    print_circuit_visualization
+from .autophagy import (
+    Autophagosome,
+    AutophagyLevel,
+    AutophagyNetwork,
+    AutophagyResult,
+    Lysosome,
+    RecycledFragment,
+    mTORKinase,
 )
-
-from .immune_memory import (
-    ImmuneSystem,
-    Antigen,
-    Antibody,
-    MemoryCell,
-    print_immune_response,
-    print_immune_stats
+from .bank import GeneBank
+from .correction import (
+    DegradationMode,
+    ErrorCategory,
+    ErrorDiagnoser,
+    ErrorRecord,
+    FixExecutor,
+    FixResult,
+    FixStrategy,
+    RetryPolicy,
+    SelfCorrection,
 )
-
-from .homeostasis import (
-    HomeostasisSystem,
-    Sensor,
-    Effector,
-    FeedbackLoop,
-    print_homeostasis_dashboard
-)
-
+from .epigenetics import EpigeneticMark, EpigeneticsManager, print_epigenome_report
+from .forge import MutationSpace, forge
 from .gene_pruning import (
+    GeneConnection,
     GeneExpressionPruner,
     GeneNode,
-    GeneConnection,
     PruningStrategy,
-    print_pruning_dashboard
+    print_pruning_dashboard,
 )
-
+from .genetic_circuits import (
+    CircuitEngine,
+    CircuitFactory,
+    GeneticCircuit,
+    GeneticLogicGate,
+    GeneticOscillator,
+    GeneticSwitch,
+    print_circuit_visualization,
+)
+from .homeostasis import (
+    Effector,
+    FeedbackLoop,
+    HomeostasisSystem,
+    Sensor,
+    print_homeostasis_dashboard,
+)
+from .immune_memory import (
+    Antibody,
+    Antigen,
+    ImmuneSystem,
+    MemoryCell,
+    print_immune_response,
+    print_immune_stats,
+)
+from .immune_surveillance import (
+    AbnormalityType,
+    Antigen,
+    CheckpointController,
+    CheckpointState,
+    ImmuneResponse,
+    ImmuneSurveillance,
+)
 from .modular_recombination import (
-    RecombinationEngine,
     GeneModule,
     GenomeConfiguration,
+    RecombinationEngine,
     RecombinationType,
-    print_recombination_dashboard
+    print_recombination_dashboard,
 )
-
-from .correction import (
-    ErrorCategory,
-    FixStrategy,
-    DegradationMode,
-    RetryPolicy,
-    ErrorRecord,
-    FixResult,
-    ErrorDiagnoser,
-    FixExecutor,
-    SelfCorrection
+from .nursery import GeneSieve, Nursery
+from .pathways import (
+    FeedbackType,
+    PathwayAction,
+    PathwayManager,
+    PathwayStep,
+    SignalPathway,
+    init_standard_pathways,
+    print_pathways_report,
 )
-
 from .reflection import (
     EventType,
-    Severity,
-    ProposalPriority,
-    Observation,
     EvolutionProposal,
+    Observation,
     ObservationCollector,
     PatternAnalyzer,
     ProposalManager,
-    SelfReflection
+    ProposalPriority,
+    SelfReflection,
+    Severity,
 )
-
-from .stem_cell import (
-    StemCell,
-    StemCellNursery,
-    RegenerationResult,
-    DifferentiationState
+from .repair import (
+    DamageReport,
+    DamageType,
+    DNARepairMechanism,
+    RepairResult,
+    RepairStrategy,
+    print_damage_report,
+    print_repair_report,
 )
-
-from .immune_surveillance import (
-    ImmuneSurveillance,
-    CheckpointController,
-    Antigen,
-    ImmuneResponse,
-    AbnormalityType,
-    CheckpointState
-)
-
-from .apoptosis import (
-    ApoptosisPathway,
-    DeathSignal,
-    Apoptosome,
-    ApoptosisResult,
-    CaspaseCascade,
-    ApoptosisStage
-)
-
-from .autophagy import (
-    AutophagyNetwork,
-    Autophagosome,
-    RecycledFragment,
-    AutophagyResult,
-    mTORKinase,
-    Lysosome,
-    AutophagyLevel
-)
+from .stem_cell import DifferentiationState, RegenerationResult, StemCell, StemCellNursery
 
 __all__ = [
-    'GeneLibrary',
-    'GeneHealthAuditor', 
-    'GeneFusionAnalyzer',
-    'ForeignGeneExtractor',
-    'print_gene_health_report',
-    'print_fusion_report',
-    'print_extraction_report',
-    'GeneBank',
-    'MutationSpace',
-    'forge',
-    'GeneSieve',
-    'Nursery',
-    'EpigeneticMark',
-    'EpigeneticsManager',
-    'print_epigenome_report',
-    'Allele',
-    'AllelicLocus',
-    'AlleleManager',
-    'AlleleType',
-    'init_standard_alleles',
-    'print_alleles_report',
-    'SignalPathway',
-    'PathwayStep',
-    'PathwayManager',
-    'PathwayAction',
-    'FeedbackType',
-    'init_standard_pathways',
-    'print_pathways_report',
-    'DNARepairMechanism',
-    'DamageReport',
-    'RepairResult',
-    'DamageType',
-    'RepairStrategy',
-    'print_damage_report',
-    'print_repair_report',
-    'GeneticCircuit',
-    'GeneticLogicGate',
-    'GeneticSwitch',
-    'GeneticOscillator',
-    'CircuitFactory',
-    'CircuitEngine',
-    'print_circuit_visualization',
-    'ImmuneSystem',
-    'Antigen',
-    'Antibody',
-    'MemoryCell',
-    'print_immune_response',
-    'print_immune_stats',
-    'HomeostasisSystem',
-    'Sensor',
-    'Effector',
-    'FeedbackLoop',
-    'print_homeostasis_dashboard',
-    'GeneExpressionPruner',
-    'GeneNode',
-    'GeneConnection',
-    'PruningStrategy',
-    'print_pruning_dashboard',
-    'RecombinationEngine',
-    'GeneModule',
-    'GenomeConfiguration',
-    'RecombinationType',
-    'print_recombination_dashboard',
-    'ErrorCategory',
-    'FixStrategy',
-    'DegradationMode',
-    'RetryPolicy',
-    'ErrorRecord',
-    'FixResult',
-    'ErrorDiagnoser',
-    'FixExecutor',
-    'SelfCorrection',
-    'EventType',
-    'Severity',
-    'ProposalPriority',
-    'Observation',
-    'EvolutionProposal',
-    'ObservationCollector',
-    'PatternAnalyzer',
-    'ProposalManager',
-    'SelfReflection',
+    "GeneLibrary",
+    "GeneHealthAuditor",
+    "GeneFusionAnalyzer",
+    "ForeignGeneExtractor",
+    "print_gene_health_report",
+    "print_fusion_report",
+    "print_extraction_report",
+    "GeneBank",
+    "MutationSpace",
+    "forge",
+    "GeneSieve",
+    "Nursery",
+    "EpigeneticMark",
+    "EpigeneticsManager",
+    "print_epigenome_report",
+    "Allele",
+    "AllelicLocus",
+    "AlleleManager",
+    "AlleleType",
+    "init_standard_alleles",
+    "print_alleles_report",
+    "SignalPathway",
+    "PathwayStep",
+    "PathwayManager",
+    "PathwayAction",
+    "FeedbackType",
+    "init_standard_pathways",
+    "print_pathways_report",
+    "DNARepairMechanism",
+    "DamageReport",
+    "RepairResult",
+    "DamageType",
+    "RepairStrategy",
+    "print_damage_report",
+    "print_repair_report",
+    "GeneticCircuit",
+    "GeneticLogicGate",
+    "GeneticSwitch",
+    "GeneticOscillator",
+    "CircuitFactory",
+    "CircuitEngine",
+    "print_circuit_visualization",
+    "ImmuneSystem",
+    "Antigen",
+    "Antibody",
+    "MemoryCell",
+    "print_immune_response",
+    "print_immune_stats",
+    "HomeostasisSystem",
+    "Sensor",
+    "Effector",
+    "FeedbackLoop",
+    "print_homeostasis_dashboard",
+    "GeneExpressionPruner",
+    "GeneNode",
+    "GeneConnection",
+    "PruningStrategy",
+    "print_pruning_dashboard",
+    "RecombinationEngine",
+    "GeneModule",
+    "GenomeConfiguration",
+    "RecombinationType",
+    "print_recombination_dashboard",
+    "ErrorCategory",
+    "FixStrategy",
+    "DegradationMode",
+    "RetryPolicy",
+    "ErrorRecord",
+    "FixResult",
+    "ErrorDiagnoser",
+    "FixExecutor",
+    "SelfCorrection",
+    "EventType",
+    "Severity",
+    "ProposalPriority",
+    "Observation",
+    "EvolutionProposal",
+    "ObservationCollector",
+    "PatternAnalyzer",
+    "ProposalManager",
+    "SelfReflection",
     # 新增模块 - 尖端医学/干细胞/免疫学隐喻
-    'StemCell',
-    'StemCellNursery',
-    'RegenerationResult',
-    'DifferentiationState',
-    'ImmuneSurveillance',
-    'CheckpointController',
-    'Antigen',
-    'ImmuneResponse',
-    'AbnormalityType',
-    'CheckpointState',
-    'ApoptosisPathway',
-    'DeathSignal',
-    'Apoptosome',
-    'ApoptosisResult',
-    'CaspaseCascade',
-    'ApoptosisStage',
-    'AutophagyNetwork',
-    'Autophagosome',
-    'RecycledFragment',
-    'AutophagyResult',
-    'mTORKinase',
-    'Lysosome',
-    'AutophagyLevel',
+    "StemCell",
+    "StemCellNursery",
+    "RegenerationResult",
+    "DifferentiationState",
+    "ImmuneSurveillance",
+    "CheckpointController",
+    "Antigen",
+    "ImmuneResponse",
+    "AbnormalityType",
+    "CheckpointState",
+    "ApoptosisPathway",
+    "DeathSignal",
+    "Apoptosome",
+    "ApoptosisResult",
+    "CaspaseCascade",
+    "ApoptosisStage",
+    "AutophagyNetwork",
+    "Autophagosome",
+    "RecycledFragment",
+    "AutophagyResult",
+    "mTORKinase",
+    "Lysosome",
+    "AutophagyLevel",
 ]

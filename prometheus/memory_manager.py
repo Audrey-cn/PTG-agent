@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import json
-import threading
 import logging
+import threading
 from datetime import datetime
-from pathlib import Path
-from typing import Optional
 
 from prometheus.config import get_prometheus_home
-from prometheus.memory_provider import MemoryProvider, FileMemoryProvider
+from prometheus.memory_provider import FileMemoryProvider, MemoryProvider
 
 logger = logging.getLogger("prometheus.memory_manager")
 
@@ -20,7 +17,7 @@ class MemoryManager:
         self._provider = provider or FileMemoryProvider(base_dir=memories_dir)
         self._lock = threading.Lock()
 
-    def store(self, key: str, value: str, metadata: dict | None = None) -> bool:
+    def store(self, key: str, value: str, metadata: Dict | None = None) -> bool:
         with self._lock:
             entry = {
                 "key": key,
@@ -41,13 +38,15 @@ class MemoryManager:
     def summarize_conversation(self, messages: list[dict]) -> str:
         if not messages:
             return ""
-        parts: list[str] = []
+        parts: List[str] = []
         for msg in messages:
             role = msg.get("role", "unknown")
             content = msg.get("content", "")
             if isinstance(content, list):
                 text_chunks = [
-                    c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"
+                    c.get("text", "")
+                    for c in content
+                    if isinstance(c, dict) and c.get("type") == "text"
                 ]
                 content = " ".join(text_chunks)
             if content:
@@ -65,13 +64,15 @@ class MemoryManager:
         mid = "。".join(sentences[mid_idx : mid_idx + mid_count])
         return f"{first}。 ... {mid}。 ... {last}。"
 
-    def extract_important_facts(self, messages: list[dict]) -> list[str]:
-        facts: list[str] = []
+    def extract_important_facts(self, messages: list[dict]) -> List[str]:
+        facts: List[str] = []
         for msg in messages:
             content = msg.get("content", "")
             if isinstance(content, list):
                 text_chunks = [
-                    c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"
+                    c.get("text", "")
+                    for c in content
+                    if isinstance(c, dict) and c.get("type") == "text"
                 ]
                 content = " ".join(text_chunks)
             if not isinstance(content, str):
@@ -80,7 +81,19 @@ class MemoryManager:
                 s = sentence.strip()
                 if not s:
                     continue
-                for marker in ("重要", "注意", "关键", "必须", "不要", "禁止", "important", "note", "key", "must", "never"):
+                for marker in (
+                    "重要",
+                    "注意",
+                    "关键",
+                    "必须",
+                    "不要",
+                    "禁止",
+                    "important",
+                    "note",
+                    "key",
+                    "must",
+                    "never",
+                ):
                     if marker in s.lower():
                         facts.append(s)
                         break

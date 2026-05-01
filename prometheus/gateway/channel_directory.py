@@ -1,153 +1,363 @@
-from __future__ import annotations
+"""Channel directory -- cached map of reachable channels/contacts per platform."""
 
 import json
-import threading
-from dataclasses import dataclass, field
-from pathlib import Path
+import logging
+from datetime import datetime
 from typing import Any
 
-from prometheus.config import get_prometheus_home
+from prometheus.cli.config import get_prometheus_home
+from prometheus.utils import atomic_json_write
+
+logger = logging.getLogger(__name__)
+
+DIRECTORY_PATH = get_prometheus_home() / "channel_directory.json"
 
 
-@dataclass
-class ChannelMetadata:
-    channel_id: str
-    platform: str
-    name: str = ""
-    description: str = ""
-    created_at: float = 0.0
-    tags: list[str] = field(default_factory=list)
-    config: dict[str, Any] = field(default_factory=dict)
+def _normalize_channel_query(value: str) -> str:
+    return value.lstrip("#").strip().lower()
 
 
-class ChannelDirectory:
-    def __init__(self, persist: bool = False) -> None:
-        self._channels: dict[str, ChannelMetadata] = {}
-        self._persist = persist
-        self._lock = threading.Lock()
-        if persist:
-            self._load_from_disk()
+def _channel_target_name(platform_name: str, channel: dict[str, Any]) -> str:
+    """Return the human-facing target label shown to users for a channel entry."""
+    name = channel["name"]
+    if platform_name == "discord" and channel.get("guild"):
+        return f"#{name}"
+    if platform_name != "discord" and channel.get("type"):
+        return f"{name} ({channel['type']})"
+    return name
 
-    def _storage_path(self) -> Path:
-        return get_prometheus_home() / "channel_directory.json"
 
-    def _load_from_disk(self) -> None:
-        path = self._storage_path()
-        if path.exists():
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                for item in data.get("channels", []):
-                    channel = ChannelMetadata(
-                        channel_id=item["channel_id"],
-                        platform=item.get("platform", ""),
-                        name=item.get("name", ""),
-                        description=item.get("description", ""),
-                        created_at=item.get("created_at", 0.0),
-                        tags=item.get("tags", []),
-                        config=item.get("config", {}),
-                    )
-                    self._channels[channel.channel_id] = channel
-            except Exception:
-                pass
+def _session_entry_id(origin: dict[str, Any]) -> str | None:
+    chat_id = origin.get("chat_id")
+    if not chat_id:
+        return None
+    thread_id = origin.get("thread_id")
+    if thread_id:
+        return f"{chat_id}:{thread_id}"
+    return str(chat_id)
 
-    def _save_to_disk(self) -> None:
-        if not self._persist:
-            return
-        path = self._storage_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        data = {
-            "channels": [
+
+def _session_entry_name(origin: dict[str, Any]) -> str:
+    base_name = origin.get("chat_name") or origin.get("user_name") or str(origin.get("chat_id"))
+    thread_id = origin.get("thread_id")
+    if not thread_id:
+        return base_name
+
+    topic_label = origin.get("chat_topic") or f"topic {thread_id}"
+    return f"{base_name} / {topic_label}"
+
+
+# ---------------------------------------------------------------------------
+# Build / refresh
+# ---------------------------------------------------------------------------
+
+
+async def build_channel_directory(adapters: dict[Any, Any]) -> dict[str, Any]:
+    """
+    Build a channel directory from connected platform adapters and session data.
+
+    Returns the directory dict and writes it to DIRECTORY_PATH.
+    """
+    from prometheus.gateway.config import Platform
+
+    platforms: dict[str, list[dict[str, str]]] = {}
+
+    for platform, adapter in adapters.items():
+        try:
+            if platform == Platform.DISCORD:
+                platforms["discord"] = _build_discord(adapter)
+            elif platform == Platform.SLACK:
+                platforms["slack"] = await _build_slack(adapter)
+        except Exception as e:
+            logger.warning("Channel directory: failed to build %s: %s", platform.value, e)
+
+    # Platforms that don't support direct channel enumeration get session-based
+    # discovery automatically.  Skip infrastructure entries that aren't messaging
+    # platforms — everything else falls through to _build_from_sessions().
+    _SKIP_SESSION_DISCOVERY = frozenset({"local", "api_server", "webhook"})
+    for plat in Platform:
+        plat_name = plat.value
+        if plat_name in _SKIP_SESSION_DISCOVERY or plat_name in platforms:
+            continue
+        platforms[plat_name] = _build_from_sessions(plat_name)
+
+    # Include plugin-registered platforms (dynamic enum members aren't in
+    # Platform.__members__, so the loop above misses them).
+    try:
+        from prometheus.gateway.platform_registry import platform_registry
+
+        for entry in platform_registry.plugin_entries():
+            if entry.name not in _SKIP_SESSION_DISCOVERY and entry.name not in platforms:
+                platforms[entry.name] = _build_from_sessions(entry.name)
+    except Exception:
+        pass
+
+    directory = {
+        "updated_at": datetime.now().isoformat(),
+        "platforms": platforms,
+    }
+
+    try:
+        atomic_json_write(DIRECTORY_PATH, directory)
+    except Exception as e:
+        logger.warning("Channel directory: failed to write: %s", e)
+
+    return directory
+
+
+def _build_discord(adapter) -> list[dict[str, str]]:
+    """Enumerate all text channels and forum channels the Discord bot can see."""
+    channels = []
+    client = getattr(adapter, "_client", None)
+    if not client:
+        return channels
+
+    try:
+        import discord as _discord  # noqa: F401 — SDK presence check
+    except ImportError:
+        return channels
+
+    for guild in client.guilds:
+        for ch in guild.text_channels:
+            channels.append(
                 {
-                    "channel_id": c.channel_id,
-                    "platform": c.platform,
-                    "name": c.name,
-                    "description": c.description,
-                    "created_at": c.created_at,
-                    "tags": c.tags,
-                    "config": c.config,
+                    "id": str(ch.id),
+                    "name": ch.name,
+                    "guild": guild.name,
+                    "type": "channel",
                 }
-                for c in self._channels.values()
-            ]
-        }
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f)
-
-    def register_channel(self, channel_id: str, metadata: dict[str, Any]) -> bool:
-        import time
-        with self._lock:
-            if channel_id in self._channels:
-                return False
-            channel = ChannelMetadata(
-                channel_id=channel_id,
-                platform=metadata.get("platform", ""),
-                name=metadata.get("name", ""),
-                description=metadata.get("description", ""),
-                created_at=metadata.get("created_at", time.time()),
-                tags=metadata.get("tags", []),
-                config=metadata.get("config", {}),
             )
-            self._channels[channel_id] = channel
-            self._save_to_disk()
-            return True
-
-    def unregister_channel(self, channel_id: str) -> bool:
-        with self._lock:
-            if channel_id in self._channels:
-                del self._channels[channel_id]
-                self._save_to_disk()
-                return True
-            return False
-
-    def get_channel(self, channel_id: str) -> dict[str, Any] | None:
-        with self._lock:
-            channel = self._channels.get(channel_id)
-            if channel:
-                return {
-                    "channel_id": channel.channel_id,
-                    "platform": channel.platform,
-                    "name": channel.name,
-                    "description": channel.description,
-                    "created_at": channel.created_at,
-                    "tags": channel.tags.copy(),
-                    "config": channel.config.copy(),
+        # Forum channels (type 15) — creating a message auto-spawns a thread post.
+        forums = getattr(guild, "forum_channels", None) or []
+        for ch in forums:
+            channels.append(
+                {
+                    "id": str(ch.id),
+                    "name": ch.name,
+                    "guild": guild.name,
+                    "type": "forum",
                 }
-            return None
+            )
+        # Also include DM-capable users we've interacted with is not
+        # feasible via guild enumeration; those come from sessions.
 
-    def list_channels(self, platform: str | None = None) -> list[dict[str, Any]]:
-        with self._lock:
-            channels = []
-            for c in self._channels.values():
-                if platform is None or c.platform == platform:
-                    channels.append({
-                        "channel_id": c.channel_id,
-                        "platform": c.platform,
-                        "name": c.name,
-                        "description": c.description,
-                        "created_at": c.created_at,
-                        "tags": c.tags.copy(),
-                        "config": c.config.copy(),
-                    })
-            return channels
+    # Merge any DMs from session history
+    channels.extend(_build_from_sessions("discord"))
+    return channels
 
-    def find_channel(self, query: str) -> list[dict[str, Any]]:
-        with self._lock:
-            results = []
-            query_lower = query.lower()
-            for c in self._channels.values():
-                if (
-                    query_lower in c.channel_id.lower()
-                    or query_lower in c.name.lower()
-                    or query_lower in c.description.lower()
-                    or any(query_lower in tag.lower() for tag in c.tags)
-                ):
-                    results.append({
-                        "channel_id": c.channel_id,
-                        "platform": c.platform,
-                        "name": c.name,
-                        "description": c.description,
-                        "created_at": c.created_at,
-                        "tags": c.tags.copy(),
-                        "config": c.config.copy(),
-                    })
-            return results
+
+async def _build_slack(adapter) -> list[dict[str, Any]]:
+    """List Slack channels the bot has joined across all workspaces.
+
+    Uses ``users.conversations`` against each workspace's web client. Pulls
+    public + private channels the bot is a member of, then merges in DMs
+    discovered from session history (IMs aren't useful to enumerate
+    proactively).
+    """
+    team_clients = getattr(adapter, "_team_clients", None) or {}
+    if not team_clients:
+        return _build_from_sessions("slack")
+
+    channels: list[dict[str, Any]] = []
+    seen_ids: set = set()
+
+    for team_id, client in team_clients.items():
+        try:
+            cursor: str | None = None
+            for _page in range(20):  # safety cap on pagination
+                response = await client.users_conversations(
+                    types="public_channel,private_channel",
+                    exclude_archived=True,
+                    limit=200,
+                    cursor=cursor,
+                )
+                if not response.get("ok"):
+                    logger.warning(
+                        "Channel directory: users.conversations not ok for team %s: %s",
+                        team_id,
+                        response.get("error", "unknown"),
+                    )
+                    break
+                for ch in response.get("channels", []):
+                    cid = ch.get("id")
+                    name = ch.get("name")
+                    if not cid or not name or cid in seen_ids:
+                        continue
+                    seen_ids.add(cid)
+                    channels.append(
+                        {
+                            "id": cid,
+                            "name": name,
+                            "type": "private" if ch.get("is_private") else "channel",
+                        }
+                    )
+                cursor = (response.get("response_metadata") or {}).get("next_cursor")
+                if not cursor:
+                    break
+        except Exception as e:
+            logger.warning(
+                "Channel directory: failed to list Slack channels for team %s: %s",
+                team_id,
+                e,
+            )
+            continue
+
+    # Merge in DM/group entries discovered from session history.
+    for entry in _build_from_sessions("slack"):
+        if entry.get("id") not in seen_ids:
+            channels.append(entry)
+            seen_ids.add(entry.get("id"))
+
+    return channels
+
+
+def _build_from_sessions(platform_name: str) -> list[dict[str, str]]:
+    """Pull known channels/contacts from sessions.json origin data."""
+    sessions_path = get_prometheus_home() / "sessions" / "sessions.json"
+    if not sessions_path.exists():
+        return []
+
+    entries = []
+    try:
+        with open(sessions_path, encoding="utf-8") as f:
+            data = json.load(f)
+
+        seen_ids = set()
+        for _key, session in data.items():
+            origin = session.get("origin") or {}
+            if origin.get("platform") != platform_name:
+                continue
+            entry_id = _session_entry_id(origin)
+            if not entry_id or entry_id in seen_ids:
+                continue
+            seen_ids.add(entry_id)
+            entries.append(
+                {
+                    "id": entry_id,
+                    "name": _session_entry_name(origin),
+                    "type": session.get("chat_type", "dm"),
+                    "thread_id": origin.get("thread_id"),
+                }
+            )
+    except Exception as e:
+        logger.debug("Channel directory: failed to read sessions for %s: %s", platform_name, e)
+
+    return entries
+
+
+# ---------------------------------------------------------------------------
+# Read / resolve
+# ---------------------------------------------------------------------------
+
+
+def load_directory() -> dict[str, Any]:
+    """Load the cached channel directory from disk."""
+    if not DIRECTORY_PATH.exists():
+        return {"updated_at": None, "platforms": {}}
+    try:
+        with open(DIRECTORY_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"updated_at": None, "platforms": {}}
+
+
+def lookup_channel_type(platform_name: str, chat_id: str) -> str | None:
+    """Return the channel ``type`` string (e.g. ``"channel"``, ``"forum"``) for *chat_id*, or *None* if unknown."""
+    directory = load_directory()
+    for ch in directory.get("platforms", {}).get(platform_name, []):
+        if ch.get("id") == chat_id:
+            return ch.get("type")
+    return None
+
+
+def resolve_channel_name(platform_name: str, name: str) -> str | None:
+    """
+    Resolve a human-friendly channel name to a numeric ID.
+
+    Matching strategy (case-insensitive, first match wins):
+    - Discord: "bot-home", "#bot-home", "GuildName/bot-home"
+    - Telegram: display name or group name
+    - Slack: "engineering", "#engineering"
+    """
+    directory = load_directory()
+    channels = directory.get("platforms", {}).get(platform_name, [])
+    if not channels:
+        return None
+
+    # 0. Exact ID match — case-sensitive, no normalization. Lets callers pass
+    # raw platform IDs (e.g. Slack "C0B0QV5434G") even when the format guard
+    # in _parse_target_ref hasn't recognized them as explicit.
+    raw = name.strip()
+    for ch in channels:
+        if ch.get("id") == raw:
+            return ch["id"]
+
+    query = _normalize_channel_query(name)
+
+    # 1. Exact name match, including the display labels shown by send_message(action="list")
+    for ch in channels:
+        if _normalize_channel_query(ch["name"]) == query:
+            return ch["id"]
+        if _normalize_channel_query(_channel_target_name(platform_name, ch)) == query:
+            return ch["id"]
+
+    # 2. Guild-qualified match for Discord ("GuildName/channel")
+    if "/" in query:
+        guild_part, ch_part = query.rsplit("/", 1)
+        for ch in channels:
+            guild = ch.get("guild", "").strip().lower()
+            if guild == guild_part and _normalize_channel_query(ch["name"]) == ch_part:
+                return ch["id"]
+
+    # 3. Partial prefix match (only if unambiguous)
+    matches = [ch for ch in channels if _normalize_channel_query(ch["name"]).startswith(query)]
+    if len(matches) == 1:
+        return matches[0]["id"]
+
+    return None
+
+
+def format_directory_for_display() -> str:
+    """Format the channel directory as a human-readable list for the model."""
+    directory = load_directory()
+    platforms = directory.get("platforms", {})
+
+    if not any(platforms.values()):
+        return "No messaging platforms connected or no channels discovered yet."
+
+    lines = ["Available messaging targets:\n"]
+
+    for plat_name, channels in sorted(platforms.items()):
+        if not channels:
+            continue
+
+        # Group Discord channels by guild
+        if plat_name == "discord":
+            guilds: dict[str, list] = {}
+            dms: list = []
+            for ch in channels:
+                guild = ch.get("guild")
+                if guild:
+                    guilds.setdefault(guild, []).append(ch)
+                else:
+                    dms.append(ch)
+
+            for guild_name, guild_channels in sorted(guilds.items()):
+                lines.append(f"Discord ({guild_name}):")
+                for ch in sorted(guild_channels, key=lambda c: c["name"]):
+                    lines.append(f"  discord:{_channel_target_name(plat_name, ch)}")
+            if dms:
+                lines.append("Discord (DMs):")
+                for ch in dms:
+                    lines.append(f"  discord:{_channel_target_name(plat_name, ch)}")
+            lines.append("")
+        else:
+            lines.append(f"{plat_name.title()}:")
+            for ch in channels:
+                lines.append(f"  {plat_name}:{_channel_target_name(plat_name, ch)}")
+            lines.append("")
+
+    lines.append('Use these as the "target" parameter when sending.')
+    lines.append('Bare platform name (e.g. "telegram") sends to home channel.')
+
+    return "\n".join(lines)

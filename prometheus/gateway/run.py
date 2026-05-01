@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
 from prometheus.gateway.config import GatewayConfig, load_gateway_config
-from prometheus.gateway.session import SessionManager
 from prometheus.gateway.delivery import MessageDelivery
 from prometheus.gateway.hooks import HookManager
+from prometheus.gateway.session import SessionManager
 from prometheus.gateway.status import StatusTracker
 
 logger = logging.getLogger(__name__)
@@ -61,7 +60,7 @@ class GatewayRunner:
     def is_running(self) -> bool:
         return self._running
 
-    def get_status(self) -> dict[str, Any]:
+    def get_status(self) -> Dict[str, Any]:
         if not self._status_tracker:
             return {"running": False}
         status = self._status_tracker.get_status()

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Any
+from typing import TYPE_CHECKING
 
-from prometheus.channels.base import ChannelConfig, ChannelResponse
 from . import PlatformAdapter
+
+if TYPE_CHECKING:
+    from prometheus.channels.base import ChannelConfig, ChannelResponse
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,7 @@ class WhatsAppAdapter(PlatformAdapter):
         logger.warning("WhatsApp: not yet implemented")
         return False
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         logger.warning("WhatsApp: not yet implemented")
         return None
 

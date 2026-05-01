@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import json
 import logging
-import threading
 import time
-from typing import Optional, Any
 
 import requests
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
@@ -93,7 +91,7 @@ class WeComAdapter(PlatformAdapter):
             logger.error("企业微信 send failed: %s", e)
             return False
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_messages:
             msg = self._pending_messages.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)

@@ -1,56 +1,191 @@
-from __future__ import annotations
+"""Event Hook System."""
 
 import asyncio
-from enum import Enum
-from typing import Any, Callable, Coroutine
+import importlib.util
+import sys
+from collections.abc import Callable
+from typing import Any
+
+import yaml
+
+from prometheus.cli.config import get_prometheus_home
+
+HOOKS_DIR = get_prometheus_home() / "hooks"
 
 
-class HookType(Enum):
-    PRE_SEND = "pre_send"
-    POST_RECEIVE = "post_receive"
-    PRE_PROCESS = "pre_process"
-    POST_PROCESS = "post_process"
-    ON_ERROR = "on_error"
+class HookRegistry:
+    """
+    Discovers, loads, and fires event hooks.
 
+    Usage:
+        registry = HookRegistry()
+        registry.discover_and_load()
+        await registry.emit("agent:start", {"platform": "telegram", ...})
+    """
 
-HookCallback = Callable[..., Coroutine[Any, Any, Any]]
+    def __init__(self):
+        # event_type -> [handler_fn, ...]
+        self._handlers: dict[str, list[Callable]] = {}
+        self._loaded_hooks: list[dict] = []  # metadata for listing
 
+    @property
+    def loaded_hooks(self) -> list[dict]:
+        """Return metadata about all loaded hooks."""
+        return list(self._loaded_hooks)
 
-class _HookEntry:
-    def __init__(self, callback: HookCallback, priority: int):
-        self.callback = callback
-        self.priority = priority
+    def _register_builtin_hooks(self) -> None:
+        """Register built-in hooks that are always active.
 
-    def __lt__(self, other: _HookEntry) -> bool:
-        return self.priority < other.priority
+        Currently empty — no shipped built-in hooks. Kept as the extension
+        point for future always-on gateway hooks so they drop in without
+        re-plumbing discover_and_load().
+        """
+        return
 
+    def discover_and_load(self) -> None:
+        """
+        Scan the hooks directory for hook directories and load their handlers.
 
-class HookManager:
-    def __init__(self) -> None:
-        self._hooks: dict[HookType, list[_HookEntry]] = {}
+        Also registers built-in hooks that are always active.
 
-    def register(self, hook_type: HookType, callback: HookCallback, priority: int = 0) -> None:
-        if hook_type not in self._hooks:
-            self._hooks[hook_type] = []
-        entry = _HookEntry(callback, priority)
-        self._hooks[hook_type].append(entry)
-        self._hooks[hook_type].sort()
+        Each hook directory must contain:
+          - HOOK.yaml with at least 'name' and 'events' keys
+          - handler.py with a top-level 'handle' function (sync or async)
+        """
+        self._register_builtin_hooks()
 
-    def unregister(self, hook_type: HookType, callback: HookCallback) -> None:
-        if hook_type not in self._hooks:
+        if not HOOKS_DIR.exists():
             return
-        self._hooks[hook_type] = [
-            e for e in self._hooks[hook_type] if e.callback is not callback
-        ]
 
-    async def fire(self, hook_type: HookType, data: Any) -> Any:
-        if hook_type not in self._hooks:
-            return data
-        for entry in self._hooks[hook_type]:
+        for hook_dir in sorted(HOOKS_DIR.iterdir()):
+            if not hook_dir.is_dir():
+                continue
+
+            manifest_path = hook_dir / "HOOK.yaml"
+            handler_path = hook_dir / "handler.py"
+
+            if not manifest_path.exists() or not handler_path.exists():
+                continue
+
             try:
-                result = await entry.callback(data)
+                manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+                if not manifest or not isinstance(manifest, dict):
+                    print(f"[hooks] Skipping {hook_dir.name}: invalid HOOK.yaml", flush=True)
+                    continue
+
+                hook_name = manifest.get("name", hook_dir.name)
+                events = manifest.get("events", [])
+                if not events:
+                    print(f"[hooks] Skipping {hook_name}: no events declared", flush=True)
+                    continue
+
+                # Dynamically load the handler module.
+                # Register in sys.modules BEFORE exec_module so Pydantic /
+                # dataclasses / typing introspection can resolve forward
+                # references (triggered by `from __future__ import annotations`
+                # in the handler). Without this, a handler that declares a
+                # Pydantic BaseModel for webhook/event payloads fails at first
+                # dispatch with "TypeAdapter ... is not fully defined".
+                module_name = f"prometheus_hook_{hook_name}"
+                spec = importlib.util.spec_from_file_location(module_name, handler_path)
+                if spec is None or spec.loader is None:
+                    print(f"[hooks] Skipping {hook_name}: could not load handler.py", flush=True)
+                    continue
+
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[module_name] = module
+                try:
+                    spec.loader.exec_module(module)
+                except Exception:
+                    sys.modules.pop(module_name, None)
+                    raise
+
+                handle_fn = getattr(module, "handle", None)
+                if handle_fn is None:
+                    print(f"[hooks] Skipping {hook_name}: no 'handle' function found", flush=True)
+                    continue
+
+                # Register the handler for each declared event
+                for event in events:
+                    self._handlers.setdefault(event, []).append(handle_fn)
+
+                self._loaded_hooks.append(
+                    {
+                        "name": hook_name,
+                        "description": manifest.get("description", ""),
+                        "events": events,
+                        "path": str(hook_dir),
+                    }
+                )
+
+                print(f"[hooks] Loaded hook '{hook_name}' for events: {events}", flush=True)
+
+            except Exception as e:
+                print(f"[hooks] Error loading hook {hook_dir.name}: {e}", flush=True)
+
+    def _resolve_handlers(self, event_type: str) -> list[Callable]:
+        """Return all handlers that should fire for ``event_type``.
+
+        Exact matches fire first, followed by wildcard matches (e.g.
+        ``command:*`` matches ``command:reset``).
+        """
+        handlers = list(self._handlers.get(event_type, []))
+        if ":" in event_type:
+            base = event_type.split(":")[0]
+            wildcard_key = f"{base}:*"
+            handlers.extend(self._handlers.get(wildcard_key, []))
+        return handlers
+
+    async def emit(self, event_type: str, context: dict[str, Any] | None = None) -> None:
+        """
+        Fire all handlers registered for an event, discarding return values.
+
+        Supports wildcard matching: handlers registered for "command:*" will
+        fire for any "command:..." event. Handlers registered for a base type
+        like "agent" won't fire for "agent:start" -- only exact matches and
+        explicit wildcards.
+
+        Args:
+            event_type: The event identifier (e.g. "agent:start").
+            context:    Optional dict with event-specific data.
+        """
+        if context is None:
+            context = {}
+
+        for fn in self._resolve_handlers(event_type):
+            try:
+                result = fn(event_type, context)
+                # Support both sync and async handlers
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception as e:
+                print(f"[hooks] Error in handler for '{event_type}': {e}", flush=True)
+
+    async def emit_collect(
+        self,
+        event_type: str,
+        context: dict[str, Any] | None = None,
+    ) -> list[Any]:
+        """Fire handlers and return their non-None return values in order.
+
+        Like :meth:`emit` but captures each handler's return value. Used for
+        decision-style hooks (e.g. ``command:<name>`` policies that want to
+        allow/deny/rewrite the command before normal dispatch).
+
+        Exceptions from individual handlers are logged but do not abort the
+        remaining handlers.
+        """
+        if context is None:
+            context = {}
+
+        results: list[Any] = []
+        for fn in self._resolve_handlers(event_type):
+            try:
+                result = fn(event_type, context)
+                if asyncio.iscoroutine(result):
+                    result = await result
                 if result is not None:
-                    data = result
-            except Exception:
-                pass
-        return data
+                    results.append(result)
+            except Exception as e:
+                print(f"[hooks] Error in handler for '{event_type}': {e}", flush=True)
+        return results

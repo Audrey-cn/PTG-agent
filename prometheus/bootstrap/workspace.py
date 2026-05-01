@@ -1,14 +1,8 @@
-"""
-工作空间管理器。
-
-对标 OpenClaw workspace.ts: 工作空间创建、引导文件播种、状态追踪。
-"""
+"""工作空间管理器。."""
 
 import json
 import os
-import shutil
-from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from datetime import UTC, datetime
 
 DEFAULT_WORKSPACE_DIR = os.path.expanduser("~/.prometheus/workspace")
 
@@ -28,7 +22,7 @@ WORKSPACE_STATE_DIRNAME = ".prometheus"
 WORKSPACE_STATE_FILENAME = "workspace-state.json"
 
 
-def resolve_workspace_dir(dir: Optional[str] = None) -> str:
+def resolve_workspace_dir(dir: str | None = None) -> str:
     """解析工作空间目录，默认 ~/.prometheus/workspace，支持环境变量覆盖。"""
     if dir:
         return os.path.expanduser(dir)
@@ -47,7 +41,7 @@ def read_workspace_state(dir: str) -> dict:
     """读取工作空间状态文件，不存在时返回默认空状态。"""
     state_path = workspace_state_path(dir)
     try:
-        with open(state_path, "r", encoding="utf-8") as f:
+        with open(state_path, encoding="utf-8") as f:
             raw = json.load(f)
             if isinstance(raw, dict):
                 raw.setdefault("version", WORKSPACE_STATE_VERSION)
@@ -78,7 +72,7 @@ def _load_template(name: str) -> str:
     """加载引导模板文件内容。"""
     template_dir = os.path.join(os.path.dirname(__file__), "templates")
     template_path = os.path.join(template_dir, name)
-    with open(template_path, "r", encoding="utf-8") as f:
+    with open(template_path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -92,7 +86,7 @@ def _write_file_if_missing(file_path: str, content: str) -> bool:
         return False
 
 
-def ensure_workspace(dir: Optional[str] = None) -> dict:
+def ensure_workspace(dir: str | None = None) -> dict:
     """
     确保工作空间存在并播种引导文件。
 
@@ -119,7 +113,7 @@ def ensure_workspace(dir: Optional[str] = None) -> dict:
     bootstrap_exists = os.path.exists(bootstrap_path)
 
     state_changed = False
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
 
     if not state.get("bootstrap_seeded_at") and (
         bootstrap_exists or "BOOTSTRAP.md" in created_files
@@ -127,7 +121,11 @@ def ensure_workspace(dir: Optional[str] = None) -> dict:
         state["bootstrap_seeded_at"] = now_iso
         state_changed = True
 
-    if not state.get("setup_completed_at") and state.get("bootstrap_seeded_at") and not bootstrap_exists:
+    if (
+        not state.get("setup_completed_at")
+        and state.get("bootstrap_seeded_at")
+        and not bootstrap_exists
+    ):
         state["setup_completed_at"] = now_iso
         state_changed = True
 
@@ -142,7 +140,7 @@ def ensure_workspace(dir: Optional[str] = None) -> dict:
     }
 
 
-def is_setup_completed(dir: Optional[str] = None) -> bool:
+def is_setup_completed(dir: str | None = None) -> bool:
     """检查工作空间初始化是否已完成。"""
     workspace_dir = resolve_workspace_dir(dir)
     state = read_workspace_state(workspace_dir)
@@ -150,14 +148,14 @@ def is_setup_completed(dir: Optional[str] = None) -> bool:
     return isinstance(completed_at, str) and bool(completed_at.strip())
 
 
-def is_bootstrap_pending(dir: Optional[str] = None) -> bool:
+def is_bootstrap_pending(dir: str | None = None) -> bool:
     """检查是否需要首次引导 (BOOTSTRAP.md 仍然存在)。"""
     workspace_dir = resolve_workspace_dir(dir)
     bootstrap_path = os.path.join(workspace_dir, "BOOTSTRAP.md")
     return os.path.exists(bootstrap_path)
 
 
-def load_bootstrap_files(dir: Optional[str] = None) -> List[dict]:
+def load_bootstrap_files(dir: str | None = None) -> list[dict]:
     """
     加载所有引导文件。
 
@@ -168,25 +166,29 @@ def load_bootstrap_files(dir: Optional[str] = None) -> List[dict]:
     for filename in BOOTSTRAP_FILES:
         file_path = os.path.join(workspace_dir, filename)
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
-            results.append({
-                "name": filename,
-                "path": file_path,
-                "content": content,
-                "missing": False,
-            })
+            results.append(
+                {
+                    "name": filename,
+                    "path": file_path,
+                    "content": content,
+                    "missing": False,
+                }
+            )
         except FileNotFoundError:
-            results.append({
-                "name": filename,
-                "path": file_path,
-                "content": None,
-                "missing": True,
-            })
+            results.append(
+                {
+                    "name": filename,
+                    "path": file_path,
+                    "content": None,
+                    "missing": True,
+                }
+            )
     return results
 
 
-def complete_bootstrap(dir: Optional[str] = None) -> dict:
+def complete_bootstrap(dir: str | None = None) -> dict:
     """
     完成首次引导：删除 BOOTSTRAP.md，标记 setup_completed_at。
 
@@ -201,7 +203,7 @@ def complete_bootstrap(dir: Optional[str] = None) -> dict:
         removed = True
 
     state = read_workspace_state(workspace_dir)
-    state["setup_completed_at"] = datetime.now(timezone.utc).isoformat()
+    state["setup_completed_at"] = datetime.now(UTC).isoformat()
     write_workspace_state(workspace_dir, state)
 
     return {

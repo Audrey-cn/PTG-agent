@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import statistics
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 from prometheus.config import get_prometheus_home
@@ -13,7 +12,7 @@ class Insights:
     def __init__(self) -> None:
         self._insights_dir = get_prometheus_home() / "insights"
         self._insights_dir.mkdir(parents=True, exist_ok=True)
-        self._current_session: dict[str, Any] = {
+        self._current_session: Dict[str, Any] = {
             "requests": [],
             "start_time": datetime.now().isoformat(),
         }
@@ -46,13 +45,13 @@ class Insights:
         self._current_session["requests"].append(request_data)
         self._persist_request(request_data)
 
-    def _persist_request(self, request_data: dict[str, Any]) -> None:
+    def _persist_request(self, request_data: Dict[str, Any]) -> None:
         today = datetime.now().strftime("%Y-%m-%d")
         daily_file = self._insights_dir / f"{today}.json"
 
         try:
             if daily_file.exists():
-                with open(daily_file, "r") as f:
+                with open(daily_file) as f:
                     data = json.load(f)
             else:
                 data = {"date": today, "requests": []}
@@ -62,10 +61,10 @@ class Insights:
 
             with open(daily_file, "w") as f:
                 json.dump(data, f, indent=2)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             pass
 
-    def get_daily_summary(self, date: str | None = None) -> dict[str, Any]:
+    def get_daily_summary(self, date: Optional[str] = None) -> Dict[str, Any]:
         target_date = date or datetime.now().strftime("%Y-%m-%d")
         daily_file = self._insights_dir / f"{target_date}.json"
 
@@ -81,9 +80,9 @@ class Insights:
             }
 
         try:
-            with open(daily_file, "r") as f:
+            with open(daily_file) as f:
                 data = json.load(f)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             return {
                 "date": target_date,
                 "total_requests": 0,
@@ -119,8 +118,8 @@ class Insights:
             "avg_latency": round(statistics.mean(latencies), 3) if latencies else 0.0,
         }
 
-    def get_model_distribution(self, days: int = 7) -> dict[str, Any]:
-        distribution: dict[str, dict[str, Any]] = {}
+    def get_model_distribution(self, days: int = 7) -> Dict[str, Any]:
+        distribution: Dict[str, Dict[str, Any]] = {}
         start_date = datetime.now() - timedelta(days=days)
 
         for i in range(days):
@@ -131,9 +130,9 @@ class Insights:
                 continue
 
             try:
-                with open(daily_file, "r") as f:
+                with open(daily_file) as f:
                     data = json.load(f)
-            except (json.JSONDecodeError, IOError):
+            except (OSError, json.JSONDecodeError):
                 continue
 
             for request in data.get("requests", []):
@@ -153,24 +152,26 @@ class Insights:
 
         return distribution
 
-    def get_cost_trend(self, days: int = 7) -> list[dict[str, Any]]:
+    def get_cost_trend(self, days: int = 7) -> list[Dict[str, Any]]:
         trend = []
         start_date = datetime.now() - timedelta(days=days - 1)
 
         for i in range(days):
             date = (start_date + timedelta(days=i)).strftime("%Y-%m-%d")
             summary = self.get_daily_summary(date)
-            trend.append({
-                "date": date,
-                "cost": summary["total_cost"],
-                "requests": summary["total_requests"],
-            })
+            trend.append(
+                {
+                    "date": date,
+                    "cost": summary["total_cost"],
+                    "requests": summary["total_requests"],
+                }
+            )
 
         return trend
 
-    def get_latency_stats(self, days: int = 7) -> dict[str, Any]:
+    def get_latency_stats(self, days: int = 7) -> Dict[str, Any]:
         latencies: list[float] = []
-        model_latencies: dict[str, list[float]] = {}
+        model_latencies: Dict[str, list[float]] = {}
         start_date = datetime.now() - timedelta(days=days)
 
         for i in range(days):
@@ -181,9 +182,9 @@ class Insights:
                 continue
 
             try:
-                with open(daily_file, "r") as f:
+                with open(daily_file) as f:
                     data = json.load(f)
-            except (json.JSONDecodeError, IOError):
+            except (OSError, json.JSONDecodeError):
                 continue
 
             for request in data.get("requests", []):
@@ -223,7 +224,7 @@ class Insights:
 
     def export_insights(self, format: str = "json", days: int = 30) -> str:
         start_date = datetime.now() - timedelta(days=days)
-        all_data: dict[str, Any] = {
+        all_data: Dict[str, Any] = {
             "export_date": datetime.now().isoformat(),
             "period_days": days,
             "daily_summaries": [],
@@ -243,7 +244,7 @@ class Insights:
         else:
             return json.dumps(all_data, indent=2)
 
-    def get_session_insights(self) -> dict[str, Any]:
+    def get_session_insights(self) -> Dict[str, Any]:
         requests = self._current_session.get("requests", [])
         if not requests:
             return {
@@ -283,3 +284,108 @@ class Insights:
                 continue
 
         return cleared
+
+    def generate(self, days: int = 7, source: Optional[str] = None) -> Dict[str, Any]:
+        """生成行为分析报告。
+
+        Args:
+            days: 分析天数
+            source: 可选的来源过滤
+
+        Returns:
+            分析报告字典
+        """
+        daily_summaries = []
+        total_requests = 0
+        total_cost = 0.0
+        total_tokens_in = 0
+        total_tokens_out = 0
+
+        start_date = datetime.now() - timedelta(days=days)
+
+        for i in range(days):
+            date = (start_date + timedelta(days=i)).strftime("%Y-%m-%d")
+            summary = self.get_daily_summary(date)
+
+            if source and summary.get("source") != source:
+                continue
+
+            daily_summaries.append(summary)
+            total_requests += summary.get("total_requests", 0)
+            total_cost += summary.get("total_cost", 0.0)
+            total_tokens_in += summary.get("total_tokens_in", 0)
+            total_tokens_out += summary.get("total_tokens_out", 0)
+
+        model_dist = self.get_model_distribution(days)
+        latency_stats = self.get_latency_stats(days)
+
+        return {
+            "period_days": days,
+            "daily_summaries": daily_summaries,
+            "total": {
+                "requests": total_requests,
+                "cost": round(total_cost, 4),
+                "tokens_in": total_tokens_in,
+                "tokens_out": total_tokens_out,
+            },
+            "model_distribution": model_dist,
+            "latency_stats": latency_stats,
+            "generated_at": datetime.now().isoformat(),
+        }
+
+    def format_terminal(self, report: Dict[str, Any]) -> str:
+        """格式化分析报告为终端输出。
+
+        Args:
+            report: generate() 返回的报告
+
+        Returns:
+            格式化的终端输出字符串
+        """
+        lines = []
+        lines.append("━" * 60)
+        lines.append("  📊 Prometheus 行为分析报告")
+        lines.append(f"  周期: 最近 {report.get('period_days', 7)} 天")
+        lines.append("━" * 60)
+
+        total = report.get("total", {})
+        lines.append("")
+        lines.append("  总体统计:")
+        lines.append(f"    请求数:     {total.get('requests', 0):,}")
+        lines.append(f"    总成本:     ${total.get('cost', 0):.4f}")
+        lines.append(f"    输入Token:  {total.get('tokens_in', 0):,}")
+        lines.append(f"    输出Token:  {total.get('tokens_out', 0):,}")
+
+        model_dist = report.get("model_distribution", {})
+        if model_dist:
+            lines.append("")
+            lines.append("  模型使用分布:")
+            for model, stats in sorted(
+                model_dist.items(), key=lambda x: x[1].get("count", 0), reverse=True
+            ):
+                lines.append(f"    {model}:")
+                lines.append(f"      请求数: {stats.get('count', 0):,}")
+                lines.append(f"      成本:   ${stats.get('cost', 0):.4f}")
+
+        latency = report.get("latency_stats", {})
+        if latency:
+            lines.append("")
+            lines.append("  延迟统计 (秒):")
+            lines.append(f"    平均: {latency.get('avg', 0):.3f}s")
+            lines.append(f"    最小: {latency.get('min', 0):.3f}s")
+            lines.append(f"    最大: {latency.get('max', 0):.3f}s")
+            lines.append(f"    P95:  {latency.get('p95', 0):.3f}s")
+
+        daily = report.get("daily_summaries", [])
+        if daily:
+            lines.append("")
+            lines.append("  日均请求:")
+            avg_daily = sum(d.get("total_requests", 0) for d in daily) / len(daily)
+            lines.append(f"    {avg_daily:.1f} 请求/天")
+
+        lines.append("")
+        lines.append("━" * 60)
+        lines.append(f"  生成时间: {report.get('generated_at', datetime.now().isoformat())}")
+        lines.append("━" * 60)
+
+        return "\n".join(lines)

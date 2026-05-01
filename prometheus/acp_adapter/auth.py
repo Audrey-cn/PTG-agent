@@ -4,15 +4,14 @@ import hashlib
 import logging
 import secrets
 import time
-from typing import Dict, Optional
 
 logger = logging.getLogger("prometheus.acp_adapter.auth")
 
 
 class ACPAuth:
-    def __init__(self, secret: Optional[str] = None) -> None:
+    def __init__(self, secret: str | None = None) -> None:
         self._secret = secret or secrets.token_hex(32)
-        self._tokens: Dict[str, float] = {}
+        self._tokens: dict[str, float] = {}
         self._token_ttl = 86400.0
 
     def authenticate(self, token: str) -> bool:

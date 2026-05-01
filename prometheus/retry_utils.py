@@ -3,8 +3,9 @@ from __future__ import annotations
 import functools
 import random
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, TypeVar
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -15,7 +16,7 @@ class RetryConfig:
     base_delay: float = 1.0
     max_delay: float = 60.0
     backoff_factor: float = 2.0
-    retryable_exceptions: tuple[type[Exception], ...] = (Exception,)
+    retryable_exceptions: Tuple[type[Exception], ...] = (Exception,)
 
 
 def retry_with_backoff(
@@ -37,7 +38,7 @@ def retry_with_backoff(
                     if attempt >= cfg.max_retries:
                         raise
                     delay = min(
-                        cfg.base_delay * (cfg.backoff_factor ** attempt),
+                        cfg.base_delay * (cfg.backoff_factor**attempt),
                         cfg.max_delay,
                     )
                     jitter = random.uniform(0, delay * 0.5)

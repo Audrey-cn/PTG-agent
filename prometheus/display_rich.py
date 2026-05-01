@@ -1,18 +1,20 @@
 from __future__ import annotations
 
-import sys
-import os
-from typing import Any, Iterable, Iterator, Optional, List
 from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
 
 try:
     from rich.console import Console
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
-    from rich.table import Table
-    from rich.panel import Panel
-    from rich.status import Status
     from rich.markdown import Markdown
+    from rich.panel import Panel
+    from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
+    from rich.status import Status
     from rich.syntax import Syntax
+    from rich.table import Table
+
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
@@ -47,7 +49,9 @@ class RichDisplay:
                 TaskProgressColumn(),
                 console=self._console,
             ) as progress:
-                task = progress.add_task(description, total=len(iterable) if hasattr(iterable, "__len__") else None)
+                task = progress.add_task(
+                    description, total=len(iterable) if hasattr(iterable, "__len__") else None
+                )
                 for item in iterable:
                     yield item
                     progress.advance(task)
@@ -61,9 +65,9 @@ class RichDisplay:
 
     def table(
         self,
-        headers: List[str],
-        rows: List[List[Any]],
-        title: Optional[str] = None,
+        headers: list[str],
+        rows: list[list[Any]],
+        title: str | None = None,
     ) -> None:
         if RICH_AVAILABLE and self._console:
             table = Table(title=title, show_header=True, header_style="bold magenta")
@@ -75,31 +79,33 @@ class RichDisplay:
         else:
             if title:
                 print(f"\n{title}\n")
-            widths = [max(len(str(row[i])) for row in [headers] + rows) for i in range(len(headers))]
-            header_line = " | ".join(h.ljust(w) for h, w in zip(headers, widths))
+            widths = [
+                max(len(str(row[i])) for row in [headers] + rows) for i in range(len(headers))
+            ]
+            header_line = " | ".join(h.ljust(w) for h, w in zip(headers, widths, strict=False))
             print(header_line)
             print("-" * len(header_line))
             for row in rows:
-                print(" | ".join(str(cell).ljust(w) for cell, w in zip(row, widths)))
+                print(" | ".join(str(cell).ljust(w) for cell, w in zip(row, widths, strict=False)))
 
     def panel(
         self,
         content: str,
-        title: Optional[str] = None,
+        title: str | None = None,
         style: str = "blue",
     ) -> None:
         if RICH_AVAILABLE and self._console:
             self._console.print(Panel(content, title=title, border_style=style))
         else:
             if title:
-                print(f"\n{'='*10} {title} {'='*10}")
+                print(f"\n{'=' * 10} {title} {'=' * 10}")
             print(content)
             print("=" * 40)
 
     @contextmanager
     def status_spinner(self, message: str = "Loading...") -> Iterator[None]:
         if RICH_AVAILABLE and self._console:
-            with self._console.status(message, spinner="dots") as status:
+            with self._console.status(message, spinner="dots"):
                 yield
         else:
             print(f"{message}...")
@@ -119,7 +125,7 @@ class RichDisplay:
             print(code)
             print("```")
 
-    def print(self, message: str, style: Optional[str] = None) -> None:
+    def print(self, message: str, style: str | None = None) -> None:
         if RICH_AVAILABLE and self._console:
             self._console.print(message, style=style)
         else:
@@ -131,12 +137,12 @@ def progress_bar(iterable: Iterable[Any], description: str = "Processing") -> It
     yield from display.progress_bar(iterable, description)
 
 
-def table(headers: List[str], rows: List[List[Any]], title: Optional[str] = None) -> None:
+def table(headers: list[str], rows: list[list[Any]], title: str | None = None) -> None:
     display = RichDisplay()
     display.table(headers, rows, title)
 
 
-def panel(content: str, title: Optional[str] = None, style: str = "blue") -> None:
+def panel(content: str, title: str | None = None, style: str = "blue") -> None:
     display = RichDisplay()
     display.panel(content, title, style)
 

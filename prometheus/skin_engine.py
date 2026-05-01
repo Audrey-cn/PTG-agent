@@ -1,8 +1,8 @@
-
 """
 Prometheus 史诗级皮肤引擎
 主题配置系统，管理配色、emoji、品牌标识和旋转动画
 """
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 class SkinConfig:
     """Prometheus 皮肤配置"""
+
     def __init__(self):
         self.name = ""
         self.description = ""
@@ -57,9 +58,14 @@ _BUILTIN_SKINS = {
             "waiting_faces": ["(🔥)", "(✦)", "(⚡)", "(✧)", "(★)"],
             "thinking_faces": ["(🔥)", "(⚡)", "(✦)", "(⌁)", "(✧)"],
             "thinking_verbs": [
-                "forging wisdom", "tending the flame", "reading the omens",
-                "carrying the torch", "shaping the future", "stoking the fire",
-                "weaving destiny", "illuminating the path",
+                "forging wisdom",
+                "tending the flame",
+                "reading the omens",
+                "carrying the torch",
+                "shaping the future",
+                "stoking the fire",
+                "weaving destiny",
+                "illuminating the path",
             ],
         },
         "branding": {
@@ -126,11 +132,7 @@ def _build_skin_config(data):
 def list_skins():
     """列出所有可用皮肤"""
     return [
-        {
-            "name": name,
-            "description": data.get("description", ""),
-            "source": "builtin"
-        }
+        {"name": name, "description": data.get("description", ""), "source": "builtin"}
         for name, data in _BUILTIN_SKINS.items()
     ]
 
@@ -190,4 +192,3 @@ def get_active_tool_prefix():
         return get_active_skin().tool_prefix
     except Exception:
         return "┊"
-

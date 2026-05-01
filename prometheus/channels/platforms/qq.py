@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-import json
 import logging
-import threading
-import time
-from typing import Optional, Any
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
 
 try:
     import websockets
+
     WEBSOCKETS_AVAILABLE = True
 except ImportError:
     WEBSOCKETS_AVAILABLE = False
@@ -33,14 +31,16 @@ class QQAdapter(PlatformAdapter):
         self._pending_messages: list = []
         self._message_handler = None
 
-    def send(self, message: str, user_id: str | None = None, group_id: str | None = None, **kwargs) -> bool:
+    def send(
+        self, message: str, user_id: str | None = None, group_id: str | None = None, **kwargs
+    ) -> bool:
         if not self._ws:
             logger.warning("QQ Bot: 未连接，无法发送")
             return False
         logger.info("QQ Bot 发送: %s", message[:50])
         return True
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_messages:
             msg = self._pending_messages.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)
@@ -71,13 +71,15 @@ class QQAdapter(PlatformAdapter):
             raw_message = event_data.get("raw_message", "")
             user_id = str(event_data.get("user_id", ""))
             group_id = str(event_data.get("group_id", "")) if message_type == "group" else ""
-            self._pending_messages.append({
-                "text": raw_message,
-                "user_id": user_id,
-                "group_id": group_id,
-                "message_type": message_type,
-                "platform": "qq",
-            })
+            self._pending_messages.append(
+                {
+                    "text": raw_message,
+                    "user_id": user_id,
+                    "group_id": group_id,
+                    "message_type": message_type,
+                    "platform": "qq",
+                }
+            )
             if self._message_handler:
                 self._message_handler(
                     raw_message,

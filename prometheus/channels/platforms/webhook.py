@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import Optional, Any
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
@@ -34,13 +35,14 @@ class WebhookAdapter(PlatformAdapter):
             return False
         try:
             import requests
+
             resp = requests.post(url, json={"content": message}, timeout=10)
             return resp.status_code < 400
         except Exception as e:
             logger.error("Webhook send failed: %s", e)
             return False
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_messages:
             msg = self._pending_messages.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)
@@ -78,12 +80,14 @@ class WebhookAdapter(PlatformAdapter):
                     text = data.get("text", data.get("content", data.get("message", "")))
                     sender = data.get("sender", data.get("user", "webhook"))
 
-                    adapter._pending_messages.append({
-                        "text": str(text),
-                        "sender": sender,
-                        "platform": "webhook",
-                        "raw_data": data,
-                    })
+                    adapter._pending_messages.append(
+                        {
+                            "text": str(text),
+                            "sender": sender,
+                            "platform": "webhook",
+                            "raw_data": data,
+                        }
+                    )
 
                     if adapter._message_handler:
                         try:
@@ -115,10 +119,8 @@ class WebhookAdapter(PlatformAdapter):
 
     def stop(self) -> bool:
         if self._server:
-            try:
+            with contextlib.suppress(Exception):
                 self._server.shutdown()
-            except Exception:
-                pass
         self._started = False
         logger.info("Webhook 适配器已停止")
         return True

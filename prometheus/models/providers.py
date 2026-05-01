@@ -1,15 +1,7 @@
-"""
-模型提供者注册系统
-
-参照 Hermes (ElizaOS) buildCharacterPlugins() 的自动探测模式,
-支持从环境变量自动发现可用模型提供者。
-
-提供者优先级: Anthropic → OpenRouter → OpenAI → Google GenAI → 本地兼容
-"""
+"""模型提供者注册系统."""
 
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 
 @dataclass
@@ -20,8 +12,8 @@ class ModelProvider:
     env_key: str
     api_base: str = ""
     default_model: str = ""
-    fallback_models: List[str] = field(default_factory=list)
-    capabilities: List[str] = field(default_factory=list)
+    fallback_models: list[str] = field(default_factory=list)
+    capabilities: list[str] = field(default_factory=list)
     config_section: str = "model"
     priority: int = 99
 
@@ -29,7 +21,7 @@ class ModelProvider:
         return bool(os.environ.get(self.env_key))
 
 
-PROVIDER_SPECS: Dict[str, ModelProvider] = {
+PROVIDER_SPECS: dict[str, ModelProvider] = {
     "anthropic": ModelProvider(
         id="anthropic",
         name="Anthropic Claude",
@@ -48,7 +40,11 @@ PROVIDER_SPECS: Dict[str, ModelProvider] = {
         env_key="OPENROUTER_API_KEY",
         api_base="https://openrouter.ai/api/v1",
         default_model="anthropic/claude-sonnet-4",
-        fallback_models=["google/gemini-2.5-pro-preview", "openai/gpt-4o", "meta-llama/llama-4-maverick"],
+        fallback_models=[
+            "google/gemini-2.5-pro-preview",
+            "openai/gpt-4o",
+            "meta-llama/llama-4-maverick",
+        ],
         capabilities=["multi_provider", "routing", "fallback", "cost_optimization"],
         priority=2,
     ),
@@ -101,9 +97,9 @@ PROVIDER_SPECS: Dict[str, ModelProvider] = {
 
 class ProviderRegistry:
     def __init__(self):
-        self._providers: Dict[str, ModelProvider] = dict(PROVIDER_SPECS)
-        self._active: Optional[str] = None
-        self._available: List[str] = []
+        self._providers: dict[str, ModelProvider] = dict(PROVIDER_SPECS)
+        self._active: str | None = None
+        self._available: list[str] = []
         self._refresh()
 
     def _refresh(self):
@@ -120,15 +116,15 @@ class ProviderRegistry:
             del self._providers[provider_id]
         self._refresh()
 
-    def get(self, provider_id: str) -> Optional[ModelProvider]:
+    def get(self, provider_id: str) -> ModelProvider | None:
         return self._providers.get(provider_id)
 
     @property
-    def active(self) -> Optional[ModelProvider]:
+    def active(self) -> ModelProvider | None:
         return self._providers.get(self._active) if self._active else None
 
     @property
-    def active_id(self) -> Optional[str]:
+    def active_id(self) -> str | None:
         return self._active
 
     @active_id.setter
@@ -138,10 +134,10 @@ class ProviderRegistry:
         self._active = provider_id
 
     @property
-    def available(self) -> List[ModelProvider]:
+    def available(self) -> list[ModelProvider]:
         return [self._providers[pid] for pid in self._available]
 
-    def list_all(self) -> Dict[str, dict]:
+    def list_all(self) -> dict[str, dict]:
         return {
             pid: {
                 "name": p.name,
@@ -163,7 +159,7 @@ class ProviderRegistry:
         self._active = "local"
         return self._providers["local"]
 
-    def get_fallback_chain(self) -> List[str]:
+    def get_fallback_chain(self) -> list[str]:
         """返回可用提供者的ID回退链，按优先级排序"""
         chain = [p.id for p in sorted(self.available, key=lambda p: p.priority)]
         if "local" not in chain:
@@ -171,7 +167,7 @@ class ProviderRegistry:
         return chain
 
 
-_registry: Optional[ProviderRegistry] = None
+_registry: ProviderRegistry | None = None
 
 
 def get_provider_registry() -> ProviderRegistry:
@@ -181,5 +177,5 @@ def get_provider_registry() -> ProviderRegistry:
     return _registry
 
 
-def detect_available_providers() -> List[ModelProvider]:
+def detect_available_providers() -> list[ModelProvider]:
     return get_provider_registry().available

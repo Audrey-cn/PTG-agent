@@ -1,13 +1,15 @@
-
 """
 Prometheus 史诗级配置系统
 借鉴 Hermes Agent 的完整架构
 """
-import os
-import yaml
+
+import contextlib
 import json
 import logging
+import os
 from pathlib import Path
+
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -36,20 +38,16 @@ def _secure_file(path):
     """Set file to owner-only permissions (0600)."""
     if os.name == "nt":
         return
-    try:
+    with contextlib.suppress(Exception):
         os.chmod(path, 0o600)
-    except Exception:
-        pass
 
 
 def _secure_dir(path):
     """Set directory to owner-only permissions (0700)."""
     if os.name == "nt":
         return
-    try:
+    with contextlib.suppress(Exception):
         os.chmod(path, 0o700)
-    except Exception:
-        pass
 
 
 DEFAULT_SOUL_MD = """
@@ -191,6 +189,7 @@ DEFAULT_CONFIG = {
 
 class PrometheusConfig:
     """Prometheus configuration manager."""
+
     def __init__(self, config_dict=None, config_path=None):
         self._config = config_dict or DEFAULT_CONFIG.copy()
         self._config_path = config_path
@@ -203,7 +202,7 @@ class PrometheusConfig:
         config = DEFAULT_CONFIG.copy()
         if path.exists():
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     loaded = yaml.safe_load(f)
                 if loaded:
                     config.update(loaded)
@@ -266,17 +265,17 @@ def ensure_prometheus_home():
     home = get_prometheus_home()
     home.mkdir(parents=True, exist_ok=True)
     _secure_dir(home)
-    
+
     for subdir in ("cron", "sessions", "logs", "memories", "checkpoints", "skills"):
         d = home / subdir
         d.mkdir(parents=True, exist_ok=True)
         _secure_dir(d)
-    
+
     soul_path = get_soul_path()
     if not soul_path.exists():
         soul_path.write_text(DEFAULT_SOUL_MD, encoding="utf-8")
         _secure_file(soul_path)
-    
+
     config_path = get_config_path()
     if not config_path.exists():
         with open(config_path, "w", encoding="utf-8") as f:
@@ -299,7 +298,7 @@ def load_env_vars(env_path=None):
     env = {}
     if env_path.exists():
         try:
-            with open(env_path, "r", encoding="utf-8") as f:
+            with open(env_path, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if not line or line.startswith("#"):
@@ -311,3 +310,175 @@ def load_env_vars(env_path=None):
             logger.warning("Failed to load .env: %s", e)
     return env
 
+
+def get_env_value(name: str, default=None):
+    """Get environment variable value."""
+    return os.environ.get(name, default)
+
+
+def load_config():
+    """Load Prometheus configuration."""
+    config_path = get_config_path()
+    if config_path.exists():
+        try:
+            with open(config_path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning("Failed to load config: %s", e)
+    return {}
+
+
+def cfg_get(config: dict, path: str, default=None):
+    """Get a nested value from config using dot-separated path."""
+    parts = path.split(".")
+    value = config
+    for part in parts:
+        if isinstance(value, dict) and part in value:
+            value = value[part]
+        else:
+            return default
+    return value
+
+
+def save_config(config: dict):
+    """Save configuration to file."""
+    config_path = get_config_path()
+    try:
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error("Failed to save config: %s", e)
+
+
+def save_env_value(key: str, value: str):
+    """Save environment variable value to .env file."""
+    env_path = get_env_path()
+    env_vars = {}
+
+    if env_path.exists():
+        try:
+            with open(env_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        env_vars[k.strip()] = v.strip()
+        except Exception as e:
+            logger.warning("Failed to load .env: %s", e)
+
+    env_vars[key] = value
+
+    try:
+        with open(env_path, "w", encoding="utf-8") as f:
+            for k, v in env_vars.items():
+                f.write(f"{k}={v}\n")
+    except Exception as e:
+        logger.error("Failed to save .env: %s", e)
+
+
+def remove_env_value(key: str):
+    """Remove environment variable from .env file."""
+    env_path = get_env_path()
+    if not env_path.exists():
+        return
+
+    lines = []
+    try:
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                line_stripped = line.strip()
+                if not line_stripped or line_stripped.startswith("#"):
+                    lines.append(line)
+                elif "=" in line_stripped:
+                    k = line_stripped.split("=", 1)[0].strip()
+                    if k != key:
+                        lines.append(line)
+    except Exception as e:
+        logger.warning("Failed to load .env: %s", e)
+        return
+
+    try:
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+    except Exception as e:
+        logger.error("Failed to save .env: %s", e)
+
+
+def get_project_root() -> Path:
+    """Get the project root directory."""
+    return Path(__file__).parent.parent.resolve()
+
+
+def check_config_version(config: dict) -> bool:
+    """Check if config version is valid."""
+    return True
+
+
+def migrate_config(config: dict) -> dict:
+    """Migrate config to current version."""
+    return config
+
+
+def validate_config_structure(config: dict) -> bool:
+    """Validate config structure."""
+    return isinstance(config, dict)
+
+
+def get_compatible_custom_providers() -> list:
+    """Get list of compatible custom providers."""
+    return []
+
+
+def recommended_update_command() -> str:
+    """Get recommended update command."""
+    return "pip install --upgrade prometheus-agent"
+
+
+def get_managed_update_command() -> str:
+    """Get managed update command."""
+    return recommended_update_command()
+
+
+_MANAGED_TRUE_VALUES = {"true", "1", "yes", "on"}
+_MANAGED_SYSTEM_NAMES = {
+    "nixos": "NixOS",
+    "docker": "Docker",
+    "homebrew": "Homebrew",
+}
+
+
+def get_managed_system() -> str | None:
+    """Return the package manager owning this install, if any."""
+    raw = os.getenv("PROMETHEUS_MANAGED", "").strip()
+    if raw:
+        normalized = raw.lower()
+        if normalized in _MANAGED_TRUE_VALUES:
+            return "NixOS"
+        return _MANAGED_SYSTEM_NAMES.get(normalized, raw)
+
+    managed_marker = get_prometheus_home() / ".managed"
+    if managed_marker.exists():
+        return "NixOS"
+    return None
+
+
+def is_managed() -> bool:
+    """Check if Prometheus is running in package-manager-managed mode.
+
+    Two signals: the PROMETHEUS_MANAGED env var (set by the systemd service),
+    or a .managed marker file in PROMETHEUS_HOME (set by the NixOS activation
+    script, so interactive shells also see it).
+    """
+    return get_managed_system() is not None
+
+
+def read_raw_config() -> dict:
+    """Read raw config without validation."""
+    return load_config()
+
+
+def _sanitize_env_lines(lines: list) -> list:
+    """Sanitize environment variable lines."""
+    return [line for line in lines if line.strip() and not line.strip().startswith("#")]

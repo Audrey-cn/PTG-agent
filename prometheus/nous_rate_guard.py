@@ -25,9 +25,7 @@ class NousRateGuard:
             return False
         if len(self._hour_requests) >= self._rph:
             return False
-        if len(self._day_requests) >= self._rpd:
-            return False
-        return True
+        return not len(self._day_requests) >= self._rpd
 
     def record_request(self) -> None:
         now = time.time()
@@ -71,7 +69,7 @@ class NousRateGuard:
         self._hour_requests.clear()
         self._day_requests.clear()
 
-    def get_status(self) -> dict[str, Any]:
+    def get_status(self) -> Dict[str, Any]:
         now = time.time()
         self._cleanup(now)
         return {

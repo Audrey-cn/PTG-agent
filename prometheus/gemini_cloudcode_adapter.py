@@ -1,23 +1,22 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 
 class GeminiCloudCodeAdapter:
-    def __init__(self, api_key: str | None = None, project_id: str | None = None):
+    def __init__(self, api_key: Optional[str] = None, project_id: Optional[str] = None):
         self._api_key = api_key
         self._project_id = project_id
         self._endpoint = "https://cloudcode.googleapis.com/v1"
 
-    def complete(self, prompt: str, context: str | None = None) -> str:
+    def complete(self, prompt: str, context: Optional[str] = None) -> str:
         full_prompt = prompt
         if context:
             full_prompt = f"Context:\n{context}\n\nTask:\n{prompt}"
         return self._call_api("complete", {"prompt": full_prompt})
 
-    def analyze_file(self, file_path: str) -> dict[str, Any]:
+    def analyze_file(self, file_path: str) -> Dict[str, Any]:
         path = Path(file_path)
         if not path.exists():
             return {"error": "File not found", "path": file_path}
@@ -27,7 +26,7 @@ class GeminiCloudCodeAdapter:
             {"file_path": file_path, "content": content},
         )
 
-    def suggest_fixes(self, code: str) -> list[dict[str, Any]]:
+    def suggest_fixes(self, code: str) -> list[Dict[str, Any]]:
         result = self._call_api("suggestFixes", {"code": code})
         if isinstance(result, list):
             return result
@@ -35,7 +34,7 @@ class GeminiCloudCodeAdapter:
             return result["fixes"]
         return []
 
-    def _call_api(self, method: str, payload: dict[str, Any]) -> Any:
+    def _call_api(self, method: str, payload: Dict[str, Any]) -> Any:
         return {"method": method, "payload": payload, "status": "mock"}
 
     def set_endpoint(self, endpoint: str) -> None:

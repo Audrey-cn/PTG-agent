@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import json
 import logging
-from typing import Optional, Any
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
@@ -34,7 +33,7 @@ class YuanbaoAdapter(PlatformAdapter):
         logger.info("元宝发送: %s", message[:50])
         return True
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_messages:
             msg = self._pending_messages.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)
@@ -55,7 +54,7 @@ class YuanbaoAdapter(PlatformAdapter):
     def set_message_handler(self, handler):
         self._message_handler = handler
 
-    def handle_webhook(self, event_data: dict) -> Optional[str]:
+    def handle_webhook(self, event_data: dict) -> str | None:
         if not self._started:
             return None
         event_type = event_data.get("type", "")
@@ -63,12 +62,14 @@ class YuanbaoAdapter(PlatformAdapter):
             message = event_data.get("content", "")
             session_id = event_data.get("session_id", "")
             user_id = event_data.get("user_id", "")
-            self._pending_messages.append({
-                "text": message,
-                "session_id": session_id,
-                "user_id": user_id,
-                "platform": "yuanbao",
-            })
+            self._pending_messages.append(
+                {
+                    "text": message,
+                    "session_id": session_id,
+                    "user_id": user_id,
+                    "platform": "yuanbao",
+                }
+            )
             if self._message_handler:
                 self._message_handler(message, session_id=session_id)
             return "ok"

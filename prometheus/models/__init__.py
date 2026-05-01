@@ -1,15 +1,14 @@
 from .providers import (
+    PROVIDER_SPECS,
     ModelProvider,
     ProviderRegistry,
     detect_available_providers,
     get_provider_registry,
-    PROVIDER_SPECS,
 )
-
 from .router import (
     ModelRouter,
-    route_model_request,
     get_model_router,
+    route_model_request,
 )
 
 __all__ = [

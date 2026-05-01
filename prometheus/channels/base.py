@@ -1,34 +1,21 @@
-"""
-频道基类定义
+"""频道基类定义."""
 
-参照 OpenClaw gateway channel 抽象与 Hermes message handler 模式，
-定义频道的统一数据模型与接口。
-
-频道类型:
-- CLI: 默认命令行交互频道（始终启用）
-- HTTP_Webhook: HTTP API 接口频道（需要 fastapi/uvicorn）
-- File_Watch: 文件监听频道（需要 watchdog）
-- WEB_SOCKET: WebSocket 频道（可选）
-- MQTT: MQTT 订阅频道（可选）
-"""
-
-import os
-import sys
-import json
 import threading
 import time
-from pathlib import Path
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Dict, Any, Optional, Callable, List
 from abc import ABC, abstractmethod
 from collections import deque
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
+from typing import Any
 
 # Optional dependencies - check availability
 WATCHDOG_AVAILABLE = False
 try:
+    from watchdog.events import FileModifiedEvent, FileSystemEventHandler
     from watchdog.observers import Observer
-    from watchdog.events import FileSystemEventHandler, FileModifiedEvent
+
     WATCHDOG_AVAILABLE = True
 except ImportError:
     pass
@@ -36,10 +23,11 @@ except ImportError:
 FASTAPI_AVAILABLE = False
 try:
     import fastapi
-    from fastapi import FastAPI, Request, HTTPException
+    import uvicorn
+    from fastapi import FastAPI, HTTPException, Request
     from fastapi.responses import JSONResponse
     from pydantic import BaseModel
-    import uvicorn
+
     FASTAPI_AVAILABLE = True
 except ImportError:
     pass
@@ -58,7 +46,7 @@ class ChannelConfig:
     channel_type: ChannelType
     name: str
     enabled: bool = True
-    settings: Dict[str, Any] = field(default_factory=dict)
+    settings: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -86,8 +74,8 @@ class ChannelMessage:
     channel: str
     sender: str = "unknown"
     content: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    reply_to: Optional[str] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    reply_to: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -103,8 +91,8 @@ class ChannelMessage:
 class ChannelResponse:
     content: str
     channel: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -119,7 +107,7 @@ class Channel(ABC):
     def __init__(self, config: ChannelConfig):
         self.config = config
         self._started = False
-        self._on_message: Optional[Callable[[ChannelMessage], Optional[ChannelResponse]]] = None
+        self._on_message: Callable[[ChannelMessage], ChannelResponse | None] | None = None
         self._message_history: deque = deque(maxlen=100)  # 最近 100 条消息
 
     @property
@@ -134,10 +122,10 @@ class Channel(ABC):
     def is_started(self) -> bool:
         return self._started
 
-    def set_handler(self, handler: Callable[[ChannelMessage], Optional[ChannelResponse]]):
+    def set_handler(self, handler: Callable[[ChannelMessage], ChannelResponse | None]):
         self._on_message = handler
 
-    def handle_message(self, message: ChannelMessage) -> Optional[ChannelResponse]:
+    def handle_message(self, message: ChannelMessage) -> ChannelResponse | None:
         self._message_history.append(message)
         if self._on_message:
             return self._on_message(message)
@@ -155,7 +143,7 @@ class Channel(ABC):
     def send(self, response: ChannelResponse) -> bool:
         pass
 
-    def get_message_history(self) -> List[ChannelMessage]:
+    def get_message_history(self) -> list[ChannelMessage]:
         return list(self._message_history)
 
     def status(self) -> dict:
@@ -192,7 +180,9 @@ class CLIChannel(Channel):
             print(f"[错误] {response.error}")
         return True
 
-    def receive(self, sender: str = "cli", content: str = "", metadata: dict = None) -> Optional[ChannelResponse]:
+    def receive(
+        self, sender: str = "cli", content: str = "", metadata: dict = None
+    ) -> ChannelResponse | None:
         if not self._started:
             return None
         message = ChannelMessage(
@@ -221,7 +211,7 @@ class HTTPWebhookChannel(Channel):
 
     def start(self) -> bool:
         if not FASTAPI_AVAILABLE:
-            print("⚠️ HTTP Webhook 需要 fastapi/uvicorn，请安装: pip install \"prometheus-ptg[web]\"")
+            print('⚠️ HTTP Webhook 需要 fastapi/uvicorn，请安装: pip install "prometheus-ptg[web]"')
             return False
 
         try:
@@ -231,7 +221,7 @@ class HTTPWebhookChannel(Channel):
             class WebhookPayload(BaseModel):
                 sender: str = "webhook"
                 content: str = ""
-                metadata: Dict[str, Any] = field(default_factory=dict)
+                metadata: dict[str, Any] = field(default_factory=dict)
 
             # 定义路由
             @self._app.get("/")
@@ -280,7 +270,9 @@ class HTTPWebhookChannel(Channel):
         print(f"[webhook] 发送响应: {response.content[:50] if response.content else ''}")
         return True
 
-    def receive_request(self, sender: str, content: str, metadata: dict = None) -> Optional[ChannelResponse]:
+    def receive_request(
+        self, sender: str, content: str, metadata: dict = None
+    ) -> ChannelResponse | None:
         if not self._started:
             return None
         message = ChannelMessage(
@@ -361,7 +353,7 @@ class FileWatchChannel(Channel):
             print(f"⚠️ 保存响应失败: {e}")
             return False
 
-    def on_file_change(self, filepath: str, action: str = "modified") -> Optional[ChannelResponse]:
+    def on_file_change(self, filepath: str, action: str = "modified") -> ChannelResponse | None:
         if not self._started:
             return None
 
@@ -415,7 +407,7 @@ class MQTTChannel(Channel):
 
 
 # 频道类型映射
-CHANNEL_TYPE_MAP: Dict[ChannelType, type] = {
+CHANNEL_TYPE_MAP: dict[ChannelType, type] = {
     ChannelType.CLI: CLIChannel,
     ChannelType.HTTP_WEBHOOK: HTTPWebhookChannel,
     ChannelType.FILE_WATCH: FileWatchChannel,

@@ -96,7 +96,7 @@ def get_env_diff() -> dict[str, dict[str, str]]:
     return diff
 
 
-def list_env_vars(prefix: str = "") -> list[tuple[str, str]]:
+def list_env_vars(prefix: str = "") -> list[Tuple[str, str]]:
     if prefix:
         return [(k, v) for k, v in sorted(os.environ.items()) if k.startswith(prefix)]
     return [(k, v) for k, v in sorted(os.environ.items())]

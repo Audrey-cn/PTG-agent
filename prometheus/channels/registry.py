@@ -1,31 +1,23 @@
-"""
-频道注册中心
+"""频道注册中心."""
 
-管理所有活跃的消息频道，提供统一的频道生命周期管理。
-参照 OpenClaw gateway 的 channel manager 模式。
-"""
-
-from typing import Dict, List, Optional, Callable
+from collections.abc import Callable
 
 from .base import (
+    CHANNEL_TYPE_MAP,
     Channel,
-    ChannelType,
     ChannelConfig,
     ChannelMessage,
     ChannelResponse,
-    CLIChannel,
-    HTTPWebhookChannel,
-    FileWatchChannel,
-    CHANNEL_TYPE_MAP,
+    ChannelType,
 )
 
 
 class ChannelRegistry:
     def __init__(self):
-        self._channels: Dict[str, Channel] = {}
-        self._global_handler: Optional[Callable[[ChannelMessage], Optional[ChannelResponse]]] = None
+        self._channels: dict[str, Channel] = {}
+        self._global_handler: Callable[[ChannelMessage], ChannelResponse | None] | None = None
 
-    def set_global_handler(self, handler: Callable[[ChannelMessage], Optional[ChannelResponse]]):
+    def set_global_handler(self, handler: Callable[[ChannelMessage], ChannelResponse | None]):
         self._global_handler = handler
         for channel in self._channels.values():
             channel.set_handler(handler)
@@ -46,10 +38,10 @@ class ChannelRegistry:
         del self._channels[name]
         return True
 
-    def get(self, name: str) -> Optional[Channel]:
+    def get(self, name: str) -> Channel | None:
         return self._channels.get(name)
 
-    def create_channel(self, config: ChannelConfig) -> Optional[Channel]:
+    def create_channel(self, config: ChannelConfig) -> Channel | None:
         channel_cls = CHANNEL_TYPE_MAP.get(config.channel_type)
         if channel_cls is None:
             return None
@@ -59,7 +51,7 @@ class ChannelRegistry:
         self._channels[config.name] = channel
         return channel
 
-    def start_all(self) -> Dict[str, bool]:
+    def start_all(self) -> dict[str, bool]:
         results = {}
         for name, channel in self._channels.items():
             if channel.config.enabled:
@@ -68,7 +60,7 @@ class ChannelRegistry:
                 results[name] = False
         return results
 
-    def stop_all(self) -> Dict[str, bool]:
+    def stop_all(self) -> dict[str, bool]:
         results = {}
         for name, channel in self._channels.items():
             results[name] = channel.stop()
@@ -86,10 +78,10 @@ class ChannelRegistry:
             return channel.stop()
         return False
 
-    def list_all(self) -> List[dict]:
+    def list_all(self) -> list[dict]:
         return [c.status() for c in self._channels.values()]
 
-    def broadcast(self, response: ChannelResponse) -> Dict[str, bool]:
+    def broadcast(self, response: ChannelResponse) -> dict[str, bool]:
         results = {}
         for name, channel in self._channels.items():
             if channel.is_started:
@@ -99,7 +91,7 @@ class ChannelRegistry:
         return results
 
     @property
-    def channels(self) -> Dict[str, Channel]:
+    def channels(self) -> dict[str, Channel]:
         return dict(self._channels)
 
     @property
@@ -111,7 +103,7 @@ class ChannelRegistry:
         return len(self._channels)
 
 
-_registry: Optional[ChannelRegistry] = None
+_registry: ChannelRegistry | None = None
 
 
 def get_channel_registry() -> ChannelRegistry:

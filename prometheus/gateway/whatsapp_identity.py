@@ -5,10 +5,12 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from prometheus.config import get_prometheus_home
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclass
@@ -18,12 +20,12 @@ class Identity:
     created_at: float
     name: str = ""
     status: str = "active"
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class WhatsAppIdentity:
     def __init__(self) -> None:
-        self._identities: dict[str, Identity] = {}
+        self._identities: Dict[str, Identity] = {}
         self._lock = threading.Lock()
         self._load_from_disk()
 
@@ -34,7 +36,7 @@ class WhatsAppIdentity:
         path = self._storage_path()
         if path.exists():
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     data = json.load(f)
                 for item in data.get("identities", []):
                     identity = Identity(
@@ -68,7 +70,7 @@ class WhatsAppIdentity:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f)
 
-    def create_identity(self, phone_number: str) -> dict[str, Any]:
+    def create_identity(self, phone_number: str) -> Dict[str, Any]:
         with self._lock:
             identity_id = str(uuid.uuid4())
             identity = Identity(
@@ -86,7 +88,7 @@ class WhatsAppIdentity:
                 "status": identity.status,
             }
 
-    def get_identity(self, identity_id: str) -> dict[str, Any] | None:
+    def get_identity(self, identity_id: str) -> Dict[str, Any] | None:
         with self._lock:
             identity = self._identities.get(identity_id)
             if identity:
@@ -100,7 +102,7 @@ class WhatsAppIdentity:
                 }
             return None
 
-    def list_identities(self) -> list[dict[str, Any]]:
+    def list_identities(self) -> list[Dict[str, Any]]:
         with self._lock:
             return [
                 {
@@ -124,9 +126,9 @@ class WhatsAppIdentity:
     def update_identity(
         self,
         identity_id: str,
-        name: str | None = None,
-        status: str | None = None,
-        metadata: dict[str, Any] | None = None,
+        name: Optional[str] = None,
+        status: Optional[str] = None,
+        metadata: Dict[str, Any] | None = None,
     ) -> bool:
         with self._lock:
             identity = self._identities.get(identity_id)

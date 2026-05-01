@@ -24,7 +24,7 @@ class MemoryProvider(ABC):
     def delete(self, key: str) -> bool: ...
 
     @abstractmethod
-    def list_keys(self) -> list[str]: ...
+    def list_keys(self) -> List[str]: ...
 
 
 class FileMemoryProvider(MemoryProvider):
@@ -77,8 +77,8 @@ class FileMemoryProvider(MemoryProvider):
             return True
         return False
 
-    def list_keys(self) -> list[str]:
-        keys: list[str] = []
+    def list_keys(self) -> List[str]:
+        keys: List[str] = []
         for path in self._base_dir.glob("*.json"):
             keys.append(path.stem)
         return sorted(keys)
@@ -86,7 +86,7 @@ class FileMemoryProvider(MemoryProvider):
 
 class InMemoryProvider(MemoryProvider):
     def __init__(self) -> None:
-        self._store: dict[str, dict] = {}
+        self._store: Dict[str, dict] = {}
 
     def store(self, key: str, entry: dict) -> bool:
         self._store[key] = entry
@@ -98,7 +98,7 @@ class InMemoryProvider(MemoryProvider):
     def search(self, query: str, limit: int = 10) -> list[dict]:
         results: list[dict] = []
         q_lower = query.lower()
-        for key, entry in self._store.items():
+        for _key, entry in self._store.items():
             if len(results) >= limit:
                 break
             text = json.dumps(entry, ensure_ascii=False).lower()
@@ -112,7 +112,7 @@ class InMemoryProvider(MemoryProvider):
             return True
         return False
 
-    def list_keys(self) -> list[str]:
+    def list_keys(self) -> List[str]:
         return sorted(self._store.keys())
 
 

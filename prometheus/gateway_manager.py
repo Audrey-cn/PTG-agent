@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 import os
-import sys
-import json
 import signal
 import subprocess
+import sys
 import time
 from pathlib import Path
-from typing import Optional
 
 GATEWAY_PID_FILE = Path.home() / ".prometheus" / "gateway.pid"
 GATEWAY_LOG_FILE = Path.home() / ".prometheus" / "gateway.log"
 
 
-def _get_pid() -> Optional[int]:
+def _get_pid() -> int | None:
     if not GATEWAY_PID_FILE.exists():
         return None
     try:
@@ -31,7 +29,9 @@ def start_gateway(platform: str = "cli") -> bool:
 
     GATEWAY_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-    script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cli", "main.py")
+    script = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cli", "main.py"
+    )
     args = [sys.executable, script, "gateway", "serve", "--platform", platform]
 
     log = open(str(GATEWAY_LOG_FILE), "a")

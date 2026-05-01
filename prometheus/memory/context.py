@@ -1,22 +1,9 @@
 #!/usr/bin/env python3
-"""
-╔══════════════════════════════════════════════════════════════╗
-║   🧠 普罗米修斯 · 上下文管理器 · Context Manager            ║
-║                                                              ║
-║   三层记忆模型：                                              ║
-║     工作记忆（working）  — 当前任务上下文                    ║
-║     情景记忆（episodic） — 近期交互，随时间衰减              ║
-║     长期记忆（longterm） — 稳定事实，持久保存                ║
-║                                                              ║
-║   基于混合存储层实现，支持 MD 文件和 SQLite                  ║
-╚══════════════════════════════════════════════════════════════╝
-"""
+"""╔══════════════════════════════════════════════════════════════╗."""
 
-import os
-import math
 import datetime
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, field, asdict
+import math
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 
 from .storage import HybridStorage, MemoryRecord
@@ -31,6 +18,7 @@ class MemoryLayer(Enum):
 @dataclass
 class MemoryUnit:
     """记忆单元——信息的最小存储单位"""
+
     content: str
     source: str = "unknown"
     importance: float = 0.5
@@ -39,7 +27,7 @@ class MemoryUnit:
     accessed_at: str = ""
     access_count: int = 0
     decay_rate: float = 0.01
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     token_estimate: int = 0
 
     def __post_init__(self):
@@ -77,28 +65,29 @@ def estimate_tokens(text: str) -> int:
     """粗略估算 token 数（中文约1.5字/token，英文约4字符/token）"""
     if not text:
         return 0
-    chinese_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
+    chinese_chars = sum(1 for c in text if "\u4e00" <= c <= "\u9fff")
     other_chars = len(text) - chinese_chars
     return int(chinese_chars * 1.5 + other_chars / 4)
 
 
 class ContextManager:
     """上下文管理器 - 三层记忆系统
-    
+
     管理三层记忆：工作记忆、情景记忆、长期记忆。
     支持预算控制、重要性衰减、自动压缩和检索。
     """
-    
+
     DEFAULT_BUDGET = {
         MemoryLayer.WORKING.value: 8000,
         MemoryLayer.EPISODIC.value: 16000,
         MemoryLayer.LONGTERM.value: 32000,
     }
-    
+
     EPISODIC_COMPRESS_THRESHOLD = 50
-    
-    def __init__(self, data_dir: str = None, db_path: str = None, budget: dict = None,
-                 state_file: str = None):
+
+    def __init__(
+        self, data_dir: str = None, db_path: str = None, budget: dict = None, state_file: str = None
+    ):
         """
         Args:
             data_dir: 数据目录
@@ -108,18 +97,18 @@ class ContextManager:
         """
         self.storage = HybridStorage(data_dir=data_dir, db_path=db_path)
         self.budget = {**self.DEFAULT_BUDGET, **(budget or {})}
-        self._memories_cache: Dict[str, List[MemoryUnit]] = {
+        self._memories_cache: dict[str, list[MemoryUnit]] = {
             MemoryLayer.WORKING.value: [],
             MemoryLayer.EPISODIC.value: [],
             MemoryLayer.LONGTERM.value: [],
         }
         self._cache_loaded = False
-    
+
     def _ensure_cache_loaded(self):
         """确保缓存已加载"""
         if self._cache_loaded:
             return
-        
+
         for layer in MemoryLayer:
             records = self.storage.list_by_layer(layer.value, limit=10000)
             for r in records:
@@ -131,20 +120,20 @@ class ContextManager:
                     created_at=r.created_at,
                     accessed_at=r.accessed_at or r.created_at,
                     access_count=r.access_count,
-                    decay_rate=r.metadata.get('decay_rate', 0.01) if r.metadata else 0.01,
+                    decay_rate=r.metadata.get("decay_rate", 0.01) if r.metadata else 0.01,
                     tags=r.tags,
                     token_estimate=r.token_estimate,
                 )
                 self._memories_cache[layer.value].append(unit)
         self._cache_loaded = True
-    
+
     def _sync_cache_to_storage(self):
         """将缓存同步到存储"""
         for layer in ["working", "episodic", "longterm"]:
             records = self.storage.list_by_layer(layer, limit=10000)
             for r in records:
                 self.storage.delete(r.memory_id)
-        
+
         for layer, units in self._memories_cache.items():
             for unit in units:
                 record = MemoryRecord(
@@ -160,23 +149,29 @@ class ContextManager:
                 )
                 self.storage.save(record)
 
-    def add(self, content: str, layer: str = "working",
-            importance: float = 0.5, source: str = "task",
-            tags: List[str] = None, **metadata) -> dict:
+    def add(
+        self,
+        content: str,
+        layer: str = "working",
+        importance: float = 0.5,
+        source: str = "task",
+        tags: list[str] = None,
+        **metadata,
+    ) -> dict:
         """添加记忆条目
-        
+
         Args:
             content: 信息内容
             layer: 目标层级（working/episodic/longterm）
             importance: 重要性 0.0-1.0
             source: 来源标记
             tags: 检索标签
-            
+
         Returns:
             {id, layer, token_estimate, budget_usage}
         """
         self._ensure_cache_loaded()
-        
+
         if layer not in self._memories_cache:
             return {"error": f"无效的记忆层级: {layer}"}
 
@@ -199,21 +194,22 @@ class ContextManager:
             "budget_usage": self.budget_status(),
         }
 
-    def recall(self, query: str = None, layer: str = None,
-               top_k: int = 10, min_importance: float = 0.0) -> List[dict]:
+    def recall(
+        self, query: str = None, layer: str = None, top_k: int = 10, min_importance: float = 0.0
+    ) -> list[dict]:
         """检索记忆
-        
+
         Args:
             query: 搜索关键词（None 返回所有，按重要性排序）
             layer: 限定层级（None 搜索所有层级）
             top_k: 返回条数
             min_importance: 最低有效重要性阈值
-            
+
         Returns:
             [{content, source, importance, layer, created_at, tags}]
         """
         self._ensure_cache_loaded()
-        
+
         candidates = []
         layers = [layer] if layer else list(self._memories_cache.keys())
 
@@ -239,17 +235,19 @@ class ContextManager:
                     if content_match:
                         score *= 1.1
 
-                candidates.append({
-                    "content": unit.content,
-                    "source": unit.source,
-                    "importance": round(unit.effective_importance(), 3),
-                    "base_importance": unit.importance,
-                    "layer": unit.layer,
-                    "created_at": unit.created_at,
-                    "tags": unit.tags,
-                    "token_estimate": unit.token_estimate,
-                    "_score": score,
-                })
+                candidates.append(
+                    {
+                        "content": unit.content,
+                        "source": unit.source,
+                        "importance": round(unit.effective_importance(), 3),
+                        "base_importance": unit.importance,
+                        "layer": unit.layer,
+                        "created_at": unit.created_at,
+                        "tags": unit.tags,
+                        "token_estimate": unit.token_estimate,
+                        "_score": score,
+                    }
+                )
 
         candidates.sort(key=lambda x: x["_score"], reverse=True)
         results = candidates[:top_k]
@@ -269,23 +267,28 @@ class ContextManager:
 
         return results
 
-    def promote(self, content: str = None, from_layer: str = "episodic",
-                to_layer: str = "longterm", min_importance: float = 0.7,
-                memory_id: str = None) -> dict:
+    def promote(
+        self,
+        content: str = None,
+        from_layer: str = "episodic",
+        to_layer: str = "longterm",
+        min_importance: float = 0.7,
+        memory_id: str = None,
+    ) -> dict:
         """将记忆从低层提升到高层
-        
+
         Args:
             content: 指定提升某条内容（None 则按重要性自动提升）
             from_layer: 源层级
             to_layer: 目标层级
             min_importance: 最低有效重要性阈值
             memory_id: 兼容新版参数（指定 memory_id）
-            
+
         Returns:
             {promoted: int, details: [...]} 或 bool（使用 memory_id 时）
         """
         self._ensure_cache_loaded()
-        
+
         if memory_id:
             records = self.storage.list_by_layer(from_layer, limit=10000)
             for r in records:
@@ -294,7 +297,7 @@ class ContextManager:
                     self.storage.save(r)
                     return True
             return False
-        
+
         promoted = []
         remaining = []
 
@@ -302,19 +305,21 @@ class ContextManager:
             eff = unit.effective_importance()
             should_promote = False
 
-            if content and content in unit.content:
-                should_promote = True
-            elif not content and eff >= min_importance:
+            if content and content in unit.content or not content and eff >= min_importance:
                 should_promote = True
 
             if should_promote:
                 unit.layer = to_layer
                 self._memories_cache[to_layer].append(unit)
-                promoted.append({
-                    "content": unit.content[:50] + "..." if len(unit.content) > 50 else unit.content,
-                    "importance": round(eff, 3),
-                    "access_count": unit.access_count,
-                })
+                promoted.append(
+                    {
+                        "content": unit.content[:50] + "..."
+                        if len(unit.content) > 50
+                        else unit.content,
+                        "importance": round(eff, 3),
+                        "access_count": unit.access_count,
+                    }
+                )
             else:
                 remaining.append(unit)
 
@@ -325,17 +330,17 @@ class ContextManager:
 
     def compress_episodic(self, keep_recent: int = 20) -> dict:
         """压缩情景记忆——将旧的、低重要性的条目清理掉
-        
+
         保留策略：
           1. 最近 keep_recent 条始终保留
           2. 重要性 > 0.7 的始终保留
           3. 其余按重要性排序，保留前 50%
-          
+
         Returns:
             {before: int, after: int, compressed: int}
         """
         self._ensure_cache_loaded()
-        
+
         episodic = self._memories_cache[MemoryLayer.EPISODIC.value]
         before = len(episodic)
 
@@ -363,24 +368,26 @@ class ContextManager:
             "before": before,
             "after": after,
             "compressed": before - after,
-            "discarded_content_hints": [
-                d.content[:30] + "..." for d in truly_discarded[:5]
-            ],
+            "discarded_content_hints": [d.content[:30] + "..." for d in truly_discarded[:5]],
         }
 
     def budget_status(self) -> dict:
         """当前各层 token 预算使用情况
-        
+
         Returns:
             {working: {used, budget, pct}, episodic: {...}, longterm: {...}, total: {...}}
         """
         self._ensure_cache_loaded()
-        
+
         status = {}
         total_used = 0
         total_budget = 0
 
-        for layer_name in [MemoryLayer.WORKING.value, MemoryLayer.EPISODIC.value, MemoryLayer.LONGTERM.value]:
+        for layer_name in [
+            MemoryLayer.WORKING.value,
+            MemoryLayer.EPISODIC.value,
+            MemoryLayer.LONGTERM.value,
+        ]:
             units = self._memories_cache.get(layer_name, [])
             used = sum(u.token_estimate for u in units)
             budget = self.budget.get(layer_name, 0)
@@ -407,8 +414,7 @@ class ContextManager:
         self._ensure_cache_loaded()
         return {
             "memories": {
-                layer: [u.to_dict() for u in units]
-                for layer, units in self._memories_cache.items()
+                layer: [u.to_dict() for u in units] for layer, units in self._memories_cache.items()
             },
             "budget": self.budget,
             "timestamp": datetime.datetime.now().isoformat(),
@@ -430,12 +436,12 @@ class ContextManager:
 
     def clear(self, layer: str = None) -> dict:
         """清空记忆
-        
+
         Args:
             layer: 指定层级（None 则全部清空）
         """
         self._ensure_cache_loaded()
-        
+
         if layer:
             if layer in self._memories_cache:
                 count = len(self._memories_cache[layer])
@@ -460,7 +466,7 @@ class ContextManager:
             "total": f"{budget['total']['used']}/{budget['total']['budget']}tok ({budget['total']['pct']}%)",
         }
 
-    def search(self, query: str, limit: int = 10) -> List[MemoryUnit]:
+    def search(self, query: str, limit: int = 10) -> list[MemoryUnit]:
         """全文搜索记忆（使用 SQLite FTS，支持中英文子串匹配）
 
         Args:
@@ -474,22 +480,25 @@ class ContextManager:
         units = []
         for r in records:
             meta = r.metadata or {}
-            units.append(MemoryUnit(
-                content=r.content,
-                source=r.source,
-                importance=r.importance,
-                layer=r.layer,
-                created_at=r.created_at,
-                accessed_at=r.accessed_at or r.created_at,
-                access_count=r.access_count,
-                decay_rate=meta.get('decay_rate', 0.01),
-                tags=r.tags,
-                token_estimate=r.token_estimate,
-            ))
+            units.append(
+                MemoryUnit(
+                    content=r.content,
+                    source=r.source,
+                    importance=r.importance,
+                    layer=r.layer,
+                    created_at=r.created_at,
+                    accessed_at=r.accessed_at or r.created_at,
+                    access_count=r.access_count,
+                    decay_rate=meta.get("decay_rate", 0.01),
+                    tags=r.tags,
+                    token_estimate=r.token_estimate,
+                )
+            )
         return units
 
-    def get_context_for_prompt(self, max_tokens: int = 4000, query: str = None,
-                               layers: List[str] = None) -> str:
+    def get_context_for_prompt(
+        self, max_tokens: int = 4000, query: str = None, layers: list[str] = None
+    ) -> str:
         """为提示词合成器提供 token 预算内的最优记忆片段
 
         策略：
@@ -507,7 +516,7 @@ class ContextManager:
             格式化的记忆文本，可直接注入 system prompt
         """
         self._ensure_cache_loaded()
-        
+
         target_layers = layers or list(self._memories_cache.keys())
 
         candidates = []
@@ -543,7 +552,7 @@ class ContextManager:
                 selected.append(unit)
                 remaining_tokens -= unit.token_estimate
             elif remaining_tokens > 20:
-                truncated_content = unit.content[:int(remaining_tokens * 4)]
+                truncated_content = unit.content[: int(remaining_tokens * 4)]
                 selected_item = MemoryUnit(
                     content=truncated_content,
                     source=unit.source,
@@ -557,7 +566,7 @@ class ContextManager:
         if not selected:
             return ""
 
-        layer_groups: Dict[str, List[MemoryUnit]] = {}
+        layer_groups: dict[str, list[MemoryUnit]] = {}
         for unit in selected:
             layer_name = unit.layer
             if layer_name not in layer_groups:

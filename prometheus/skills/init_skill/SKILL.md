@@ -4,7 +4,7 @@ description: Claude Code 自进化系统初始化技能
 version: 1.0.0
 author: Prometheus
 metadata:
-  hermes:
+  prometheus:
     tags:
       - init
       - self-evolution
@@ -103,4 +103,3 @@ cd your-project
 # 用户纠正自动记录到 corrections.jsonl
 # 第二次相同纠正自动晋升到 learned-rules.md
 ```
-

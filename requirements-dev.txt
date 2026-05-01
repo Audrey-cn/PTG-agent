@@ -1,0 +1,9 @@
+# 开发依赖（从 pyproject.toml [project.optional-dependencies] dev 同步）
+# 安装: pip install -r requirements-dev.txt
+# 锁定: pip freeze > requirements-lock.txt (在 venv 中运行 make install-dev 后)
+debugpy>=1.8.0,<2
+pytest>=9.0.2,<10
+pytest-asyncio>=1.3.0,<2
+pytest-cov>=6.0,<7
+ruff>=0.8.0,<1
+pre-commit>=4.0,<5

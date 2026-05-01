@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import os
-import time
-import threading
 import logging
-from dataclasses import dataclass, field
-from typing import Optional
+import os
+import threading
+import time
+from dataclasses import dataclass
 
 logger = logging.getLogger("prometheus.credential_pool")
 
@@ -26,9 +25,7 @@ class CredentialEntry:
     def is_available(self) -> bool:
         if not self.enabled:
             return False
-        if self.rate_limited_until > time.time():
-            return False
-        return True
+        return not self.rate_limited_until > time.time()
 
     def mark_used(self):
         self.last_used = time.time()
@@ -60,15 +57,20 @@ class CredentialPool:
                     c.base_url = base_url or c.base_url
                     c.weight = weight
                     return
-            self._credentials.append(CredentialEntry(
-                key=key, provider=provider, base_url=base_url, weight=weight,
-            ))
+            self._credentials.append(
+                CredentialEntry(
+                    key=key,
+                    provider=provider,
+                    base_url=base_url,
+                    weight=weight,
+                )
+            )
 
     def remove(self, key: str):
         with self._lock:
             self._credentials = [c for c in self._credentials if c.key != key]
 
-    def get_next(self, provider: str | None = None) -> Optional[CredentialEntry]:
+    def get_next(self, provider: str | None = None) -> CredentialEntry | None:
         with self._lock:
             available = [c for c in self._credentials if c.is_available()]
             if provider:
@@ -151,14 +153,16 @@ class CredentialPool:
         with self._lock:
             result = []
             for c in self._credentials:
-                result.append({
-                    "key": c.key[:8] + "..." if len(c.key) > 8 else c.key,
-                    "provider": c.provider,
-                    "available": c.is_available(),
-                    "requests": c.request_count,
-                    "errors": c.error_count,
-                    "rate_limited": c.rate_limited_until > time.time(),
-                })
+                result.append(
+                    {
+                        "key": c.key[:8] + "..." if len(c.key) > 8 else c.key,
+                        "provider": c.provider,
+                        "available": c.is_available(),
+                        "requests": c.request_count,
+                        "errors": c.error_count,
+                        "rate_limited": c.rate_limited_until > time.time(),
+                    }
+                )
             return result
 
 

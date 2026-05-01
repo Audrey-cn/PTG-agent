@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field, asdict
-from typing import Optional
+from dataclasses import asdict, dataclass, field
 
 from prometheus.config import get_prometheus_home
 
@@ -14,21 +13,21 @@ logger = logging.getLogger(__name__)
 class MCPServerConfig:
     name: str
     command: str
-    args: list[str] = field(default_factory=list)
-    env: dict[str, str] = field(default_factory=dict)
+    args: List[str] = field(default_factory=list)
+    env: Dict[str, str] = field(default_factory=dict)
     enabled: bool = True
 
 
 class MCPConfig:
     def __init__(self) -> None:
         self._config_path = get_prometheus_home() / "mcp_servers.json"
-        self._servers: dict[str, MCPServerConfig] = {}
+        self._servers: Dict[str, MCPServerConfig] = {}
         self._load()
 
     def _load(self) -> None:
         if self._config_path.exists():
             try:
-                with open(self._config_path, "r", encoding="utf-8") as f:
+                with open(self._config_path, encoding="utf-8") as f:
                     data = json.load(f)
                 for item in data.get("servers", []):
                     cfg = MCPServerConfig(
@@ -59,8 +58,8 @@ class MCPConfig:
         self,
         name: str,
         command: str,
-        args: Optional[list[str]] = None,
-        env: Optional[dict[str, str]] = None,
+        args: List[str] | None = None,
+        env: Dict[str, str] | None = None,
     ) -> bool:
         if name in self._servers:
             logger.warning("MCP server %s already exists", name)
@@ -83,7 +82,7 @@ class MCPConfig:
         self._save()
         return True
 
-    def get_server(self, name: str) -> Optional[MCPServerConfig]:
+    def get_server(self, name: str) -> MCPServerConfig | None:
         return self._servers.get(name)
 
     def enable_server(self, name: str) -> bool:

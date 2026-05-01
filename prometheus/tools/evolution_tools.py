@@ -3,9 +3,7 @@
 自进化系统工具
 """
 
-from pathlib import Path
-from typing import Dict, Any, Optional
-from ..tools.registry import registry, tool_result, tool_error
+from ..tools.registry import registry, tool_error, tool_result
 from .engine import SelfEvolutionEngine
 from .initializer import ProjectInitializer
 
@@ -14,7 +12,7 @@ def initialize_project(args):
     """初始化项目的自进化系统"""
     project_dir = args.get("project_dir", ".")
     config = args.get("config", {})
-    
+
     try:
         initializer = ProjectInitializer(project_dir)
         result = initializer.initialize(config)
@@ -30,10 +28,10 @@ def record_observation(args):
     content = args.get("content", "")
     context = args.get("context", "")
     confidence = args.get("confidence", 0.5)
-    
+
     if not content:
         return tool_error("Content is required")
-    
+
     try:
         engine = SelfEvolutionEngine(project_dir)
         result = engine.observe(pattern_type, content, context, confidence)
@@ -49,10 +47,10 @@ def record_correction(args):
     corrected = args.get("corrected", "")
     feedback = args.get("feedback", "")
     context = args.get("context", "")
-    
+
     if not original or not corrected:
         return tool_error("Original and corrected are required")
-    
+
     try:
         engine = SelfEvolutionEngine(project_dir)
         result = engine.learn_from_correction(original, corrected, feedback, context)
@@ -64,7 +62,7 @@ def record_correction(args):
 def get_learned_rules(args):
     """获取已学习的规则"""
     project_dir = args.get("project_dir", ".")
-    
+
     try:
         engine = SelfEvolutionEngine(project_dir)
         rules = engine.consult()
@@ -76,7 +74,7 @@ def get_learned_rules(args):
 def get_evolution_status(args):
     """获取进化引擎状态"""
     project_dir = args.get("project_dir", ".")
-    
+
     try:
         engine = SelfEvolutionEngine(project_dir)
         status = engine.get_status()

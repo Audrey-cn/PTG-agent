@@ -19,7 +19,7 @@ class ModelMetadata:
     description: str
 
 
-MODEL_METADATA: dict[str, ModelMetadata] = {
+MODEL_METADATA: Dict[str, ModelMetadata] = {
     "gpt-4o": ModelMetadata(
         id="gpt-4o",
         provider="openai",
@@ -463,7 +463,7 @@ def get_context_length(model_id: str) -> int:
     return 4096
 
 
-def get_pricing(model_id: str) -> dict[str, float]:
+def get_pricing(model_id: str) -> Dict[str, float]:
     metadata = get_model_metadata(model_id)
     if metadata:
         return {
@@ -478,7 +478,7 @@ def supports_feature(model_id: str, feature: str) -> bool:
     if not metadata:
         return False
 
-    feature_map: dict[str, Any] = {
+    feature_map: Dict[str, Any] = {
         "vision": metadata.supports_vision,
         "tools": metadata.supports_tools,
         "streaming": metadata.supports_streaming,

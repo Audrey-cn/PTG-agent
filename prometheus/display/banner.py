@@ -1,19 +1,16 @@
-"""
-Prometheus Banner System
-参考 Hermes Agent 的 banner.py 设计
-包含启动 logo、命令列表、系统状态摘要
-"""
+"""Prometheus Banner System."""
+
 import os
 import shutil
 import sys
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 from pathlib import Path
 
 try:
     from rich.console import Console
     from rich.panel import Panel
     from rich.table import Table
+
     HAS_RICH = True
 except ImportError:
     HAS_RICH = False
@@ -32,7 +29,7 @@ class CommandDef:
     args_hint: str = ""
 
 
-COMMAND_REGISTRY: List[CommandDef] = [
+COMMAND_REGISTRY: list[CommandDef] = [
     CommandDef("setup", "引导式初始化", "System"),
     CommandDef("doctor", "系统诊断与修复（守门员模式）", "System"),
     CommandDef("doctor --full", "深度诊断（全部 8 项检查）", "System"),
@@ -87,9 +84,9 @@ SIMPLE_LOGO = """
 """
 
 
-def get_commands_by_category() -> Dict[str, List[str]]:
+def get_commands_by_category() -> dict[str, list[str]]:
     """按分类返回命令列表"""
-    categories: Dict[str, List[str]] = {}
+    categories: dict[str, list[str]] = {}
     for cmd in COMMAND_REGISTRY:
         cat = cmd.category
         if cat not in categories:
@@ -101,7 +98,7 @@ def get_commands_by_category() -> Dict[str, List[str]]:
     return categories
 
 
-def get_system_info() -> Dict[str, str]:
+def get_system_info() -> dict[str, str]:
     """获取系统信息"""
     info = {}
     info["Python"] = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
@@ -141,14 +138,14 @@ def build_welcome_banner(console=None) -> str:
         lines.append(SIMPLE_LOGO)
 
     lines.append("")
-    lines.append(f"  [bold #FFD700]Prometheus[/] · [dim]Teach-To-Grow[/]")
+    lines.append("  [bold #FFD700]Prometheus[/] · [dim]Teach-To-Grow[/]")
     lines.append(f"  [dim]Version:[/] [bold]{__version__}[/] · [dim]Epic Chronicler[/]")
-    lines.append(f"  [dim]Founder:[/] Audrey · 001X")
+    lines.append("  [dim]Founder:[/] Audrey · 001X")
     lines.append("")
 
     categories = get_commands_by_category()
 
-    lines.append(f"  [bold #FF8C00]Available Commands[/]")
+    lines.append("  [bold #FF8C00]Available Commands[/]")
     lines.append("")
 
     for cat_name, commands in sorted(categories.items()):
@@ -178,7 +175,7 @@ def print_banner(console=None):
 def print_simple_banner():
     """打印简单 banner（无 Rich 库）"""
     banner = f"""
-{'=' * 70}
+{"=" * 70}
 
 {SIMPLE_LOGO}
 
@@ -222,6 +219,6 @@ def print_simple_banner():
   Tip: Run /help for interactive commands
   Tip: Run ptg doctor to check system health
 
-{'=' * 70}
+{"=" * 70}
 """
     print(banner)

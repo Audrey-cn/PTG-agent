@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-import hashlib
 import http.server
-import json
 import logging
 import threading
 import urllib.parse
 import webbrowser
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("prometheus.google_oauth")
 
 HTTPX_AVAILABLE = False
 try:
     import httpx
+
     HTTPX_AVAILABLE = True
 except ImportError:
     pass
@@ -21,13 +20,14 @@ except ImportError:
 GOOGLE_AUTH_AVAILABLE = False
 try:
     from google.auth.transport.requests import Request as GoogleRequest
+
     GOOGLE_AUTH_AVAILABLE = True
 except ImportError:
     pass
 
 
 class _OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
-    auth_code: Optional[str] = None
+    auth_code: str | None = None
 
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
@@ -55,8 +55,8 @@ class GoogleOAuth:
 
     def __init__(
         self,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
         redirect_port: int = 8089,
     ) -> None:
         self._client_id = client_id
@@ -66,9 +66,9 @@ class GoogleOAuth:
 
     def start_flow(
         self,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        scopes: Optional[List[str]] = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        scopes: list[str] | None = None,
     ) -> str:
         cid = client_id or self._client_id
         if cid is None:
@@ -94,7 +94,7 @@ class GoogleOAuth:
         webbrowser.open(auth_url)
         return auth_url
 
-    def complete_flow(self, code: Optional[str] = None) -> Dict[str, Any]:
+    def complete_flow(self, code: str | None = None) -> dict[str, Any]:
         if code is None:
             code = self._wait_for_callback()
             if code is None:
@@ -116,7 +116,7 @@ class GoogleOAuth:
             resp.raise_for_status()
             return resp.json()
 
-    def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
+    def refresh_token(self, refresh_token: str) -> dict[str, Any]:
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx is required for GoogleOAuth token refresh")
 
@@ -132,7 +132,7 @@ class GoogleOAuth:
             resp.raise_for_status()
             return resp.json()
 
-    def _wait_for_callback(self, timeout: int = 120) -> Optional[str]:
+    def _wait_for_callback(self, timeout: int = 120) -> str | None:
         _OAuthCallbackHandler.auth_code = None
         server = http.server.HTTPServer(("localhost", self._redirect_port), _OAuthCallbackHandler)
         server.timeout = timeout

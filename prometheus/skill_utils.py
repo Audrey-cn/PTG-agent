@@ -5,11 +5,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 REQUIRED_MANIFEST_FIELDS = ["name", "version", "description"]
 
 
-def validate_skill_manifest(manifest: dict[str, Any]) -> tuple[bool, str]:
+def validate_skill_manifest(manifest: Dict[str, Any]) -> Tuple[bool, str]:
     if not isinstance(manifest, dict):
         return False, "Manifest must be a dictionary"
     for field in REQUIRED_MANIFEST_FIELDS:
@@ -24,7 +23,7 @@ def validate_skill_manifest(manifest: dict[str, Any]) -> tuple[bool, str]:
     return True, "Valid"
 
 
-def get_skill_dependencies(skill: dict[str, Any]) -> list[str]:
+def get_skill_dependencies(skill: Dict[str, Any]) -> List[str]:
     deps = skill.get("dependencies", [])
     if isinstance(deps, list):
         return [str(d) for d in deps]
@@ -33,7 +32,7 @@ def get_skill_dependencies(skill: dict[str, Any]) -> list[str]:
     return []
 
 
-def check_skill_compatibility(skill: dict[str, Any]) -> bool:
+def check_skill_compatibility(skill: Dict[str, Any]) -> bool:
     python_version = skill.get("python_version")
     if python_version:
         current = sys.version_info
@@ -50,7 +49,7 @@ def check_skill_compatibility(skill: dict[str, Any]) -> bool:
     return True
 
 
-def install_skill_dependencies(skill: dict[str, Any]) -> bool:
+def install_skill_dependencies(skill: Dict[str, Any]) -> bool:
     deps = get_skill_dependencies(skill)
     if not deps:
         return True

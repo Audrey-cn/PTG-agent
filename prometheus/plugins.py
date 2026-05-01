@@ -1,240 +1,417 @@
-from __future__ import annotations
+"""Enhanced plugin system with middleware for Prometheus."""
 
-import os
-import sys
-import json
-import importlib
 import logging
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
-logger = logging.getLogger("prometheus.plugins")
+logger = logging.getLogger(__name__)
 
 
-@dataclass
-class PluginManifest:
-    name: str
-    version: str = "0.1.0"
-    description: str = ""
-    author: str = ""
-    dependencies: list[str] = field(default_factory=list)
-    provides_tools: list[str] = field(default_factory=list)
-    provides_commands: list[dict] = field(default_factory=list)
-    provides_platforms: list[str] = field(default_factory=list)
-    enabled: bool = True
+class MiddlewareHook(Enum):
+    """Available middleware hook points."""
+
+    PRE_TOOL_CALL = "pre_tool_call"
+    POST_TOOL_CALL = "post_tool_call"
+    PRE_MESSAGE = "pre_message"
+    POST_MESSAGE = "post_message"
+    PRE_COMPRESS = "pre_compress"
+    POST_COMPRESS = "post_compress"
+    PRE_MEMORY_WRITE = "pre_memory_write"
+    POST_MEMORY_WRITE = "post_memory_write"
+    ON_ERROR = "on_error"
+    ON_SESSION_START = "on_session_start"
+    ON_SESSION_END = "on_session_end"
 
 
-class PluginContext:
-    def __init__(self, manifest: PluginManifest, plugin_dir: Path):
-        self.manifest = manifest
-        self.plugin_dir = plugin_dir
-        self._registered_tools: list[str] = []
-        self._registered_commands: list[dict] = []
+class Middleware:
+    """Base middleware class.
 
-    def register_tool(self, name: str, handler: Callable, schema: dict, description: str = "", emoji: str = "🔌"):
-        from prometheus.tools.registry import registry
-        registry.register(
-            name=name,
-            toolset=f"plugin:{self.manifest.name}",
-            schema=schema,
-            handler=handler,
-            description=description or f"Plugin: {self.manifest.name}",
-            emoji=emoji,
-        )
-        self._registered_tools.append(name)
-        logger.info("Plugin %s registered tool: %s", self.manifest.name, name)
+    Middleware can intercept and modify operations at various hook points.
+    """
 
-    def register_command(self, name: str, description: str, args_hint: str = "", handler: Callable | None = None):
-        entry = {"name": name, "description": description, "args_hint": args_hint, "handler": handler}
-        self._registered_commands.append(entry)
-        logger.info("Plugin %s registered command: /%s", self.manifest.name, name)
+    @property
+    def name(self) -> str:
+        """Middleware name."""
+        return self.__class__.__name__
 
+    def pre_tool_call(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Called before a tool is executed.
 
-class Plugin:
-    def __init__(self, manifest: PluginManifest, plugin_dir: Path, module=None):
-        self.manifest = manifest
-        self.plugin_dir = plugin_dir
-        self.module = module
-        self.context: PluginContext | None = None
-        self.loaded = False
+        Args:
+            tool_name: Name of the tool
+            arguments: Tool arguments
 
-    def load(self) -> bool:
-        if self.loaded:
-            return True
-        try:
-            self.context = PluginContext(self.manifest, self.plugin_dir)
-            if self.module and hasattr(self.module, "on_load"):
-                self.module.on_load(self.context)
-            self.loaded = True
-            logger.info("Plugin loaded: %s v%s", self.manifest.name, self.manifest.version)
-            return True
-        except Exception as e:
-            logger.error("Plugin %s load failed: %s", self.manifest.name, e)
-            return False
+        Returns:
+            Modified arguments
+        """
+        return arguments
 
-    def unload(self) -> bool:
-        if not self.loaded:
-            return True
-        try:
-            if self.module and hasattr(self.module, "on_unload"):
-                self.module.on_unload()
-            if self.context:
-                for tool_name in self.context._registered_tools:
-                    try:
-                        from prometheus.tools.registry import registry
-                        if tool_name in registry._tools:
-                            del registry._tools[tool_name]
-                    except Exception:
-                        pass
-            self.loaded = False
-            logger.info("Plugin unloaded: %s", self.manifest.name)
-            return True
-        except Exception as e:
-            logger.error("Plugin %s unload failed: %s", self.manifest.name, e)
-            return False
+    def post_tool_call(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        result: Any,
+    ) -> Any:
+        """Called after a tool is executed.
 
+        Args:
+            tool_name: Name of the tool
+            arguments: Tool arguments
+            result: Tool result
 
-class PluginManager:
-    def __init__(self, plugins_dir: Path | None = None):
-        if plugins_dir is None:
-            from prometheus.config import get_prometheus_home
-            plugins_dir = get_prometheus_home() / "plugins"
-        self.plugins_dir = plugins_dir
-        self._plugins: dict[str, Plugin] = {}
-
-    def discover(self) -> list[PluginManifest]:
-        manifests = []
-        if not self.plugins_dir.exists():
-            return manifests
-        for entry in sorted(self.plugins_dir.iterdir()):
-            if not entry.is_dir():
-                continue
-            manifest_path = entry / "plugin.yaml"
-            if not manifest_path.exists():
-                manifest_path = entry / "plugin.json"
-            if not manifest_path.exists():
-                continue
-            try:
-                manifest = self._load_manifest(manifest_path)
-                if manifest:
-                    manifests.append(manifest)
-            except Exception as e:
-                logger.warning("Failed to load manifest from %s: %s", entry, e)
-        return manifests
-
-    def _load_manifest(self, path: Path) -> PluginManifest | None:
-        try:
-            if path.suffix == ".json":
-                data = json.loads(path.read_text(encoding="utf-8"))
-            else:
-                import yaml
-                data = yaml.safe_load(path.read_text(encoding="utf-8"))
-            return PluginManifest(
-                name=data.get("name", path.parent.name),
-                version=data.get("version", "0.1.0"),
-                description=data.get("description", ""),
-                author=data.get("author", ""),
-                dependencies=data.get("dependencies", []),
-                provides_tools=data.get("provides_tools", []),
-                provides_commands=data.get("provides_commands", []),
-                provides_platforms=data.get("provides_platforms", []),
-                enabled=data.get("enabled", True),
-            )
-        except Exception as e:
-            logger.error("Manifest parse error %s: %s", path, e)
-            return None
-
-    def load_plugin(self, name: str) -> bool:
-        plugin_dir = self.plugins_dir / name
-        if not plugin_dir.exists():
-            logger.error("Plugin not found: %s", name)
-            return False
-
-        manifest_path = plugin_dir / "plugin.yaml"
-        if not manifest_path.exists():
-            manifest_path = plugin_dir / "plugin.json"
-        if not manifest_path.exists():
-            logger.error("Plugin manifest not found: %s", name)
-            return False
-
-        manifest = self._load_manifest(manifest_path)
-        if not manifest:
-            return False
-
-        module = None
-        init_path = plugin_dir / "__init__.py"
-        if init_path.exists():
-            try:
-                spec = importlib.util.spec_from_file_location(
-                    f"prometheus.plugins.{name}", str(init_path)
-                )
-                if spec and spec.loader:
-                    module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(module)
-            except Exception as e:
-                logger.error("Plugin %s module load failed: %s", name, e)
-
-        plugin = Plugin(manifest, plugin_dir, module)
-        if plugin.load():
-            self._plugins[name] = plugin
-            return True
-        return False
-
-    def unload_plugin(self, name: str) -> bool:
-        plugin = self._plugins.get(name)
-        if not plugin:
-            return False
-        result = plugin.unload()
-        if result:
-            del self._plugins[name]
+        Returns:
+            Modified result
+        """
         return result
 
-    def get_plugin(self, name: str) -> Plugin | None:
+    def pre_message(self, message: dict[str, Any]) -> dict[str, Any]:
+        """Called before a message is processed.
+
+        Args:
+            message: Message dictionary
+
+        Returns:
+            Modified message
+        """
+        return message
+
+    def post_message(
+        self,
+        message: dict[str, Any],
+        response: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Called after a message is processed.
+
+        Args:
+            message: Original message
+            response: Response dictionary
+
+        Returns:
+            Modified response
+        """
+        return response
+
+    def pre_compress(
+        self,
+        messages: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Called before context compression.
+
+        Args:
+            messages: Messages to compress
+
+        Returns:
+            Modified messages
+        """
+        return messages
+
+    def post_compress(
+        self,
+        messages: list[dict[str, Any]],
+        compressed: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Called after context compression.
+
+        Args:
+            messages: Original messages
+            compressed: Compressed messages
+
+        Returns:
+            Modified compressed messages
+        """
+        return compressed
+
+    def on_error(self, error: Exception, context: dict[str, Any]) -> Exception:
+        """Called when an error occurs.
+
+        Args:
+            error: The exception
+            context: Error context
+
+        Returns:
+            Possibly modified exception
+        """
+        return error
+
+    def on_session_start(self, session_id: str, context: dict[str, Any]) -> None:
+        """Called when a session starts."""
+        pass
+
+    def on_session_end(
+        self,
+        session_id: str,
+        messages: list[dict[str, Any]],
+    ) -> None:
+        """Called when a session ends."""
+        pass
+
+
+class MiddlewarePipeline:
+    """Pipeline for executing middleware in order."""
+
+    def __init__(self):
+        self._middlewares: list[Middleware] = []
+
+    def add(self, middleware: Middleware) -> "MiddlewarePipeline":
+        """Add middleware to the pipeline.
+
+        Args:
+            middleware: Middleware instance
+
+        Returns:
+            Self for chaining
+        """
+        self._middlewares.append(middleware)
+        return self
+
+    def execute_pre_tool_call(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Execute pre_tool_call hooks."""
+        for mw in self._middlewares:
+            arguments = mw.pre_tool_call(tool_name, arguments)
+        return arguments
+
+    def execute_post_tool_call(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        result: Any,
+    ) -> Any:
+        """Execute post_tool_call hooks."""
+        for mw in self._middlewares:
+            result = mw.post_tool_call(tool_name, arguments, result)
+        return result
+
+    def execute_pre_message(self, message: dict[str, Any]) -> dict[str, Any]:
+        """Execute pre_message hooks."""
+        for mw in self._middlewares:
+            message = mw.pre_message(message)
+        return message
+
+    def execute_post_message(
+        self,
+        message: dict[str, Any],
+        response: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Execute post_message hooks."""
+        for mw in self._middlewares:
+            response = mw.post_message(message, response)
+        return response
+
+    def execute_pre_compress(
+        self,
+        messages: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Execute pre_compress hooks."""
+        for mw in self._middlewares:
+            messages = mw.pre_compress(messages)
+        return messages
+
+    def execute_post_compress(
+        self,
+        messages: list[dict[str, Any]],
+        compressed: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Execute post_compress hooks."""
+        for mw in self._middlewares:
+            compressed = mw.post_compress(messages, compressed)
+        return compressed
+
+    def execute_on_error(
+        self,
+        error: Exception,
+        context: dict[str, Any],
+    ) -> Exception:
+        """Execute on_error hooks."""
+        for mw in self._middlewares:
+            error = mw.on_error(error, context)
+        return error
+
+
+class EnhancedPlugin:
+    """Enhanced plugin with middleware support."""
+
+    def __init__(
+        self,
+        name: str,
+        version: str = "1.0.0",
+        description: str = "",
+        middleware: list[Middleware] | None = None,
+    ):
+        self.name = name
+        self.version = version
+        self.description = description
+        self._middleware = middleware or []
+        self._enabled = True
+
+    @property
+    def middleware(self) -> list[Middleware]:
+        """Get plugin middleware."""
+        return self._middleware
+
+    def enable(self):
+        """Enable the plugin."""
+        self._enabled = True
+
+    def disable(self):
+        """Disable the plugin."""
+        self._enabled = False
+
+    @property
+    def is_enabled(self) -> bool:
+        """Check if plugin is enabled."""
+        return self._enabled
+
+
+class EnhancedPluginRegistry:
+    """Enhanced plugin registry with middleware support."""
+
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._plugins: dict[str, EnhancedPlugin] = {}
+            cls._instance._middleware_pipeline = MiddlewarePipeline()
+            cls._instance._enabled_middleware: list[Middleware] = []
+        return cls._instance
+
+    def register(
+        self,
+        plugin: EnhancedPlugin,
+        middleware: list[Middleware] | None = None,
+    ) -> None:
+        """Register a plugin.
+
+        Args:
+            plugin: Plugin instance
+            middleware: Optional middleware for this plugin
+        """
+        self._plugins[plugin.name] = plugin
+
+        if middleware:
+            for mw in middleware:
+                self._middleware_pipeline.add(mw)
+                self._enabled_middleware.append(mw)
+
+        logger.info(f"Registered plugin: {plugin.name} v{plugin.version}")
+
+    def unregister(self, name: str) -> None:
+        """Unregister a plugin.
+
+        Args:
+            name: Plugin name
+        """
+        if name in self._plugins:
+            plugin = self._plugins[name]
+            for mw in plugin.middleware:
+                if mw in self._enabled_middleware:
+                    self._enabled_middleware.remove(mw)
+            del self._plugins[name]
+            logger.info(f"Unregistered plugin: {name}")
+
+    def get_plugin(self, name: str) -> EnhancedPlugin | None:
+        """Get a plugin by name."""
         return self._plugins.get(name)
 
-    def list_plugins(self) -> list[dict]:
-        result = []
-        for name, plugin in self._plugins.items():
-            result.append({
-                "name": name,
-                "version": plugin.manifest.version,
-                "description": plugin.manifest.description,
-                "loaded": plugin.loaded,
-                "tools": plugin.context._registered_tools if plugin.context else [],
-                "commands": plugin.context._registered_commands if plugin.context else [],
-            })
+    def list_plugins(self) -> list[EnhancedPlugin]:
+        """List all plugins."""
+        return list(self._plugins.values())
+
+    def get_middleware_pipeline(self) -> MiddlewarePipeline:
+        """Get the middleware pipeline."""
+        return self._middleware_pipeline
+
+    def enable_plugin(self, name: str) -> None:
+        """Enable a plugin."""
+        plugin = self._plugins.get(name)
+        if plugin:
+            plugin.enable()
+            for mw in plugin.middleware:
+                if mw not in self._enabled_middleware:
+                    self._middleware_pipeline.add(mw)
+                    self._enabled_middleware.append(mw)
+
+    def disable_plugin(self, name: str) -> None:
+        """Disable a plugin."""
+        plugin = self._plugins.get(name)
+        if plugin:
+            plugin.disable()
+            for mw in plugin.middleware:
+                if mw in self._enabled_middleware:
+                    self._enabled_middleware.remove(mw)
+
+
+_global_registry: EnhancedPluginRegistry | None = None
+
+
+def get_plugin_registry() -> EnhancedPluginRegistry:
+    """Get the global plugin registry."""
+    global _global_registry
+    if _global_registry is None:
+        _global_registry = EnhancedPluginRegistry()
+    return _global_registry
+
+
+def register_plugin(
+    plugin: EnhancedPlugin,
+    middleware: list[Middleware] | None = None,
+) -> None:
+    """Register a plugin.
+
+    Args:
+        plugin: Plugin instance
+        middleware: Optional middleware
+    """
+    get_plugin_registry().register(plugin, middleware)
+
+
+class LoggingMiddleware(Middleware):
+    """Middleware for logging operations."""
+
+    def __init__(self, logger_name: str = "prometheus"):
+        self._logger = logging.getLogger(logger_name)
+
+    def pre_tool_call(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        self._logger.debug(f"Tool call: {tool_name}({arguments})")
+        return arguments
+
+    def post_tool_call(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        result: Any,
+    ) -> Any:
+        self._logger.debug(f"Tool result: {tool_name} -> {str(result)[:100]}")
         return result
 
-    def load_all(self) -> int:
-        manifests = self.discover()
-        loaded = 0
-        for m in manifests:
-            if m.enabled and self.load_plugin(m.name):
-                loaded += 1
-        return loaded
-
-    def get_plugin_commands(self) -> dict[str, dict]:
-        commands = {}
-        for name, plugin in self._plugins.items():
-            if plugin.context:
-                for cmd in plugin.context._registered_commands:
-                    commands[cmd["name"]] = {
-                        "description": cmd.get("description", ""),
-                        "args_hint": cmd.get("args_hint", ""),
-                    }
-        return commands
+    def on_error(self, error: Exception, context: dict[str, Any]) -> Exception:
+        self._logger.error(f"Error in {context.get('operation', 'unknown')}: {error}")
+        return error
 
 
-_global_manager: PluginManager | None = None
+class MetricsMiddleware(Middleware):
+    """Middleware for collecting metrics."""
 
+    def __init__(self):
+        self._tool_call_count = 0
+        self._error_count = 0
+        self._total_tokens = 0
 
-def get_plugin_manager() -> PluginManager:
-    global _global_manager
-    if _global_manager is None:
-        _global_manager = PluginManager()
-    return _global_manager
+    def pre_tool_call(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        self._tool_call_count += 1
+        return arguments
 
+    def on_error(self, error: Exception, context: dict[str, Any]) -> Exception:
+        self._error_count += 1
+        return error
 
-def get_plugin_commands() -> dict[str, dict]:
-    return get_plugin_manager().get_plugin_commands()
+    def get_metrics(self) -> dict[str, Any]:
+        """Get collected metrics."""
+        return {
+            "tool_call_count": self._tool_call_count,
+            "error_count": self._error_count,
+            "total_tokens": self._total_tokens,
+        }

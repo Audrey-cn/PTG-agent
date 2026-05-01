@@ -1,28 +1,13 @@
 #!/usr/bin/env python3
-"""
-╔══════════════════════════════════════════════════════════════╗
-║   🚀 普罗米修斯 · Xget 集成模块                             ║
-║                                                              ║
-║   提供 GitHub 等资源的加速访问，包含任务路由和 fallback 机制。║
-║                                                              ║
-║   功能特性：                                                 ║
-║     - 自动识别支持的平台（GitHub, Hugging Face 等）         ║
-║     - 多 Xget 实例负载均衡和故障转移                         ║
-║     - 智能重试和超时保护                                     ║
-║     - 透明的 fallback 到原始 URL                            ║
-╚══════════════════════════════════════════════════════════════╝
-"""
+"""╔══════════════════════════════════════════════════════════════╗."""
 
-import os
-import re
-import time
-import random
 import logging
-from typing import Dict, List, Optional, Tuple, Callable, Any
-from dataclasses import dataclass, field
+import random
+import time
+from dataclasses import dataclass
 from enum import Enum
-from urllib.parse import urlparse, urljoin
-
+from typing import Any
+from urllib.parse import urlparse
 
 # ═══════════════════════════════════════════
 #   日志配置
@@ -36,8 +21,10 @@ logger = logging.getLogger(__name__)
 #   平台定义
 # ═══════════════════════════════════════════
 
+
 class Platform(Enum):
     """支持的加速平台"""
+
     GITHUB = "github"
     GITLAB = "gitlab"
     GITEA = "gitea"
@@ -55,6 +42,7 @@ class Platform(Enum):
 @dataclass
 class PlatformConfig:
     """平台配置"""
+
     name: str
     domain: str
     xget_prefix: str
@@ -63,7 +51,7 @@ class PlatformConfig:
 
 
 # 默认平台配置
-PLATFORM_CONFIGS: Dict[Platform, PlatformConfig] = {
+PLATFORM_CONFIGS: dict[Platform, PlatformConfig] = {
     Platform.GITHUB: PlatformConfig(
         name="GitHub",
         domain="github.com",
@@ -107,12 +95,14 @@ PLATFORM_CONFIGS: Dict[Platform, PlatformConfig] = {
 #   Xget 实例配置
 # ═══════════════════════════════════════════
 
+
 @dataclass
 class XgetInstance:
     """Xget 实例配置"""
+
     url: str
     priority: int = 0  # 优先级，数字越小优先级越高
-    weight: int = 1   # 权重，用于负载均衡
+    weight: int = 1  # 权重，用于负载均衡
     enabled: bool = True
     last_used: float = 0.0
     failure_count: int = 0
@@ -124,9 +114,7 @@ class XgetInstance:
         """检查实例是否可用"""
         if not self.enabled:
             return False
-        if time.time() < self.disabled_until:
-            return False
-        return True
+        return not time.time() < self.disabled_until
 
     def record_success(self):
         """记录成功请求"""
@@ -145,16 +133,18 @@ class XgetInstance:
 #   请求结果
 # ═══════════════════════════════════════════
 
+
 @dataclass
 class RequestResult:
     """请求结果"""
+
     success: bool
     url: str
-    content: Optional[bytes] = None
-    error: Optional[str] = None
-    status_code: Optional[int] = None
+    content: bytes | None = None
+    error: str | None = None
+    status_code: int | None = None
     response_time: float = 0.0
-    instance_used: Optional[str] = None
+    instance_used: str | None = None
     fallback_used: bool = False
 
 
@@ -162,20 +152,21 @@ class RequestResult:
 #   Xget 集成主类
 # ═══════════════════════════════════════════
 
+
 class XgetIntegration:
     """Xget 集成主类，提供 URL 转换、路由、fallback 机制。"""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """
         初始化 Xget 集成。
-        
+
         Args:
             config: 配置字典，可选。如果不提供，会使用默认配置。
         """
         self.config = config or self._get_default_config()
-        self.instances: List[XgetInstance] = self._load_instances()
-        self.platform_configs: Dict[Platform, PlatformConfig] = PLATFORM_CONFIGS.copy()
-        
+        self.instances: list[XgetInstance] = self._load_instances()
+        self.platform_configs: dict[Platform, PlatformConfig] = PLATFORM_CONFIGS.copy()
+
         # 从配置中覆盖平台设置
         if "platforms" in self.config:
             for platform_name, platform_cfg in self.config["platforms"].items():
@@ -189,7 +180,7 @@ class XgetIntegration:
                     logger.warning(f"未知平台: {platform_name}")
 
     @staticmethod
-    def _get_default_config() -> Dict[str, Any]:
+    def _get_default_config() -> dict[str, Any]:
         """获取默认配置"""
         return {
             "enabled": True,
@@ -208,7 +199,7 @@ class XgetIntegration:
             "platforms": {},
         }
 
-    def _load_instances(self) -> List[XgetInstance]:
+    def _load_instances(self) -> list[XgetInstance]:
         """从配置加载 Xget 实例"""
         instances = []
         for instance_cfg in self.config.get("instances", []):
@@ -222,44 +213,46 @@ class XgetIntegration:
                 instances.append(instance)
             except Exception as e:
                 logger.error(f"加载 Xget 实例配置失败: {e}")
-        
+
         # 如果没有配置实例，添加默认实例
         if not instances:
-            instances.append(XgetInstance(url=self.config.get("default_instance", "https://xget.xi-xu.me")))
-        
+            instances.append(
+                XgetInstance(url=self.config.get("default_instance", "https://xget.xi-xu.me"))
+            )
+
         return instances
 
-    def identify_platform(self, url: str) -> Tuple[Optional[Platform], Optional[PlatformConfig]]:
+    def identify_platform(self, url: str) -> tuple[Platform | None, PlatformConfig | None]:
         """
         识别 URL 对应的平台。
-        
+
         Args:
             url: 要识别的 URL
-            
+
         Returns:
             (Platform, PlatformConfig) 元组，如果无法识别则为 (None, None)
         """
         try:
             parsed = urlparse(url)
             domain = parsed.netloc
-            
+
             for platform, config in self.platform_configs.items():
                 if config.enabled and config.domain in domain:
                     return platform, config
-            
+
             return None, None
         except Exception as e:
             logger.error(f"识别平台失败: {e}")
             return None, None
 
-    def convert_url(self, url: str, instance_url: Optional[str] = None) -> Optional[str]:
+    def convert_url(self, url: str, instance_url: str | None = None) -> str | None:
         """
         将原始 URL 转换为 Xget 加速 URL。
-        
+
         Args:
             url: 原始 URL
             instance_url: 指定使用的 Xget 实例 URL，可选
-            
+
         Returns:
             转换后的 Xget URL，如果不支持该平台则返回 None
         """
@@ -270,32 +263,32 @@ class XgetIntegration:
 
         try:
             parsed = urlparse(url)
-            
+
             # 构建加速 URL
             if instance_url:
                 # 使用指定的实例
-                base_url = instance_url.rstrip('/')
+                base_url = instance_url.rstrip("/")
                 # 从平台配置中提取路径前缀
-                path_prefix = config.xget_prefix.split('/', 3)[-1].rstrip('/')
+                path_prefix = config.xget_prefix.split("/", 3)[-1].rstrip("/")
                 accelerated_url = f"{base_url}/{path_prefix}/{parsed.netloc}{parsed.path}"
             else:
                 # 使用平台配置中的前缀
                 accelerated_url = f"{config.xget_prefix.rstrip('/')}{parsed.path}"
-            
+
             # 保留查询参数
             if parsed.query:
                 accelerated_url += f"?{parsed.query}"
-            
+
             logger.debug(f"URL 转换: {url} -> {accelerated_url}")
             return accelerated_url
         except Exception as e:
             logger.error(f"URL 转换失败: {e}")
             return None
 
-    def select_instance(self) -> Optional[XgetInstance]:
+    def select_instance(self) -> XgetInstance | None:
         """
         选择一个可用的 Xget 实例。
-        
+
         Returns:
             选中的 XgetInstance，或 None
         """
@@ -306,7 +299,7 @@ class XgetIntegration:
             return None
 
         strategy = self.config.get("load_balancing", "weighted_round_robin")
-        
+
         if strategy == "priority":
             # 按优先级选择
             available.sort(key=lambda x: x.priority)
@@ -324,17 +317,17 @@ class XgetIntegration:
     async def request(self, url: str, method: str = "GET", **kwargs) -> RequestResult:
         """
         发送请求，自动使用 Xget 加速，包含 fallback 机制。
-        
+
         Args:
             url: 目标 URL
             method: HTTP 方法
             **kwargs: 其他请求参数
-            
+
         Returns:
             RequestResult 对象
         """
         start_time = time.time()
-        
+
         if not self.config.get("enabled", True):
             logger.debug("Xget 未启用，直接请求原始 URL")
             return await self._direct_request(url, method, **kwargs)
@@ -359,11 +352,11 @@ class XgetIntegration:
                 break
 
             logger.info(f"尝试使用 Xget 加速 (尝试 {attempt + 1}/{max_retries}): {accelerated_url}")
-            
+
             try:
                 result = await self._make_request(accelerated_url, method, **kwargs)
                 result.instance_used = instance.url
-                
+
                 if result.success:
                     instance.record_success()
                     return result
@@ -400,22 +393,24 @@ class XgetIntegration:
     async def _make_request(self, url: str, method: str = "GET", **kwargs) -> RequestResult:
         """
         实际发送 HTTP 请求（需要 httpx 或 requests 库）。
-        
+
         注意：此方法需要实际的 HTTP 客户端库。
         我们这里提供一个抽象实现，实际使用时需要根据项目依赖调整。
         """
         start_time = time.time()
         timeout = self.config.get("request_timeout_seconds", 30)
-        
+
         try:
             # 尝试导入 httpx 或 requests
             client = None
             try:
                 import httpx
+
                 client = "httpx"
             except ImportError:
                 try:
                     import requests
+
                     client = "requests"
                 except ImportError:
                     logger.warning("未找到 HTTP 客户端库，请安装 httpx 或 requests")
@@ -429,6 +424,7 @@ class XgetIntegration:
             # 发送请求
             if client == "httpx":
                 import httpx
+
                 async with httpx.AsyncClient(timeout=timeout) as http_client:
                     response = await http_client.request(method, url, **kwargs)
                     return RequestResult(
@@ -440,6 +436,7 @@ class XgetIntegration:
                     )
             else:  # requests
                 import requests
+
                 response = requests.request(method, url, timeout=timeout, **kwargs)
                 return RequestResult(
                     success=response.status_code < 400,
@@ -464,7 +461,7 @@ class XgetIntegration:
         result.fallback_used = False
         return result
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """获取 Xget 集成的状态信息"""
         available_count = sum(1 for inst in self.instances if inst.is_available())
         return {
@@ -485,8 +482,7 @@ class XgetIntegration:
                 ],
             },
             "platforms": {
-                platform.value: config.enabled
-                for platform, config in self.platform_configs.items()
+                platform.value: config.enabled for platform, config in self.platform_configs.items()
             },
             "config": {
                 "fallback_enabled": self.config.get("fallback_enabled"),
@@ -501,16 +497,16 @@ class XgetIntegration:
 # ═══════════════════════════════════════════
 
 # 全局单例
-_xget_instance: Optional[XgetIntegration] = None
+_xget_instance: XgetIntegration | None = None
 
 
-def get_xget(config: Optional[Dict[str, Any]] = None) -> XgetIntegration:
+def get_xget(config: dict[str, Any] | None = None) -> XgetIntegration:
     """
     获取 Xget 集成单例。
-    
+
     Args:
         config: 配置字典，可选
-        
+
     Returns:
         XgetIntegration 实例
     """
@@ -523,12 +519,12 @@ def get_xget(config: Optional[Dict[str, Any]] = None) -> XgetIntegration:
 async def xget_request(url: str, method: str = "GET", **kwargs) -> RequestResult:
     """
     便捷函数：发送 Xget 加速请求。
-    
+
     Args:
         url: 目标 URL
         method: HTTP 方法
         **kwargs: 其他请求参数
-        
+
     Returns:
         RequestResult 对象
     """
@@ -536,14 +532,14 @@ async def xget_request(url: str, method: str = "GET", **kwargs) -> RequestResult
     return await xget.request(url, method, **kwargs)
 
 
-def xget_convert(url: str, instance_url: Optional[str] = None) -> Optional[str]:
+def xget_convert(url: str, instance_url: str | None = None) -> str | None:
     """
     便捷函数：转换 URL 为 Xget 加速 URL。
-    
+
     Args:
         url: 原始 URL
         instance_url: 指定实例 URL，可选
-        
+
     Returns:
         转换后的 URL
     """
@@ -555,9 +551,10 @@ def xget_convert(url: str, instance_url: Optional[str] = None) -> Optional[str]:
 #   CLI 入口（用于测试）
 # ═══════════════════════════════════════════
 
+
 def main():
-    import sys
     import asyncio
+    import sys
 
     if len(sys.argv) < 2:
         print("""
@@ -585,12 +582,13 @@ def main():
     elif action == "status":
         status = xget.get_status()
         import json
+
         print(json.dumps(status, indent=2, ensure_ascii=False))
 
     elif action == "test" and len(sys.argv) > 2:
         url = sys.argv[2]
         print(f"测试请求: {url}")
-        
+
         async def run_test():
             result = await xget.request(url)
             print(f"\n结果: {'✅ 成功' if result.success else '❌ 失败'}")
@@ -598,7 +596,7 @@ def main():
             if result.instance_used:
                 print(f"使用实例: {result.instance_used}")
             if result.fallback_used:
-                print(f"⚠️ Fallback 到原始 URL")
+                print("⚠️ Fallback 到原始 URL")
             if result.status_code:
                 print(f"状态码: {result.status_code}")
             print(f"响应时间: {result.response_time:.2f}s")
@@ -606,7 +604,7 @@ def main():
                 print(f"错误: {result.error}")
             if result.content:
                 print(f"内容长度: {len(result.content)} bytes")
-        
+
         asyncio.run(run_test())
 
     else:

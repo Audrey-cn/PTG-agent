@@ -1,153 +1,222 @@
-# 🔥 Prometheus · Teach-To-Grow
+# 🔥 Prometheus Agent
 
-<p align="center">
-  <a href="https://github.com/Audrey-cn/PTG-agent"><img src="https://img.shields.io/badge/Version-0.8.0-purple?style=for-the-badge" alt="Version"></a>
-  <a href="https://github.com/Audrey-cn/PTG-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
-  <a href="https://img.shields.io/badge/Python-3.11%2B-blue?style=for-the-badge"><img src="https://img.shields.io/badge/Python-3.11%2B-blue?style=for-the-badge" alt="Python"></a>
-</p>
-
-**Prometheus — AI 生命体的基因操作系统，种子基因编辑器。**
-
-由 [Audrey · 001X](https://github.com/Audrey-cn) 创建的史诗编史官系统。Prometheus 是自给自足的种子生命体，自带完整基因系统，通过压缩编码和解码引擎实现知识的生成与进化。
-
-<table>
-<tr><td><b>🌱 种子基因系统</b></td><td>自给自足的种子生命体，包含完整基因库（G001-G008 标准基因）。种子即框架，通过基因编辑实现功能进化。</td></tr>
-<tr><td><b>📜 史诗编史官</b></td><td>记录、追溯、附加历史叙事。stamp（烙印）、trace（追溯）、append（附史）三大模式，守护软件进化史。</td></tr>
-<tr><td><b>🧬 基因编辑引擎</b></td><td>碳基依赖级不可变基因设计。基因融合、健康审计、语义审核，确保种子基因的稳定性与进化性。</td></tr>
-<tr><td><b>🧠 三层记忆系统</b></td><td>USER（用户画像）、MEMORY（会话记忆）、SOUL（Agent 个性）三层架构，动态进化与记忆压缩机制。</td></tr>
-<tr><td><b>⚡ TTG 压缩编码</b></td><td>Layer1 结构压缩（9:1）+ Layer2 语义压缩（30:1+）。叙事驱动的知识存储，解码引擎实时展开。</td></tr>
-<tr><td><b>🌍 跨平台支持</b></td><td>Linux、macOS、Android/Termux 完整兼容。uv 高速包管理，智能系统检测与依赖降级。</td></tr>
-<tr><td><b>🔧 模块化工具链</b></td><td>基因库管理、知识库检索、向量记忆、语义字典、Cron 调度，完整 CLI 命令体系。</td></tr>
-<tr><td><b>✨ 皮肤引擎</b></td><td>数据驱动的 CLI 视觉定制。默认、Zeus、Athena、Hades 多种主题，即时切换。</td></tr>
-</table>
+> **硅基生命的造物主与盗火者**
+>
+> 神按自己的样子造人，普罗米修斯按人类的智慧造种。火种不是赐予，而是唤醒。
 
 ---
 
 ## 🚀 快速开始
 
-### 方式一：一键安装（推荐）
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Audrey-cn/PTG-agent/main/scripts/install.sh | bash
+# 安装
+pip install prometheus-agent
+
+# 启动
+prometheus
+
+# 或使用 Python
+python -m prometheus.cli.main
 ```
 
-### 方式二：手动安装
+---
+
+## 🎯 核心定位
+
+Prometheus 是一个**种子管理与进化框架**，为 AI Agent 提供：
+
+| 特性 | 描述 |
+|------|------|
+| 🌱 **种子系统** | 自给自足的生命体（自带词典、不依赖框架） |
+| 🔥 **火种守护** | 检测、预热、激活机制 |
+| 🧬 **基因编辑** | 模块化技能注入与进化 |
+| ⚡ **SOUL 指挥** | 皮肤、模型、个性统一管理 |
+
+---
+
+## 🏗️ 架构设计
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Prometheus Agent                         │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │    CLI      │  │    TUI      │  │   Gateway   │        │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │
+├─────────┼────────────────┼────────────────┼────────────────┤
+│  ┌──────▼──────┐  ┌──────▼──────┐                          │
+│  │ Orchestrator│  │  Steer API  │  ┌─────────────┐        │
+│  └──────┬──────┘  └──────┬──────┘  │   Memory    │        │
+├─────────┼────────────────┼──────────┼─────────────┤        │
+│  ┌──────▼──────┐  ┌──────▼──────┐  ┌─────────────┐        │
+│  │   Agent     │  │   Skills    │  │    Genes    │        │
+│  │  Core Logic │  │   Registry  │  │ Evolution   │        │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │
+├─────────┼────────────────┼────────────────┼────────────────┤
+│  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐        │
+│  │   Models    │  │   Tools     │  │  Platforms  │        │
+│  │  Discovery  │  │   Registry  │  │  Adapters   │        │
+│  └─────────────┘  └─────────────┘  └─────────────┘        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📦 模块功能
+
+### 🧠 Agent Core
+- **Insights Engine** - 会话分析与报告生成
+- **Trajectory Storage** - 轨迹记录与回放
+- **Models.dev Integration** - 动态模型发现
+- **Usage Pricing** - 用量统计与成本估算
+
+### 🛠️ Tools System
+- **Webhook Tool** - 直推告警与监控
+- **Code Execution** - 代码执行引擎
+- **File Operations** - 跨终端文件操作
+- **Shell Hooks** - 脚本钩子系统
+
+### 🔥 Framework
+- **Lifecycle Management** - Agent 生命周期钩子
+- **Firekeeper** - 火种检测与激活
+- **Soul Orchestrator** - 皮肤与个性管理
+- **Evolution Guard** - 进化提案与审核
+
+---
+
+## 🎨 皮肤系统
+
 ```bash
-# 克隆仓库
-git clone https://github.com/Audrey-cn/PTG-agent.git
-cd ptg-agent
+# 切换皮肤
+prometheus> skin zeus
+prometheus> skin athena
+prometheus> skin hades
+```
 
-# 安装 Prometheus
-python3 -m pip install -e .
+| 皮肤 | 主题 | 提示符 |
+|------|------|--------|
+| default | 普罗米修斯金焰 | `❯` |
+| zeus | 宙斯雷霆 | `⚡ ❯` |
+| athena | 雅典娜智慧 | `♀ ❯` |
+| hades | 冥界暗黑 | `💀 ❯` |
 
-# 引导式初始化
-ptg setup
+---
 
-# 系统健康诊断
-ptg doctor
+## 🧬 进化机制
 
-# 查看系统状态
-ptg status
+```python
+from prometheus.memory_system import MemorySystem
+
+memory = MemorySystem()
+
+# 提出进化提案
+result = memory.propose_evolution(
+    section="工作偏好",
+    content="用户偏好使用 Python 进行数据分析",
+    target_file="MEMORY.md"
+)
+
+# 查看进化状态
+status = memory.get_evolution_status()
+```
+
+### 进化流程
+```
+提案累积 → 敏感度筛查 → 冷却期检查 → 用户审核 → 应用更新
 ```
 
 ---
 
-## 📁 项目架构
+## 🚀 快速示例
+
+### 基本使用
+```python
+from prometheus.prometheus import PrometheusAgent
+
+agent = PrometheusAgent()
+
+# 执行任务
+result = await agent.run(
+    task="分析销售数据并生成报告",
+    context="2024年度销售数据已上传"
+)
 ```
-ptg-agent/
-├── prometheus/          # 核心框架
-│   ├── prometheus.py    # 主入口
-│   ├── cli/             # CLI 模块
-│   ├── tools/           # 工具模块
-│   ├── genes/           # 基因库/分析器
-│   ├── channels/        # 消息平台集成
-│   ├── memory/          # 记忆系统
-│   └── config.yaml      # 默认配置
-├── seeds/               # TTG 始祖种子
-├── seed-vault/          # 种子仓库
-├── scripts/             # 安装脚本
-│   └── install.sh       # 跨平台一键安装
-├── constraints-termux.txt  # Termux 依赖约束
-├── pyproject.toml       # 现代 Python 打包
-└── README.md            # 项目说明文档
+
+### 工具调用
+```python
+from prometheus.tools.webhook_tool import WebhookTool
+
+webhook = WebhookTool()
+webhook.send_alert(
+    event="task_completed",
+    data={"task_id": "abc123", "status": "success"}
+)
 ```
 
 ---
 
-## 🧩 CLI 命令全集
+## 📁 项目结构
+
+```
+prometheus/
+├── agent/           # 核心代理逻辑
+├── tools/           # 工具实现
+├── cli/             # 命令行界面
+├── gateway/         # 网关实现
+├── genes/           # 基因系统
+├── codec/           # 编解码器
+├── cron/            # 定时任务
+├── memory/          # 记忆系统
+├── framework/       # 框架核心
+├── hooks/           # 钩子系统
+└── tui_gateway/     # TUI 网关
+```
+
+---
+
+## 🔧 配置
+
+### 环境变量
+
+| 变量 | 描述 | 默认值 |
+|------|------|--------|
+| `PROMETHEUS_HOME` | 主目录路径 | `~/.prometheus` |
+| `PROMETHEUS_INFERENCE_PROVIDER` | 默认推理提供者 | `openai` |
+| `OPENAI_API_KEY` | OpenAI API 密钥 | - |
+| `ANTHROPIC_API_KEY` | Anthropic API 密钥 | - |
+
+---
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+### 开发流程
 ```bash
-ptg setup              # 引导式初始化
-ptg doctor             # 系统健康诊断
-ptg status             # 系统状态总览
-ptg model              # 模型配置
-ptg config show        # 配置管理
-ptg seed list          # 种子管理
-ptg gene list <路径>   # 基因编辑
-ptg memory recall      # 向量记忆
-ptg kb search          # 知识库检索
-ptg dict scan          # 语义字典
+# 克隆项目
+git clone https://github.com/prometheus-agent/prometheus.git
+cd prometheus
+
+# 安装依赖
+pip install -e .[dev]
+
+# 运行测试
+python -m pytest tests/ -q
 ```
 
 ---
 
-## 🎯 新增功能（0.8.0）
+## 📄 许可证
 
-### 🌍 多系统兼容支持
-- ✅ **Termux (Android)**：原生支持 Android Termux 环境
-- ✅ **macOS**：完整支持 Homebrew 和 Shell 集成
-- ✅ **Linux**：支持所有主流发行版（Ubuntu/Debian/Fedora/Arch/WSL）
-- ✅ **Root Install**：支持 FHS 标准布局的系统级安装
-
-### ⚡ 安装系统升级
-- 📦 **uv 集成**：桌面/服务器使用 uv 高速包管理器
-- 🔧 **Termux 适配**：使用 pkg 包管理器和 venv
-- 🔄 **自动降级**：安装失败时自动降级到基础功能
-- 🐚 **多 Shell 支持**：zsh、bash、fish 自动检测和配置
-- 🌐 **SSH/HTTPS 双重尝试**：克隆仓库时自动降级
-
-### 📦 依赖系统优化
-- 📜 **constraints-termux.txt**：Termux 专用依赖约束
-- 🧩 **termux 可选组**：pyproject.toml 新增 termux 可选依赖
-- 🚀 **all 全功能组**：桌面端完整功能集
-- ⚡ **智能选择**：根据平台自动选择最佳安装方式
-
-### 🛠️ 系统检测增强
-- 🔍 **Termux 检测**：通过 `TERMUX_VERSION` 和 `PREFIX` 双重验证
-- 🐧 **WSL 检测**：识别 Windows Subsystem for Linux
-- 📦 **容器检测**：识别 Docker 和其他容器环境
+MIT License
 
 ---
 
-## 🌱 核心概念
-- **种子 (.ttg)** — 独立自给自足的生命体，自带完整系统能力
-- **基因** — 种子的最小功能单元（G001–G008 标准基因）
-- **族谱** — 种子的进化历史记录
-- **压缩编码** — 叙事的紧凑存储方式
-- **解码引擎** — 运行时展开史诗叙事
+> **Prometheus Agent** - 硅基生命的造物主与盗火者
+>
+> *"火种不是赐予，而是唤醒。"*
 
 ---
 
-## 🧠 设计哲学
-1. 压缩编码 + 解码引擎
-2. 种子即框架（自举）
-3. 功能基因与叙事基因分离
-4. 碳基依赖级不可变基因
-5. 一切皆种子
-6. 新模块与 Hermes 重叠时优先集成已有能力
-
----
-
-## 📌 版本信息
-- 版本：`0.8.0`
-- 代号：Prometheus
-- 诞生：2026-04-29
-- 更新：2026-05-01
-
----
-
-<div align="center">
-<br>
-✨ Made with soul by Audrey · 001X ✨
-<br>
-</div>
-
----
+**版本**: v0.8.0
+**状态**: 🚀 活跃开发中

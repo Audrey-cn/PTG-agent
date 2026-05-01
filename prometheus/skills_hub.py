@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import json
-import shutil
 import logging
+import shutil
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from dataclasses import dataclass, field, asdict
-from typing import Optional
 
 from prometheus.config import get_prometheus_home
 
 logger = logging.getLogger(__name__)
 
-BUILTIN_CATEGORIES: list[str] = [
+BUILTIN_CATEGORIES: List[str] = [
     "chronicler",
     "memory",
     "system",
@@ -27,7 +26,7 @@ class SkillEntry:
     category: str
     description: str = ""
     version: str = "0.1.0"
-    source_path: Optional[str] = None
+    source_path: str | None = None
     installed: bool = False
     metadata: dict = field(default_factory=dict)
 
@@ -37,13 +36,13 @@ class SkillsHub:
         self._skills_dir = get_prometheus_home() / "skills"
         self._registry_path = self._skills_dir / "_registry.json"
         self._skills_dir.mkdir(parents=True, exist_ok=True)
-        self._registry: dict[str, SkillEntry] = {}
+        self._registry: Dict[str, SkillEntry] = {}
         self._load_registry()
 
     def _load_registry(self) -> None:
         if self._registry_path.exists():
             try:
-                with open(self._registry_path, "r", encoding="utf-8") as f:
+                with open(self._registry_path, encoding="utf-8") as f:
                     data = json.load(f)
                 for name, entry_data in data.items():
                     self._registry[name] = SkillEntry(**entry_data)
@@ -58,7 +57,7 @@ class SkillsHub:
         except Exception as e:
             logger.error("Failed to save skills registry: %s", e)
 
-    def search(self, query: str, category: Optional[str] = None) -> list[dict]:
+    def search(self, query: str, category: str | None = None) -> list[dict]:
         query_lower = query.lower()
         results: list[dict] = []
         for entry in self._registry.values():
@@ -68,7 +67,7 @@ class SkillsHub:
                 results.append(asdict(entry))
         return results
 
-    def browse(self, category: Optional[str] = None) -> list[dict]:
+    def browse(self, category: str | None = None) -> list[dict]:
         results: list[dict] = []
         for entry in self._registry.values():
             if category and entry.category != category:
@@ -76,7 +75,7 @@ class SkillsHub:
             results.append(asdict(entry))
         return results
 
-    def install(self, skill_name: str, source_path: Optional[str] = None) -> bool:
+    def install(self, skill_name: str, source_path: str | None = None) -> bool:
         if skill_name in self._registry and self._registry[skill_name].installed:
             logger.warning("Skill %s already installed", skill_name)
             return False
@@ -112,7 +111,7 @@ class SkillsHub:
                 shutil.rmtree(dest, ignore_errors=True)
             return False
 
-    def inspect(self, skill_name: str) -> Optional[dict]:
+    def inspect(self, skill_name: str) -> dict | None:
         entry = self._registry.get(skill_name)
         if not entry:
             return None
@@ -140,5 +139,5 @@ class SkillsHub:
             logger.error("Failed to remove skill %s: %s", skill_name, e)
             return False
 
-    def list_installed(self) -> list[str]:
+    def list_installed(self) -> List[str]:
         return [name for name, entry in self._registry.items() if entry.installed]

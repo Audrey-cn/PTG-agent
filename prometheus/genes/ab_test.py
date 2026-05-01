@@ -1,41 +1,28 @@
 #!/usr/bin/env python3
-"""
-╔══════════════════════════════════════════════════════════════╗
-║   🧬 普罗米修斯 · 基因 A/B 测试 · Gene A/B Testing           ║
-║                                                              ║
-║   同一种子两版基因对比效果，自动选优。                        ║
-║                                                              ║
-║   流程：                                                      ║
-║     1. 创建变体 A（基准）和变体 B（突变）                    ║
-║     2. 在相同任务上运行两个变体                              ║
-║     3. 收集指标（成功率、耗时、质量评分）                    ║
-║     4. 统计显著性检验                                        ║
-║     5. 自动选择优胜版本                                      ║
-╚══════════════════════════════════════════════════════════════╝
-"""
+"""╔══════════════════════════════════════════════════════════════╗."""
 
-import os
-import json
-import time
-import random
-import hashlib
 import datetime
-from typing import Dict, List, Optional, Any, Callable
+import hashlib
+import json
+import os
+import random
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-
 
 # ═══════════════════════════════════════════
 #   数据结构
 # ═══════════════════════════════════════════
+
 
 class VariantStatus(Enum):
     CREATED = "created"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
-    SELECTED = "selected"     # 被选为优胜
-    REJECTED = "rejected"     # 被淘汰
+    SELECTED = "selected"  # 被选为优胜
+    REJECTED = "rejected"  # 被淘汰
 
 
 class TestStatus(Enum):
@@ -48,15 +35,16 @@ class TestStatus(Enum):
 @dataclass
 class GeneVariant:
     """基因变体"""
-    variant_id: str           # 唯一标识
-    name: str                 # 变体名称 (A/B)
-    gene_config: dict         # 基因配置（突变参数）
+
+    variant_id: str  # 唯一标识
+    name: str  # 变体名称 (A/B)
+    gene_config: dict  # 基因配置（突变参数）
     status: VariantStatus = VariantStatus.CREATED
     created_at: str = ""
-    score: float = 0.0        # 综合得分
-    metrics: Dict[str, float] = field(default_factory=dict)  # 各项指标
-    runs: int = 0             # 运行次数
-    successes: int = 0        # 成功次数
+    score: float = 0.0  # 综合得分
+    metrics: dict[str, float] = field(default_factory=dict)  # 各项指标
+    runs: int = 0  # 运行次数
+    successes: int = 0  # 成功次数
     total_time_ms: float = 0  # 总耗时
 
     def __post_init__(self):
@@ -93,9 +81,7 @@ class GeneVariant:
         """计算综合得分：成功率 * 0.6 + 速度 * 0.2 + 质量 * 0.2"""
         speed_score = max(0, 1 - self.avg_time_ms / 10000)  # 10秒内满分
         quality_score = self.metrics.get("quality", 0.5)
-        self.score = (self.success_rate * 0.6 +
-                     speed_score * 0.2 +
-                     quality_score * 0.2)
+        self.score = self.success_rate * 0.6 + speed_score * 0.2 + quality_score * 0.2
 
     def to_dict(self) -> dict:
         return {
@@ -115,19 +101,20 @@ class GeneVariant:
 @dataclass
 class ABTest:
     """A/B 测试实例"""
+
     test_id: str
     name: str
     description: str
-    seed_path: str                     # 源种子
-    task_prompt: str                   # 测试任务
-    variant_a: GeneVariant = None      # 基准变体
-    variant_b: GeneVariant = None      # 突变变体
+    seed_path: str  # 源种子
+    task_prompt: str  # 测试任务
+    variant_a: GeneVariant = None  # 基准变体
+    variant_b: GeneVariant = None  # 突变变体
     status: TestStatus = TestStatus.DRAFT
     created_at: str = ""
     completed_at: str = ""
-    winner: str = ""                   # 优胜变体 ID
-    confidence: float = 0.0            # 置信度
-    runs_per_variant: int = 5          # 每个变体运行次数
+    winner: str = ""  # 优胜变体 ID
+    confidence: float = 0.0  # 置信度
+    runs_per_variant: int = 5  # 每个变体运行次数
 
     def __post_init__(self):
         if not self.created_at:
@@ -153,9 +140,10 @@ class ABTest:
 #   A/B 测试引擎
 # ═══════════════════════════════════════════
 
+
 class GeneABTest:
     """基因 A/B 测试引擎
-    
+
     流程：
       1. create_test() — 创建测试，定义变体
       2. run_test()    — 运行测试（收集指标）
@@ -168,7 +156,7 @@ class GeneABTest:
             os.path.dirname(os.path.abspath(__file__)), "..", "data"
         )
         os.makedirs(self._data_dir, exist_ok=True)
-        self._tests: Dict[str, ABTest] = {}
+        self._tests: dict[str, ABTest] = {}
         self._load_tests()
 
     def _load_tests(self):
@@ -181,7 +169,7 @@ class GeneABTest:
             if f.endswith(".json"):
                 path = os.path.join(test_dir, f)
                 try:
-                    with open(path, "r") as fh:
+                    with open(path) as fh:
                         data = json.load(fh)
                     test = self._deserialize_test(data)
                     if test:
@@ -197,7 +185,7 @@ class GeneABTest:
         with open(path, "w") as f:
             json.dump(test.to_dict(), f, ensure_ascii=False, indent=2)
 
-    def _deserialize_test(self, data: dict) -> Optional[ABTest]:
+    def _deserialize_test(self, data: dict) -> ABTest | None:
         """反序列化测试"""
         try:
             va = self._deserialize_variant(data.get("variant_a"))
@@ -219,7 +207,7 @@ class GeneABTest:
         except Exception:
             return None
 
-    def _deserialize_variant(self, data: dict) -> Optional[GeneVariant]:
+    def _deserialize_variant(self, data: dict) -> GeneVariant | None:
         """安全反序列化 GeneVariant"""
         if not data:
             return None
@@ -252,7 +240,7 @@ class GeneABTest:
         runs_per_variant: int = 5,
     ) -> ABTest:
         """创建 A/B 测试
-        
+
         Args:
             name: 测试名称
             seed_path: 源种子路径
@@ -261,9 +249,7 @@ class GeneABTest:
             description: 测试描述
             runs_per_variant: 每个变体运行次数
         """
-        test_id = hashlib.md5(
-            f"{name}:{time.time()}".encode()
-        ).hexdigest()[:12]
+        test_id = hashlib.md5(f"{name}:{time.time()}".encode()).hexdigest()[:12]
 
         test = ABTest(
             test_id=test_id,
@@ -300,7 +286,7 @@ class GeneABTest:
         evaluator: Callable = None,
     ) -> ABTest:
         """运行 A/B 测试
-        
+
         Args:
             test_id: 测试 ID
             evaluator: 评估函数 (variant, task_result) -> {success, time_ms, metrics}
@@ -317,7 +303,7 @@ class GeneABTest:
         test.variant_a.status = VariantStatus.RUNNING
         self._save_test(test)
 
-        for i in range(test.runs_per_variant):
+        for _i in range(test.runs_per_variant):
             success, time_ms, metrics = self._run_single(
                 test.variant_a, test.task_prompt, evaluator
             )
@@ -330,7 +316,7 @@ class GeneABTest:
         test.variant_b.status = VariantStatus.RUNNING
         self._save_test(test)
 
-        for i in range(test.runs_per_variant):
+        for _i in range(test.runs_per_variant):
             success, time_ms, metrics = self._run_single(
                 test.variant_b, test.task_prompt, evaluator
             )
@@ -428,16 +414,16 @@ class GeneABTest:
 
     # ── 查询 ────────────────────────────────────
 
-    def get_test(self, test_id: str) -> Optional[ABTest]:
+    def get_test(self, test_id: str) -> ABTest | None:
         return self._tests.get(test_id)
 
-    def list_tests(self, status: str = None) -> List[dict]:
+    def list_tests(self, status: str = None) -> list[dict]:
         tests = list(self._tests.values())
         if status:
             tests = [t for t in tests if t.status.value == status]
         return [t.to_dict() for t in tests]
 
-    def get_winner_config(self, test_id: str) -> Optional[dict]:
+    def get_winner_config(self, test_id: str) -> dict | None:
         """获取优胜变体的基因配置"""
         test = self._tests.get(test_id)
         if not test or not test.winner:
@@ -460,6 +446,7 @@ class GeneABTest:
 # ═══════════════════════════════════════════
 #   便捷函数
 # ═══════════════════════════════════════════
+
 
 def quick_test(
     name: str,
@@ -484,6 +471,7 @@ def quick_test(
 # ═══════════════════════════════════════════
 #   CLI 入口
 # ═══════════════════════════════════════════
+
 
 def main():
     import argparse
@@ -541,7 +529,7 @@ def main():
         else:
             a = result["variant_a"]
             b = result["variant_b"]
-            print(f"📊 A/B 测试分析")
+            print("📊 A/B 测试分析")
             print(f"  变体 A: score={a['score']:.4f} success={a['success_rate']:.1%}")
             print(f"  变体 B: score={b['score']:.4f} success={b['success_rate']:.1%}")
             print(f"  优胜: {result['winner']}")
@@ -549,7 +537,7 @@ def main():
 
     elif args.command == "stats":
         stats = engine.stats()
-        print(f"📊 A/B 测试统计")
+        print("📊 A/B 测试统计")
         print(f"  总计: {stats['total']}")
         print(f"  已完成: {stats['completed']}")
         print(f"  运行中: {stats['running']}")

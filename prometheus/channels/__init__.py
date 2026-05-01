@@ -1,42 +1,30 @@
-"""
-Prometheus 消息频道模块
-
-提供统一的频道接口，支持多种交互方式：
-- CLI: 默认命令行
-- HTTP Webhook: API 接口
-- File Watch: 文件监听
-- WebSocket (placeholder): WebSocket
-- MQTT (placeholder): MQTT
-- Telegram/Discord/Slack/飞书/钉钉 等第三方平台
-"""
+"""Prometheus 消息频道模块."""
 
 from .base import (
+    CHANNEL_TYPE_MAP,
     Channel,
-    ChannelType,
     ChannelConfig,
     ChannelMessage,
     ChannelResponse,
+    ChannelType,
     CLIChannel,
-    HTTPWebhookChannel,
     FileWatchChannel,
-    WebSocketChannel,
+    HTTPWebhookChannel,
     MQTTChannel,
-    CHANNEL_TYPE_MAP,
+    WebSocketChannel,
 )
-
+from .manager import (
+    PLATFORMS,
+    ChannelManager,
+    PlatformInfo,
+    PlatformType,
+    get_channel_manager,
+)
 from .registry import (
     ChannelRegistry,
+    create_default_channels,
     get_channel_registry,
     register_channel_type,
-    create_default_channels,
-)
-
-from .manager import (
-    ChannelManager,
-    get_channel_manager,
-    PlatformType,
-    PlatformInfo,
-    PLATFORMS,
 )
 
 __all__ = [

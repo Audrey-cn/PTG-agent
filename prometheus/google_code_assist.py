@@ -4,7 +4,7 @@ from typing import Any
 
 
 class GoogleCodeAssist:
-    def __init__(self, api_key: str | None = None):
+    def __init__(self, api_key: Optional[str] = None):
         self._api_key = api_key
         self._endpoint = "https://cloudcode.googleapis.com/v1alpha"
 
@@ -38,13 +38,13 @@ class GoogleCodeAssist:
             return result.get("tests", "")
         return ""
 
-    def _call_api(self, method: str, payload: dict[str, Any]) -> Any:
+    def _call_api(self, method: str, payload: Dict[str, Any]) -> Any:
         return {"method": method, "payload": payload, "status": "mock"}
 
     def set_api_key(self, api_key: str) -> None:
         self._api_key = api_key
 
-    def get_supported_languages(self) -> list[str]:
+    def get_supported_languages(self) -> List[str]:
         return [
             "python",
             "javascript",

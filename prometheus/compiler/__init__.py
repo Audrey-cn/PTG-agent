@@ -3,10 +3,10 @@
 知识编译器模块
 """
 
-from .weaver import KnowledgeWeaver
 from .citation import CitationTracker
 from .discovery import AutoDiscovery
-from .prompt import PersonaMode, DNAParser, PromptComposer
+from .prompt import DNAParser, PersonaMode, PromptComposer
+from .weaver import KnowledgeWeaver
 
 __all__ = [
     "KnowledgeWeaver",

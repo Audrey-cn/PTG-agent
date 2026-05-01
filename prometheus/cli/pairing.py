@@ -1,106 +1,90 @@
-from __future__ import annotations
-
-import json
-import secrets
-import time
-from pathlib import Path
-from typing import Optional
-
-from prometheus.config import get_prometheus_home
+"""CLI commands for the DM pairing system."""
 
 
-class DevicePairing:
-    def __init__(self):
-        self._devices_file = get_prometheus_home() / "paired_devices.json"
-        self._pending_pairings: dict[str, dict] = {}
-    
-    def _load_devices(self) -> list[dict]:
-        if self._devices_file.exists():
-            try:
-                with open(self._devices_file, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                return []
-        return []
-    
-    def _save_devices(self, devices: list[dict]) -> None:
-        self._devices_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self._devices_file, "w", encoding="utf-8") as f:
-            json.dump(devices, f, indent=2)
-    
-    def start_pairing(self, device_name: str) -> str:
-        code = secrets.token_hex(4).upper()
-        self._pending_pairings[code] = {
-            "device_name": device_name,
-            "started_at": time.time(),
-            "expires_at": time.time() + 300,
-        }
-        return code
-    
-    def complete_pairing(self, code: str) -> bool:
-        if code not in self._pending_pairings:
-            return False
-        
-        pairing = self._pending_pairings[code]
-        
-        if time.time() > pairing["expires_at"]:
-            del self._pending_pairings[code]
-            return False
-        
-        devices = self._load_devices()
-        
-        new_device = {
-            "id": secrets.token_hex(8),
-            "name": pairing["device_name"],
-            "paired_at": time.time(),
-            "last_seen": time.time(),
-        }
-        
-        devices.append(new_device)
-        self._save_devices(devices)
-        
-        del self._pending_pairings[code]
-        
-        return True
-    
-    def list_paired_devices(self) -> list[dict]:
-        return self._load_devices()
-    
-    def unpair(self, device_id: str) -> bool:
-        devices = self._load_devices()
-        original_count = len(devices)
-        devices = [d for d in devices if d.get("id") != device_id]
-        
-        if len(devices) < original_count:
-            self._save_devices(devices)
-            return True
-        
-        return False
-    
-    def get_device(self, device_id: str) -> Optional[dict]:
-        devices = self._load_devices()
-        for device in devices:
-            if device.get("id") == device_id:
-                return device
-        return None
-    
-    def update_last_seen(self, device_id: str) -> bool:
-        devices = self._load_devices()
-        for device in devices:
-            if device.get("id") == device_id:
-                device["last_seen"] = time.time()
-                self._save_devices(devices)
-                return True
-        return False
-    
-    def cleanup_expired_pairings(self) -> int:
-        current_time = time.time()
-        expired_codes = [
-            code for code, pairing in self._pending_pairings.items()
-            if current_time > pairing["expires_at"]
-        ]
-        
-        for code in expired_codes:
-            del self._pending_pairings[code]
-        
-        return len(expired_codes)
+def pairing_command(args):
+    """Handle prometheus pairing subcommands."""
+    from prometheus.gateway.pairing import PairingStore
+
+    store = PairingStore()
+    action = getattr(args, "pairing_action", None)
+
+    if action == "list":
+        _cmd_list(store)
+    elif action == "approve":
+        _cmd_approve(store, args.platform, args.code)
+    elif action == "revoke":
+        _cmd_revoke(store, args.platform, args.user_id)
+    elif action == "clear-pending":
+        _cmd_clear_pending(store)
+    else:
+        print("Usage: prometheus pairing {list|approve|revoke|clear-pending}")
+        print("Run 'prometheus pairing --help' for details.")
+
+
+def _cmd_list(store):
+    """List all pending and approved users."""
+    pending = store.list_pending()
+    approved = store.list_approved()
+
+    if not pending and not approved:
+        print("No pairing data found. No one has tried to pair yet~")
+        return
+
+    if pending:
+        print(f"\n  Pending Pairing Requests ({len(pending)}):")
+        print(f"  {'Platform':<12} {'Code':<10} {'User ID':<20} {'Name':<20} {'Age'}")
+        print(f"  {'--------':<12} {'----':<10} {'-------':<20} {'----':<20} {'---'}")
+        for p in pending:
+            print(
+                f"  {p['platform']:<12} {p['code']:<10} {p['user_id']:<20} "
+                f"{(p.get('user_name') or ''):<20} {p['age_minutes']}m ago"
+            )
+    else:
+        print("\n  No pending pairing requests.")
+
+    if approved:
+        print(f"\n  Approved Users ({len(approved)}):")
+        print(f"  {'Platform':<12} {'User ID':<20} {'Name':<20}")
+        print(f"  {'--------':<12} {'-------':<20} {'----':<20}")
+        for a in approved:
+            print(f"  {a['platform']:<12} {a['user_id']:<20} {(a.get('user_name') or ''):<20}")
+    else:
+        print("\n  No approved users.")
+
+    print()
+
+
+def _cmd_approve(store, platform: str, code: str):
+    """Approve a pairing code."""
+    platform = platform.lower().strip()
+    code = code.upper().strip()
+
+    result = store.approve_code(platform, code)
+    if result:
+        uid = result["user_id"]
+        name = result.get("user_name") or ""
+        display = f"{name} ({uid})" if name else uid
+        print(f"\n  Approved! User {display} on {platform} can now use the bot~")
+        print("  They'll be recognized automatically on their next message.\n")
+    else:
+        print(f"\n  Code '{code}' not found or expired for platform '{platform}'.")
+        print("  Run 'prometheus pairing list' to see pending codes.\n")
+
+
+def _cmd_revoke(store, platform: str, user_id: str):
+    """Revoke a user's access."""
+    platform = platform.lower().strip()
+
+    if store.revoke(platform, user_id):
+        print(f"\n  Revoked access for user {user_id} on {platform}.\n")
+    else:
+        print(f"\n  User {user_id} not found in approved list for {platform}.\n")
+
+
+def _cmd_clear_pending(store):
+    """Clear all pending pairing codes."""
+    count = store.clear_pending()
+    if count:
+        print(f"\n  Cleared {count} pending pairing request(s).\n")
+    else:
+        print("\n  No pending requests to clear.\n")

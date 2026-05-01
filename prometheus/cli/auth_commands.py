@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import sys
 from typing import Any
 
 from prometheus.cli.auth import (
-    check_auth,
-    set_auth,
-    clear_auth,
-    show_auth_status,
-    get_auth_key,
     PROVIDER_DISPLAY_NAMES,
+    clear_auth,
+    get_auth_key,
+    set_auth,
+    show_auth_status,
 )
 
 
@@ -104,12 +102,12 @@ def cmd_auth_test(args: Any) -> None:
 
 
 def _test_openai(api_key: str) -> None:
-    import urllib.request
-    import urllib.error
     import json
+    import urllib.error
+    import urllib.request
+
     req = urllib.request.Request(
-        "https://api.openai.com/v1/models",
-        headers={"Authorization": f"Bearer {api_key}"}
+        "https://api.openai.com/v1/models", headers={"Authorization": f"Bearer {api_key}"}
     )
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -121,70 +119,72 @@ def _test_openai(api_key: str) -> None:
 
 
 def _test_anthropic(api_key: str) -> None:
-    import urllib.request
     import urllib.error
-    req = urllib.request.Request(
+    import urllib.request
+
+    urllib.request.Request(
         "https://api.anthropic.com/v1/messages",
         method="POST",
         headers={
             "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
             "Content-Type": "application/json",
-        }
+        },
     )
     print("✅ Anthropic: API Key 格式有效 (跳过实际调用)")
 
 
 def _test_openrouter(api_key: str) -> None:
-    import urllib.request
-    import urllib.error
     import json
+    import urllib.error
+    import urllib.request
+
     req = urllib.request.Request(
-        "https://openrouter.ai/api/v1/models",
-        headers={"Authorization": f"Bearer {api_key}"}
+        "https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {api_key}"}
     )
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
+            json.loads(resp.read().decode())
             print("✅ OpenRouter: 认证成功")
     except urllib.error.HTTPError as e:
         raise Exception(f"HTTP {e.code}")
 
 
 def _test_deepseek(api_key: str) -> None:
-    import urllib.request
     import urllib.error
+    import urllib.request
+
     req = urllib.request.Request(
-        "https://api.deepseek.com/v1/models",
-        headers={"Authorization": f"Bearer {api_key}"}
+        "https://api.deepseek.com/v1/models", headers={"Authorization": f"Bearer {api_key}"}
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10):
             print("✅ DeepSeek: 认证成功")
     except urllib.error.HTTPError as e:
         raise Exception(f"HTTP {e.code}")
 
 
 def _test_google(api_key: str) -> None:
-    import urllib.request
     import urllib.error
+    import urllib.request
+
     req = urllib.request.Request(
         f"https://generativelanguage.googleapis.com/v1/models?key={api_key}"
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10):
             print("✅ Google: 认证成功")
     except urllib.error.HTTPError as e:
         raise Exception(f"HTTP {e.code}")
 
 
 def _test_github(token: str) -> None:
-    import urllib.request
-    import urllib.error
     import json
+    import urllib.error
+    import urllib.request
+
     req = urllib.request.Request(
-        "https://api.github.com/user",
-        headers={"Authorization": f"token {token}"}
+        "https://api.github.com/user", headers={"Authorization": f"token {token}"}
     )
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:

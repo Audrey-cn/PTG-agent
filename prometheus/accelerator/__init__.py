@@ -4,12 +4,12 @@
 """
 
 from .net_accelerator import (
-    NetAccelerator,
-    AcceleratorNode,
     AccelerateResult,
+    AcceleratorNode,
+    NetAccelerator,
     Platform,
-    get_accelerator,
     accelerate_fetch,
+    get_accelerator,
 )
 
 __all__ = [

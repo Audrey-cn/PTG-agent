@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import json
 import logging
 import smtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Optional, Any
+from email.mime.text import MIMEText
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
@@ -30,7 +29,9 @@ class EmailChannelAdapter(PlatformAdapter):
         self._pending_messages: list = []
         self._message_handler = None
 
-    def send(self, message: str, to: str | None = None, subject: str | None = None, **kwargs) -> bool:
+    def send(
+        self, message: str, to: str | None = None, subject: str | None = None, **kwargs
+    ) -> bool:
         target = to or self.default_to
         if not target:
             logger.warning("Email: 无收件人")
@@ -60,7 +61,7 @@ class EmailChannelAdapter(PlatformAdapter):
             logger.error("Email send failed: %s", e)
             return False
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_messages:
             msg = self._pending_messages.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)

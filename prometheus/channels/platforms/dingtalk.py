@@ -1,14 +1,14 @@
-import json
 import logging
-from typing import Optional, Any
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
 
 try:
     import dingtalk_stream
+
     DINGTALK_AVAILABLE = True
 except ImportError:
     DINGTALK_AVAILABLE = False
@@ -34,7 +34,7 @@ class DingtalkAdapter(PlatformAdapter):
         logger.info("钉钉发送: %s...", message[:50])
         return True
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_messages:
             msg = self._pending_messages.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)

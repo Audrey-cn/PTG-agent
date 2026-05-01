@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Any
+from typing import TYPE_CHECKING
 
-from prometheus.channels.base import ChannelConfig, ChannelResponse
 from . import PlatformAdapter
+
+if TYPE_CHECKING:
+    from prometheus.channels.base import ChannelConfig, ChannelResponse
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,7 @@ class WeChatAdapter(PlatformAdapter):
         logger.warning("微信: not yet implemented — 集成 wechaty 后可用")
         return False
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         logger.warning("微信: not yet implemented — 集成 wechaty 后可用")
         return None
 

@@ -1,33 +1,34 @@
 import asyncio
 import logging
 import re
-from typing import Optional, Any
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
 
 try:
-    from telegram import Update, Bot
+    from telegram import Bot, Update
+    from telegram.constants import ParseMode
     from telegram.ext import (
         Application,
         CommandHandler,
-        MessageHandler,
         ContextTypes,
+        MessageHandler,
         filters,
     )
-    from telegram.constants import ParseMode
+
     TELEGRAM_AVAILABLE = True
 except ImportError:
     TELEGRAM_AVAILABLE = False
 
 
-_MDV2_ESCAPE_RE = re.compile(r'([_*\[\]()~`>#\+\-=|{}.!\\])')
+_MDV2_ESCAPE_RE = re.compile(r"([_*\[\]()~`>#\+\-=|{}.!\\])")
 
 
 def _escape_mdv2(text: str) -> str:
-    return _MDV2_ESCAPE_RE.sub(r'\\\1', text)
+    return _MDV2_ESCAPE_RE.sub(r"\\\1", text)
 
 
 class TelegramAdapter(PlatformAdapter):
@@ -55,23 +56,27 @@ class TelegramAdapter(PlatformAdapter):
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                asyncio.ensure_future(self._bot.send_message(
-                    chat_id=target,
-                    text=message[:4096],
-                    parse_mode=ParseMode.MARKDOWN_V2 if kwargs.get("markdown") else None,
-                ))
+                asyncio.ensure_future(
+                    self._bot.send_message(
+                        chat_id=target,
+                        text=message[:4096],
+                        parse_mode=ParseMode.MARKDOWN_V2 if kwargs.get("markdown") else None,
+                    )
+                )
             else:
-                loop.run_until_complete(self._bot.send_message(
-                    chat_id=target,
-                    text=message[:4096],
-                    parse_mode=ParseMode.MARKDOWN_V2 if kwargs.get("markdown") else None,
-                ))
+                loop.run_until_complete(
+                    self._bot.send_message(
+                        chat_id=target,
+                        text=message[:4096],
+                        parse_mode=ParseMode.MARKDOWN_V2 if kwargs.get("markdown") else None,
+                    )
+                )
             return True
         except Exception as e:
             logger.error("Telegram send failed: %s", e)
             return False
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_messages:
             msg = self._pending_messages.pop(0)
             return ChannelResponse(
@@ -88,11 +93,7 @@ class TelegramAdapter(PlatformAdapter):
             logger.error("Telegram 需要配置 token")
             return False
         try:
-            self._application = (
-                Application.builder()
-                .token(self.token)
-                .build()
-            )
+            self._application = Application.builder().token(self.token).build()
             self._bot = self._application.bot
 
             self._application.add_handler(CommandHandler("start", self._cmd_start))
@@ -102,6 +103,7 @@ class TelegramAdapter(PlatformAdapter):
             )
 
             import threading
+
             def _run():
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
@@ -131,16 +133,11 @@ class TelegramAdapter(PlatformAdapter):
         return True
 
     async def _cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text(
-            "🔥 Prometheus 已就绪！发送消息开始对话。"
-        )
+        await update.message.reply_text("🔥 Prometheus 已就绪！发送消息开始对话。")
 
     async def _cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
-            "🔥 Prometheus 命令:\n"
-            "/start - 开始\n"
-            "/help - 帮助\n"
-            "直接发送消息与 AI 对话"
+            "🔥 Prometheus 命令:\n/start - 开始\n/help - 帮助\n直接发送消息与 AI 对话"
         )
 
     async def _on_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -152,12 +149,14 @@ class TelegramAdapter(PlatformAdapter):
         if not text:
             return
 
-        self._pending_messages.append({
-            "text": text,
-            "chat_id": chat_id,
-            "user": update.effective_user.username or str(update.effective_user.id),
-            "platform": "telegram",
-        })
+        self._pending_messages.append(
+            {
+                "text": text,
+                "chat_id": chat_id,
+                "user": update.effective_user.username or str(update.effective_user.id),
+                "platform": "telegram",
+            }
+        )
 
         if self._message_handler:
             try:

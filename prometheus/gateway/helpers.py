@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
-
-PLATFORM_LIMITS: dict[str, int] = {
+PLATFORM_LIMITS: Dict[str, int] = {
     "telegram": 4096,
     "discord": 2000,
     "slack": 40000,
@@ -81,10 +79,10 @@ def _escape_whatsapp(text: str) -> str:
     return "".join(result)
 
 
-def split_message(message: str, max_length: int) -> list[str]:
+def split_message(message: str, max_length: int) -> List[str]:
     if len(message) <= max_length:
         return [message]
-    parts: list[str] = []
+    parts: List[str] = []
     remaining = message
     while remaining:
         if len(remaining) <= max_length:
@@ -92,7 +90,7 @@ def split_message(message: str, max_length: int) -> list[str]:
             break
         split_pos = max_length
         for i in range(max_length - 1, max(0, max_length - 100), -1):
-            if remaining[i] in " \n\t.,;:!?" :
+            if remaining[i] in " \n\t.,;:!?":
                 split_pos = i + 1
                 break
         parts.append(remaining[:split_pos])
@@ -100,7 +98,7 @@ def split_message(message: str, max_length: int) -> list[str]:
     return parts
 
 
-def extract_mentions(text: str) -> list[str]:
+def extract_mentions(text: str) -> List[str]:
     patterns = [
         r"<@!?(\d+)>",
         r"<#(\d+)>",
@@ -108,7 +106,7 @@ def extract_mentions(text: str) -> list[str]:
         r"@(\w+)",
         r"@\[([^\]]+)\]",
     ]
-    mentions: list[str] = []
+    mentions: List[str] = []
     for pattern in patterns:
         matches = re.findall(pattern, text)
         mentions.extend(matches)
@@ -116,9 +114,7 @@ def extract_mentions(text: str) -> list[str]:
 
 
 def format_mention(user_id: str, platform: str) -> str:
-    if platform == "discord":
-        return f"<@{user_id}>"
-    elif platform == "slack":
+    if platform == "discord" or platform == "slack":
         return f"<@{user_id}>"
     elif platform == "telegram":
         return f"@{user_id}"
@@ -151,11 +147,11 @@ def is_valid_chat_id(chat_id: str, platform: str) -> bool:
     return len(chat_id) > 0
 
 
-def parse_command(text: str, prefix: str = "/") -> tuple[str, str]:
+def parse_command(text: str, prefix: str = "/") -> Tuple[str, str]:
     text = text.strip()
     if not text.startswith(prefix):
         return ("", text)
-    text = text[len(prefix):]
+    text = text[len(prefix) :]
     parts = text.split(None, 1)
     if not parts:
         return ("", "")

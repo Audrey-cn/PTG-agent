@@ -1,89 +1,73 @@
 #!/usr/bin/env python3
-"""
-╔══════════════════════════════════════════════════════════════╗
-║   📖 普罗米修斯 · 语义字典工具 · Semantic Dictionary Tool    ║
-║                                                              ║
-║   设计哲学：字典随种子走，不随 Prometheus 走。               ║
-║   本工具从种子文件中提取内嵌的语义字典，                     ║
-║   提供查询、编解码、搜索、导出等操作。                       ║
-║                                                              ║
-║   用法：                                                      ║
-║     python semantic_dict.py <seed.ttg> lookup "用户偏好"      ║
-║     python semantic_dict.py <seed.ttg> decode @S001 @S002    ║
-║     python semantic_dict.py <seed.ttg> search "压缩"          ║
-║     python semantic_dict.py <seed.ttg> list                   ║
-║     python semantic_dict.py <seed.ttg> export                 ║
-║     python semantic_dict.py <seed.ttg> info                   ║
-╚══════════════════════════════════════════════════════════════╝
-"""
+"""╔══════════════════════════════════════════════════════════════╗."""
 
-import os
-import sys
-import json
-import re
 import argparse
+import json
+import os
+import re
+import sys
 
 # 将父目录加入路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from codec.layer2 import SemanticDictionary, get_seed_dict
 from codec.layer1 import decode_seed
+from codec.layer2 import SemanticDictionary, get_seed_dict
 
 
 def _load_seed_file(seed_path: str) -> dict:
     """加载种子文件（Markdown .ttg 或 JSON），不依赖 prometheus.py
-    
+
     支持格式：
     1. Markdown 种子（内嵌 YAML 代码块）—— 主流格式
     2. JSON 种子 —— 简单格式
     3. 二进制 TTG（L1 压缩）—— 备用格式
     """
     import gzip
-    
+
     path = os.path.expanduser(seed_path)
     if not os.path.exists(path):
         raise FileNotFoundError(f"种子文件不存在: {path}")
-    
+
     with open(path, "rb") as f:
         raw = f.read()
-    
+
     # 尝试 L1 解码（二进制 TTG 格式）
     if raw[:4] == b"TTG\x01":
         seed_data = decode_seed(raw)
         if seed_data:
             return seed_data
-    
+
     # 尝试读取为文本（Markdown 或 JSON）
     try:
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
         text = None
-    
+
     if text:
         # 尝试 JSON
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             pass
-        
+
         # 解析 Markdown 种子（内嵌 YAML 代码块）
         seed_data = _parse_markdown_seed(text)
         if seed_data:
             return seed_data
-    
+
     # 尝试 gzip 解压
     try:
         decompressed = gzip.decompress(raw)
         return json.loads(decompressed)
     except Exception:
         pass
-    
+
     raise ValueError(f"无法解析种子文件: {path}")
 
 
 def _parse_markdown_seed(text: str) -> dict:
     """解析 Markdown 格式的种子文件
-    
+
     Markdown 种子结构：
     ```yaml
     life_crest:      → 生命元数据
@@ -95,12 +79,12 @@ def _parse_markdown_seed(text: str) -> dict:
         import yaml
     except ImportError:
         return None
-    
+
     # 提取所有 YAML 代码块
-    blocks = re.findall(r'```yaml(.*?)```', text, re.DOTALL)
+    blocks = re.findall(r"```yaml(.*?)```", text, re.DOTALL)
     if not blocks:
         return None
-    
+
     # 解析并合并所有 YAML 块
     merged = {}
     for block in blocks:
@@ -110,14 +94,14 @@ def _parse_markdown_seed(text: str) -> dict:
                 merged.update(data)
         except yaml.YAMLError:
             continue
-    
+
     if not merged:
         return None
-    
+
     # 提取语义字典：genealogy_codex.tag_lexicon
     codex = merged.get("genealogy_codex", {})
     tag_lexicon = codex.get("tag_lexicon", {})
-    
+
     # 将 tag_lexicon 转为 SemanticDictionary 可用格式
     entries = {}
     for tag, info in tag_lexicon.items():
@@ -128,11 +112,11 @@ def _parse_markdown_seed(text: str) -> dict:
                 "desc": info.get("desc", ""),
                 "tag": tag,
             }
-    
+
     # 提取基因信息
     soul = merged.get("skill_soul", {})
-    dna = soul.get("dna_encoding", {})
-    
+    soul.get("dna_encoding", {})
+
     # 构造种子数据
     seed_data = {
         "name": merged.get("life_crest", {}).get("sacred_name", "unknown"),
@@ -145,7 +129,7 @@ def _parse_markdown_seed(text: str) -> dict:
             "count": len(entries),
         },
     }
-    
+
     return seed_data
 
 
@@ -153,9 +137,10 @@ def _parse_markdown_seed(text: str) -> dict:
 #   核心工具类
 # ═══════════════════════════════════════════
 
+
 class SemanticDictTool:
     """语义字典工具——从种子中提取和使用语义字典。
-    
+
     设计哲学：
       Prometheus 不存储字典，只提供读取算法。
       字典完全由种子携带，每代种子可以有自己的字典演化。
@@ -259,12 +244,12 @@ class SemanticDictTool:
     def export_markdown(self) -> str:
         """导出为 Markdown 格式（人读层）"""
         entries = self.dictionary.list_all()
-        
+
         lines = [
             f"# 语义字典 · {self.seed_name}",
-            f"",
+            "",
             f"_共 {len(entries)} 个概念_",
-            f"",
+            "",
         ]
 
         # 按 type 分组
@@ -302,7 +287,9 @@ class SemanticDictTool:
             "types": by_type,
             "has_semantic_decoder": bool(
                 self._seed_data and self._seed_data.get("semantic_decoder")
-            ) if self._seed_data else False,
+            )
+            if self._seed_data
+            else False,
         }
 
 
@@ -310,19 +297,18 @@ class SemanticDictTool:
 #   CLI 入口
 # ═══════════════════════════════════════════
 
+
 def main():
-    parser = argparse.ArgumentParser(
-        description="种子语义字典工具 —— 从种子中提取和使用编解码字典"
-    )
+    parser = argparse.ArgumentParser(description="种子语义字典工具 —— 从种子中提取和使用编解码字典")
     parser.add_argument("seed", help="种子文件路径 (.ttg 或 .json)")
-    parser.add_argument("command", 
-                       choices=["lookup", "resolve", "search", "list", 
-                                "encode", "decode", "export", "info"],
-                       help="操作命令")
+    parser.add_argument(
+        "command",
+        choices=["lookup", "resolve", "search", "list", "encode", "decode", "export", "info"],
+        help="操作命令",
+    )
     parser.add_argument("args", nargs="*", help="命令参数")
     parser.add_argument("--type", help="按类型过滤")
-    parser.add_argument("--format", choices=["json", "md"], default="json",
-                       help="导出格式")
+    parser.add_argument("--format", choices=["json", "md"], default="json", help="导出格式")
 
     args = parser.parse_args()
 
@@ -363,7 +349,7 @@ def main():
                 print(f"  {ref}:")
                 print(f"    文本: {entry.get('text', '')}")
                 print(f"    类型: {entry.get('type', '')}")
-                if entry.get('desc'):
+                if entry.get("desc"):
                     print(f"    描述: {entry['desc']}")
             else:
                 print(f"  {ref}: (未找到)")
@@ -391,7 +377,7 @@ def main():
             print("❌ 需要提供要编码的文本", file=sys.stderr)
             sys.exit(1)
         results = tool.encode(args.args)
-        for text, ref in zip(args.args, results):
+        for text, ref in zip(args.args, results, strict=False):
             print(f"  {text} → {ref}")
 
     elif args.command == "decode":
@@ -399,7 +385,7 @@ def main():
             print("❌ 需要提供要解码的语义ID", file=sys.stderr)
             sys.exit(1)
         results = tool.decode(args.args)
-        for ref, text in zip(args.args, results):
+        for ref, text in zip(args.args, results, strict=False):
             print(f"  {ref} → {text}")
 
     elif args.command == "export":

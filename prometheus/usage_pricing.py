@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from prometheus.config import get_prometheus_home
 from prometheus.model_metadata import get_model_metadata
 
-
-PRICING_TIERS: dict[str, dict[str, Any]] = {
+PRICING_TIERS: Dict[str, Dict[str, Any]] = {
     "openai": {
         "tier1": {"input_multiplier": 1.0, "output_multiplier": 1.0},
         "tier2": {"input_multiplier": 0.8, "output_multiplier": 0.8},
@@ -57,7 +55,9 @@ class UsagePricer:
             return 0.0
 
         provider = metadata.provider
-        tier_multipliers = PRICING_TIERS.get(provider, {}).get(self._current_tier, {"input_multiplier": 1.0, "output_multiplier": 1.0})
+        tier_multipliers = PRICING_TIERS.get(provider, {}).get(
+            self._current_tier, {"input_multiplier": 1.0, "output_multiplier": 1.0}
+        )
 
         input_multiplier = tier_multipliers.get("input_multiplier", 1.0)
         output_multiplier = tier_multipliers.get("output_multiplier", 1.0)
@@ -73,9 +73,9 @@ class UsagePricer:
             return 0.0
 
         try:
-            with open(session_file, "r") as f:
+            with open(session_file) as f:
                 data = json.load(f)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             return 0.0
 
         total_cost = 0.0
@@ -87,13 +87,15 @@ class UsagePricer:
 
         return round(total_cost, 6)
 
-    def get_pricing_tier(self, model: str) -> dict[str, Any]:
+    def get_pricing_tier(self, model: str) -> Dict[str, Any]:
         metadata = get_model_metadata(model)
         if not metadata:
             return {"tier": self._current_tier, "multipliers": {"input": 1.0, "output": 1.0}}
 
         provider = metadata.provider
-        tier_data = PRICING_TIERS.get(provider, {}).get(self._current_tier, {"input_multiplier": 1.0, "output_multiplier": 1.0})
+        tier_data = PRICING_TIERS.get(provider, {}).get(
+            self._current_tier, {"input_multiplier": 1.0, "output_multiplier": 1.0}
+        )
 
         return {
             "tier": self._current_tier,
@@ -124,18 +126,24 @@ class UsagePricer:
 
         try:
             if session_file.exists():
-                with open(session_file, "r") as f:
+                with open(session_file) as f:
                     data = json.load(f)
             else:
-                data = {"session_id": session_id, "created_at": datetime.now().isoformat(), "requests": []}
+                data = {
+                    "session_id": session_id,
+                    "created_at": datetime.now().isoformat(),
+                    "requests": [],
+                }
 
-            data["requests"].append({
-                "model": model,
-                "tokens_in": tokens_in,
-                "tokens_out": tokens_out,
-                "cost": cost,
-                "timestamp": datetime.now().isoformat(),
-            })
+            data["requests"].append(
+                {
+                    "model": model,
+                    "tokens_in": tokens_in,
+                    "tokens_out": tokens_out,
+                    "cost": cost,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
             data["total_cost"] = sum(r.get("cost", 0) for r in data["requests"])
             data["updated_at"] = datetime.now().isoformat()
@@ -143,18 +151,18 @@ class UsagePricer:
             with open(session_file, "w") as f:
                 json.dump(data, f, indent=2)
 
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             pass
 
         return cost
 
-    def get_session_summary(self, session_id: str) -> dict[str, Any]:
+    def get_session_summary(self, session_id: str) -> Dict[str, Any]:
         session_file = self._usage_dir / f"{session_id}.json"
         if not session_file.exists():
             return {"session_id": session_id, "total_cost": 0.0, "requests": []}
 
         try:
-            with open(session_file, "r") as f:
+            with open(session_file) as f:
                 return json.load(f)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             return {"session_id": session_id, "total_cost": 0.0, "requests": []}

@@ -3,7 +3,7 @@ name: evolution
 description: Evolution engine for self-improvement
 version: 1.0.0
 metadata:
-  hermes:
+  prometheus:
     tags:
       - evolution
       - self-improvement

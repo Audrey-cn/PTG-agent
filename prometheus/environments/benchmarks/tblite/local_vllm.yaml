@@ -1,0 +1,33 @@
+num_episodes: 50
+group_size: 8
+learning_rate: 5.0e-6
+num_training_steps: 5000
+save_freq: 100
+eval_freq: 100
+logging_freq: 20
+eval_batch_size: 1
+save_dir: ./outputs/tblite_vllm
+log_dir: ./logs/tblite_vllm
+
+env:
+  enabled_toolsets:
+    - terminal
+    - file
+    - git
+  disabled_toolsets:
+    - messaging
+    - cronjob
+  max_agent_turns: 30
+  terminal_backend: modal
+  terminal_timeout: 180
+  terminal_lifetime: 7200
+  tool_pool_size: 64
+  tool_call_parser: hermes
+
+server:
+  type: vllm
+  name: prometheus-agent-7b
+  max_model_len: 32768
+  enforce_eager: true
+  temperature: 0.7
+  max_tokens: 2048

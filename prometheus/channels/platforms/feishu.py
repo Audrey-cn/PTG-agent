@@ -1,8 +1,8 @@
 import json
 import logging
-from typing import Optional, Any
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
@@ -14,6 +14,7 @@ try:
         CreateMessageRequestBody,
         ReceiveMessageEvent,
     )
+
     FEISHU_AVAILABLE = True
 except ImportError:
     FEISHU_AVAILABLE = False
@@ -43,17 +44,17 @@ class FeishuAdapter(PlatformAdapter):
             logger.warning("飞书: 无目标 chat_id")
             return False
         try:
-            import lark_oapi as lark
             from lark_oapi.api.im.v1 import CreateMessageRequest, CreateMessageRequestBody
 
-            body = CreateMessageRequestBody.builder() \
-                .msg_type("text") \
-                .content(json.dumps({"text": message})) \
+            body = (
+                CreateMessageRequestBody.builder()
+                .msg_type("text")
+                .content(json.dumps({"text": message}))
                 .build()
-            req = CreateMessageRequest.builder() \
-                .receive_id_type("chat_id") \
-                .request_body(body) \
-                .build()
+            )
+            req = (
+                CreateMessageRequest.builder().receive_id_type("chat_id").request_body(body).build()
+            )
             resp = self._client.im.v1.message.create(req)
             if resp.success():
                 return True
@@ -64,7 +65,7 @@ class FeishuAdapter(PlatformAdapter):
             logger.error("飞书 send failed: %s", e)
             return False
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_messages:
             msg = self._pending_messages.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)
@@ -79,23 +80,25 @@ class FeishuAdapter(PlatformAdapter):
             return False
         try:
             import lark_oapi as lark
-            self._client = lark.Client.builder() \
-                .app_id(self.app_id) \
-                .app_secret(self.app_secret) \
-                .log_level(lark.LogLevel.DEBUG) \
+
+            self._client = (
+                lark.Client.builder()
+                .app_id(self.app_id)
+                .app_secret(self.app_secret)
+                .log_level(lark.LogLevel.DEBUG)
                 .build()
+            )
 
-            event_handler = lark.EventDispatcherHandler.builder(
-                verification_token=self.verification_token,
-                encrypt_key=self.encrypt_key,
-            ) \
-            .register_p2_im_message_receive_v1(self._on_message) \
-            .build()
+            (
+                lark.EventDispatcherHandler.builder(
+                    verification_token=self.verification_token,
+                    encrypt_key=self.encrypt_key,
+                )
+                .register_p2_im_message_receive_v1(self._on_message)
+                .build()
+            )
 
-            self._cli = lark.Cli.builder() \
-                .app_id(self.app_id) \
-                .app_secret(self.app_secret) \
-            .build()
+            self._cli = lark.Cli.builder().app_id(self.app_id).app_secret(self.app_secret).build()
 
             self._is_running = True
             logger.info("飞书适配器已初始化（需 webhook 或长连接启动）")
@@ -115,12 +118,14 @@ class FeishuAdapter(PlatformAdapter):
             content = json.loads(msg.content) if msg.content else {}
             text = content.get("text", "")
             chat_id = msg.chat_id
-            self._pending_messages.append({
-                "text": text,
-                "chat_id": chat_id,
-                "user": data.event.sender.sender_id.user_id,
-                "platform": "feishu",
-            })
+            self._pending_messages.append(
+                {
+                    "text": text,
+                    "chat_id": chat_id,
+                    "user": data.event.sender.sender_id.user_id,
+                    "platform": "feishu",
+                }
+            )
             if self._message_handler:
                 self._message_handler(text, chat_id=chat_id)
         except Exception as e:

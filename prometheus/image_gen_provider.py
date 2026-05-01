@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-import base64
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("prometheus.image_gen_provider")
 
 OPENAI_AVAILABLE = False
 try:
     import httpx
+
     OPENAI_AVAILABLE = True
 except ImportError:
     pass
@@ -17,8 +17,7 @@ except ImportError:
 
 class ImageGenProvider(ABC):
     @abstractmethod
-    def generate(self, prompt: str, size: str = "1024x1024", **kwargs: Any) -> str:
-        ...
+    def generate(self, prompt: str, size: str = "1024x1024", **kwargs: Any) -> str: ...
 
 
 class OpenAIImageProvider(ImageGenProvider):
@@ -35,7 +34,7 @@ class OpenAIImageProvider(ImageGenProvider):
         n = kwargs.get("n", 1)
         response_format = kwargs.get("response_format", "url")
 
-        payload: dict[str, Any] = {
+        payload: Dict[str, Any] = {
             "model": model,
             "prompt": prompt,
             "size": size,
@@ -84,7 +83,7 @@ class XAIImageProvider(ImageGenProvider):
         n = kwargs.get("n", 1)
         response_format = kwargs.get("response_format", "url")
 
-        payload: dict[str, Any] = {
+        payload: Dict[str, Any] = {
             "model": model,
             "prompt": prompt,
             "size": size,
@@ -131,9 +130,9 @@ class DeepSeekImageProvider(ImageGenProvider):
 def create_image_provider(
     provider: str,
     api_key: str,
-    base_url: Optional[str] = None,
+    base_url: str | None = None,
 ) -> ImageGenProvider:
-    providers: dict[str, type[ImageGenProvider]] = {
+    providers: Dict[str, type[ImageGenProvider]] = {
         "openai": OpenAIImageProvider,
         "xai": XAIImageProvider,
         "deepseek": DeepSeekImageProvider,

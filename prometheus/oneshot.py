@@ -1,19 +1,18 @@
 from __future__ import annotations
 
+import logging
 import os
 import sys
-import logging
-from typing import Optional
 
 logger = logging.getLogger("prometheus.oneshot")
 
 
 def oneshot(
     prompt: str,
-    model: Optional[str] = None,
-    system_prompt: Optional[str] = None,
-    api_key: Optional[str] = None,
-    base_url: Optional[str] = None,
+    model: str | None = None,
+    system_prompt: str | None = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
     max_tokens: int = 4096,
     temperature: float = 0.7,
 ) -> str:
@@ -31,6 +30,7 @@ def oneshot(
     if not api_key:
         try:
             from prometheus.config import Config as PrometheusConfig
+
             cfg = PrometheusConfig.load()
             config_dict = cfg.to_dict()
             model_cfg = config_dict.get("model", {})

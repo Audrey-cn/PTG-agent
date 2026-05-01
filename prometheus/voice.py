@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger("prometheus.voice")
 
 OPENAI_AVAILABLE = False
 try:
     import openai
+
     OPENAI_AVAILABLE = True
 except ImportError:
     pass
@@ -16,16 +16,17 @@ except ImportError:
 PYTTSX3_AVAILABLE = False
 try:
     import pyttsx3
+
     PYTTSX3_AVAILABLE = True
 except ImportError:
     pass
 
 
 class VoiceMode:
-    def __init__(self, api_key: Optional[str] = None) -> None:
+    def __init__(self, api_key: str | None = None) -> None:
         self._enabled: bool = False
         self._api_key = api_key
-        self._openai_client: Optional[openai.OpenAI] = None
+        self._openai_client: openai.OpenAI | None = None
         self._tts_engine = None
 
         if OPENAI_AVAILABLE and api_key:
@@ -95,8 +96,8 @@ class VoiceMode:
                     voice="alloy",
                     input=text,
                 )
-                import tempfile
                 import subprocess
+                import tempfile
 
                 with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
                     f.write(response.content)

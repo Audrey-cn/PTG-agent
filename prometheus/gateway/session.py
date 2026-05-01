@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import threading
 import time
 import uuid
-import threading
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -15,16 +15,16 @@ class Session:
     platform: str
     chat_id: str
     user: str
-    history: list[dict[str, Any]] = field(default_factory=list)
+    history: list[Dict[str, Any]] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     last_active: float = field(default_factory=time.time)
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class SessionManager:
     def __init__(self, config: GatewayConfig | None = None):
         self._config = config or GatewayConfig()
-        self._sessions: dict[str, Session] = {}
+        self._sessions: Dict[str, Session] = {}
         self._lock = threading.Lock()
 
     def create_session(self, platform: str, chat_id: str, user: str) -> Session:
@@ -62,10 +62,10 @@ class SessionManager:
         with self._lock:
             return list(self._sessions.values())
 
-    def cleanup_expired(self, timeout: int | None = None) -> int:
+    def cleanup_expired(self, timeout: Optional[int] = None) -> int:
         timeout = timeout or self._config.session_timeout
         now = time.time()
-        expired_ids: list[str] = []
+        expired_ids: List[str] = []
         with self._lock:
             for sid, session in self._sessions.items():
                 if now - session.last_active > timeout:

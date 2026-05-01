@@ -1,31 +1,11 @@
 #!/usr/bin/env python3
-"""
-╔══════════════════════════════════════════════════════════════╗
-║   ⚡ 普罗米修斯 · 运行时状态机 · Session State              ║
-║                                                              ║
-║   Prometheus 作为独立 Agent 的行为控制系统。                 ║
-║   管理"此刻该做什么"——运行时状态、行为约束、资源分配。      ║
-║                                                              ║
-║   与 G007-dormancy 的区别：                                  ║
-║     G007 = 种子的生命周期（休眠→发芽→生长→开花）            ║
-║     SessionState = Prometheus 的运行时状态（空闲→思考→行动） ║
-║     两者独立，互不隶属。                                     ║
-║                                                              ║
-║   状态定义：                                                 ║
-║     idle       — 空闲，等待任务                               ║
-║     thinking   — 规划中，分析需求                             ║
-║     acting     — 执行中，调用工具                             ║
-║     waiting    — 等待外部输入/确认                            ║
-║     reflecting — 自我反思/复盘                                ║
-║     error      — 错误恢复中                                  ║
-╚══════════════════════════════════════════════════════════════╝
-"""
+"""╔══════════════════════════════════════════════════════════════╗."""
 
-import os
+import contextlib
 import datetime
-import json
-from typing import Dict, List, Optional, Any, Callable
-from dataclasses import dataclass, field, asdict
+import os
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 
 from storage import StateStore
@@ -36,48 +16,55 @@ os.makedirs(STATE_DIR, exist_ok=True)
 
 class AgentState(Enum):
     """运行时状态"""
-    IDLE = "idle"                # 空闲
-    THINKING = "thinking"        # 规划中
-    ACTING = "acting"            # 执行中
-    WAITING = "waiting"          # 等待外部
-    REFLECTING = "reflecting"    # 反思中
-    ERROR = "error"              # 错误恢复
+
+    IDLE = "idle"  # 空闲
+    THINKING = "thinking"  # 规划中
+    ACTING = "acting"  # 执行中
+    WAITING = "waiting"  # 等待外部
+    REFLECTING = "reflecting"  # 反思中
+    ERROR = "error"  # 错误恢复
 
 
 # 状态元数据
 STATE_META = {
     AgentState.IDLE: {
-        "label": "空闲", "emoji": "💤",
+        "label": "空闲",
+        "emoji": "💤",
         "description": "等待任务",
         "allowed_transitions": ["thinking", "reflecting"],
         "resource_allocation": "minimal",
     },
     AgentState.THINKING: {
-        "label": "思考", "emoji": "🤔",
+        "label": "思考",
+        "emoji": "🤔",
         "description": "分析需求，制定计划",
         "allowed_transitions": ["acting", "waiting", "idle", "error"],
         "resource_allocation": "moderate",
     },
     AgentState.ACTING: {
-        "label": "行动", "emoji": "⚡",
+        "label": "行动",
+        "emoji": "⚡",
         "description": "执行任务，调用工具",
         "allowed_transitions": ["thinking", "waiting", "idle", "error", "reflecting"],
         "resource_allocation": "full",
     },
     AgentState.WAITING: {
-        "label": "等待", "emoji": "⏳",
+        "label": "等待",
+        "emoji": "⏳",
         "description": "等待外部输入或确认",
         "allowed_transitions": ["thinking", "acting", "idle", "error"],
         "resource_allocation": "minimal",
     },
     AgentState.REFLECTING: {
-        "label": "反思", "emoji": "🪞",
+        "label": "反思",
+        "emoji": "🪞",
         "description": "自我反思和复盘",
         "allowed_transitions": ["idle", "thinking"],
         "resource_allocation": "moderate",
     },
     AgentState.ERROR: {
-        "label": "错误", "emoji": "❌",
+        "label": "错误",
+        "emoji": "❌",
         "description": "错误恢复中",
         "allowed_transitions": ["idle", "thinking", "reflecting"],
         "resource_allocation": "minimal",
@@ -88,6 +75,7 @@ STATE_META = {
 @dataclass
 class StateTransition:
     """状态转换记录"""
+
     from_state: str
     to_state: str
     timestamp: str
@@ -101,8 +89,9 @@ class StateTransition:
 @dataclass
 class TaskContext:
     """任务上下文"""
+
     task_id: str = ""
-    task_type: str = ""           # task_type: seed_op, tool_call, reflection, etc.
+    task_type: str = ""  # task_type: seed_op, tool_call, reflection, etc.
     description: str = ""
     started_at: str = ""
     metadata: dict = field(default_factory=dict)
@@ -115,9 +104,10 @@ class TaskContext:
 #   运行时状态机
 # ═══════════════════════════════════════════
 
+
 class SessionState:
     """Prometheus 的运行时状态机。
-    
+
     控制 Agent 在任何时刻的行为模式。
     每种状态有不同的行为约束和资源分配策略。
     """
@@ -130,14 +120,14 @@ class SessionState:
             db_path: SQLite 数据库路径，None 则使用默认 prometheus.db
         """
         if db_path is None and state_file is not None:
-            db_path = state_file.rsplit('.', 1)[0] + '.db'
-        self._store = StateStore(db_path=db_path, namespace='session')
+            db_path = state_file.rsplit(".", 1)[0] + ".db"
+        self._store = StateStore(db_path=db_path, namespace="session")
         self.current_state = AgentState.IDLE
-        self.transitions: List[StateTransition] = []
-        self.task: Optional[TaskContext] = None
+        self.transitions: list[StateTransition] = []
+        self.task: TaskContext | None = None
         self.entered_at: str = datetime.datetime.now().isoformat()
-        self._on_enter_hooks: Dict[str, List[Callable]] = {}
-        self._on_exit_hooks: Dict[str, List[Callable]] = {}
+        self._on_enter_hooks: dict[str, list[Callable]] = {}
+        self._on_exit_hooks: dict[str, list[Callable]] = {}
         self._reflection = None
         self._load_state()
 
@@ -145,12 +135,12 @@ class SessionState:
 
     def transition(self, to_state: str, reason: str = "", context: dict = None) -> dict:
         """执行状态转换。
-        
+
         Args:
             to_state: 目标状态
             reason: 转换原因
             context: 附加上下文信息，传递给钩子
-            
+
         Returns:
             {success, from, to, message}
         """
@@ -252,7 +242,7 @@ class SessionState:
         meta = STATE_META.get(self.current_state, {})
         return target in meta.get("allowed_transitions", [])
 
-    def transition_history(self, limit: int = 20) -> List[dict]:
+    def transition_history(self, limit: int = 20) -> list[dict]:
         """状态转换历史。"""
         return [t.to_dict() for t in self.transitions[-limit:]]
 
@@ -283,8 +273,9 @@ class SessionState:
 
     # ── 任务管理 ──
 
-    def start_task(self, task_id: str, task_type: str = "",
-                   description: str = "", metadata: dict = None) -> dict:
+    def start_task(
+        self, task_id: str, task_type: str = "", description: str = "", metadata: dict = None
+    ) -> dict:
         """开始新任务。"""
         if self.current_state != AgentState.IDLE:
             return {
@@ -326,7 +317,7 @@ class SessionState:
         result["task_summary"] = task_summary
         return result
 
-    def current_task(self) -> Optional[dict]:
+    def current_task(self) -> dict | None:
         """获取当前任务。"""
         return self.task.to_dict() if self.task else None
 
@@ -346,42 +337,38 @@ class SessionState:
 
     def _run_enter_hooks(self, state: str, context: dict = None):
         """执行进入状态的钩子。
-        
+
         Args:
             state: 进入的状态名
             context: 附加上下文（from_state, to_state, reason 等）
         """
         for hook in self._on_enter_hooks.get(state, []):
-            try:
+            with contextlib.suppress(Exception):
                 hook(state, context or {})
-            except Exception:
-                pass
 
     def _run_exit_hooks(self, state: str, context: dict = None):
         """执行退出状态的钩子。
-        
+
         Args:
             state: 退出的状态名
             context: 附加上下文
         """
         for hook in self._on_exit_hooks.get(state, []):
-            try:
+            with contextlib.suppress(Exception):
                 hook(state, context or {})
-            except Exception:
-                pass
 
     # ── 持久化 ──
     # ── 自动反思联动 ──
 
     def setup_auto_reflection(self, reflection_module=None):
         """配置自动反思钩子。
-        
+
         当进入 REFLECTING 状态时，自动调用 reflection_module.reflect()。
         当进入 ERROR 状态时，记录错误观察到反思模块。
         每次状态转换时，自动调用 observe_state_change() 记录。
-        
+
         设计原则：通过参数注入实现解耦，不自动导入。
-        
+
         Args:
             reflection_module: SelfReflection 实例（可选）
         """
@@ -395,7 +382,7 @@ class SessionState:
 
     def _auto_reflect(self, state: str, context: dict):
         """自动反思钩子——进入 REFLECTING 时触发。
-        
+
         自动调用反思模块的 reflect() 方法，并将结果
         附加到当前任务的元数据中。
         """
@@ -407,16 +394,17 @@ class SessionState:
 
     def _auto_observe_error(self, state: str, context: dict):
         """自动错误观察钩子——进入 ERROR 时触发。
-        
+
         将错误信息记录到反思模块的观察收集器中。
         """
         if self._reflection is None:
             return
         reason = context.get("reason", "unknown error")
         self._reflection.observe_error("state_error", reason)
+
     def _auto_observe_transition(self, state: str, context: dict):
         """自动状态转换观察钩子——每次进入状态时触发。
-        
+
         将状态转换记录到反思模块的观察收集器中。
         """
         if self._reflection is None:
@@ -427,17 +415,17 @@ class SessionState:
         self._reflection.observe_state_change(from_state, to_state, reason)
 
     def _save_state(self):
-        self._store.set('current_state', self.current_state.value)
-        self._store.set('entered_at', self.entered_at)
-        self._store.set('transitions', [t.to_dict() for t in self.transitions[-100:]])
-        self._store.set('current_task', self.task.to_dict() if self.task else None)
+        self._store.set("current_state", self.current_state.value)
+        self._store.set("entered_at", self.entered_at)
+        self._store.set("transitions", [t.to_dict() for t in self.transitions[-100:]])
+        self._store.set("current_task", self.task.to_dict() if self.task else None)
 
     def _load_state(self):
         try:
-            state_val = self._store.get('current_state', 'idle')
-            entered_at = self._store.get('entered_at', None)
-            transitions_data = self._store.get('transitions', [])
-            task_data = self._store.get('current_task', None)
+            state_val = self._store.get("current_state", "idle")
+            entered_at = self._store.get("entered_at", None)
+            transitions_data = self._store.get("transitions", [])
+            task_data = self._store.get("current_task", None)
 
             for s in AgentState:
                 if s.value == state_val:
@@ -445,9 +433,7 @@ class SessionState:
                     break
             if entered_at:
                 self.entered_at = entered_at
-            self.transitions = [
-                StateTransition(**t) for t in (transitions_data or [])
-            ]
+            self.transitions = [StateTransition(**t) for t in (transitions_data or [])]
             if task_data:
                 self.task = TaskContext(**task_data)
         except (KeyError, TypeError):
@@ -457,6 +443,7 @@ class SessionState:
 # ═══════════════════════════════════════════
 #   CLI 入口
 # ═══════════════════════════════════════════
+
 
 def main():
     import sys
@@ -479,7 +466,7 @@ def main():
     ss = SessionState()
     action = sys.argv[1]
 
-    if action == 'current':
+    if action == "current":
         s = ss.current()
         print(f"\n{s['emoji']} 当前状态: {s['state']} ({s['label']})")
         print(f"  {s['description']}")
@@ -489,44 +476,44 @@ def main():
         if ss.task:
             print(f"  当前任务: {ss.task.task_id}")
 
-    elif action == 'transition' and len(sys.argv) > 2:
+    elif action == "transition" and len(sys.argv) > 2:
         to_state = sys.argv[2]
         reason = ""
-        if '--reason' in sys.argv:
-            idx = sys.argv.index('--reason')
+        if "--reason" in sys.argv:
+            idx = sys.argv.index("--reason")
             reason = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else ""
 
         result = ss.transition(to_state, reason)
         print(f"{'✅' if result['success'] else '❌'} {result['message']}")
 
-    elif action == 'start-task' and len(sys.argv) > 2:
+    elif action == "start-task" and len(sys.argv) > 2:
         task_id = sys.argv[2]
         task_type = ""
         desc = ""
-        if '--type' in sys.argv:
-            idx = sys.argv.index('--type')
+        if "--type" in sys.argv:
+            idx = sys.argv.index("--type")
             task_type = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else ""
-        if '--desc' in sys.argv:
-            idx = sys.argv.index('--desc')
+        if "--desc" in sys.argv:
+            idx = sys.argv.index("--desc")
             desc = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else ""
 
         result = ss.start_task(task_id, task_type=task_type, description=desc)
         print(f"{'✅' if result['success'] else '❌'} {result['message']}")
 
-    elif action == 'complete':
-        success = '--failure' not in sys.argv
+    elif action == "complete":
+        success = "--failure" not in sys.argv
         summary = ""
-        if '--summary' in sys.argv:
-            idx = sys.argv.index('--summary')
+        if "--summary" in sys.argv:
+            idx = sys.argv.index("--summary")
             summary = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else ""
 
         result = ss.complete_task(success=success, summary=summary)
         print(f"{'✅' if result['success'] else '❌'} {result['message']}")
 
-    elif action == 'history':
+    elif action == "history":
         limit = 20
-        if '--limit' in sys.argv:
-            idx = sys.argv.index('--limit')
+        if "--limit" in sys.argv:
+            idx = sys.argv.index("--limit")
             limit = int(sys.argv[idx + 1]) if idx + 1 < len(sys.argv) else 20
 
         history = ss.transition_history(limit)
@@ -534,14 +521,14 @@ def main():
         for t in history:
             print(f"  {t['from_state']} → {t['to_state']} ({t['duration_ms']}ms) {t['reason']}")
 
-    elif action == 'summary':
+    elif action == "summary":
         s = ss.state_summary()
-        print(f"\n📊 状态概览:")
+        print("\n📊 状态概览:")
         print(f"  当前: {s['current']['emoji']} {s['current']['state']} ({s['current']['label']})")
         print(f"  总转换: {s['total_transitions']} 次")
-        if s['state_counts']:
-            print(f"  状态分布:")
-            for state, count in sorted(s['state_counts'].items(), key=lambda x: -x[1]):
+        if s["state_counts"]:
+            print("  状态分布:")
+            for state, count in sorted(s["state_counts"].items(), key=lambda x: -x[1]):
                 print(f"    {state}: {count}")
 
     else:

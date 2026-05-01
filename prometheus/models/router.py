@@ -1,20 +1,10 @@
-"""
-模型路由器
-
-参照 Hermes (ElizaOS) AgentRuntime 中的 modelProvider/handler 模式,
-实现模型请求的智能路由与回退链。
-
-核心功能:
-- 按优先级路由模型请求
-- 自动回退到下一个可用提供者
-- 请求统计与健康度追踪
-"""
+"""模型路由器."""
 
 import time
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
+from dataclasses import dataclass
+from typing import Any
 
-from .providers import ProviderRegistry, ModelProvider, get_provider_registry
+from .providers import ModelProvider, ProviderRegistry, get_provider_registry
 
 
 @dataclass
@@ -22,8 +12,8 @@ class RouteResult:
     success: bool
     provider_id: str
     model: str
-    response: Optional[Any] = None
-    error: Optional[str] = None
+    response: Any | None = None
+    error: str | None = None
     attempts: int = 0
     latency_ms: float = 0.0
 
@@ -57,10 +47,10 @@ class ProviderStats:
 class ModelRouter:
     def __init__(self, registry: ProviderRegistry = None):
         self._registry = registry or get_provider_registry()
-        self._stats: Dict[str, ProviderStats] = {}
-        self._circuit_breaker: Dict[str, float] = {}
+        self._stats: dict[str, ProviderStats] = {}
+        self._circuit_breaker: dict[str, float] = {}
 
-    def get_stats(self) -> Dict[str, dict]:
+    def get_stats(self) -> dict[str, dict]:
         return {
             pid: {
                 "success_rate": s.success_rate,
@@ -120,20 +110,26 @@ class ModelRouter:
 
         return registry.get("local")
 
-    def get_available_models(self) -> Dict[str, List[str]]:
+    def get_available_models(self) -> dict[str, list[str]]:
         result = {}
         for provider in self._registry.available:
             models = [provider.default_model] + provider.fallback_models
             result[provider.id] = models
         return result
 
-    def get_fallback_chain_info(self) -> List[dict]:
+    def get_fallback_chain_info(self) -> list[dict]:
         chain = self._registry.get_fallback_chain()
         return [
             {
                 "provider_id": pid,
-                "name": (self._registry.get(pid) or ModelProvider(id=pid, name=pid, description="", env_key="")).name,
-                "available": (self._registry.get(pid) or ModelProvider(id=pid, name=pid, description="", env_key="")).is_available(),
+                "name": (
+                    self._registry.get(pid)
+                    or ModelProvider(id=pid, name=pid, description="", env_key="")
+                ).name,
+                "available": (
+                    self._registry.get(pid)
+                    or ModelProvider(id=pid, name=pid, description="", env_key="")
+                ).is_available(),
                 "circuit_open": self._is_circuit_open(pid),
                 "stats": self.get_stats().get(pid, {}),
             }
@@ -147,7 +143,7 @@ class ModelRouter:
         return provider.default_model
 
 
-_router: Optional[ModelRouter] = None
+_router: ModelRouter | None = None
 
 
 def get_model_router() -> ModelRouter:
@@ -167,5 +163,9 @@ def route_model_request(preferred_provider: str = None) -> dict:
         "model": model,
         "api_base": provider.api_base,
         "capabilities": provider.capabilities,
-        "fallback_chain": [fb["provider_id"] for fb in router.get_fallback_chain_info() if fb["provider_id"] != provider.id],
+        "fallback_chain": [
+            fb["provider_id"]
+            for fb in router.get_fallback_chain_info()
+            if fb["provider_id"] != provider.id
+        ],
     }

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import os
 import json
+import os
 from typing import Any
 
-CANONICAL_PROVIDERS: dict[str, dict[str, Any]] = {
+CANONICAL_PROVIDERS: Dict[str, Dict[str, Any]] = {
     "openai": {
         "label": "OpenAI",
         "env_var": "OPENAI_API_KEY",
@@ -24,7 +24,12 @@ CANONICAL_PROVIDERS: dict[str, dict[str, Any]] = {
         "env_var": "OPENROUTER_API_KEY",
         "base_url": "https://openrouter.ai/api/v1",
         "default_model": "anthropic/claude-sonnet-4",
-        "models": ["auto", "anthropic/claude-sonnet-4", "openai/gpt-4o", "google/gemini-2.5-pro-preview"],
+        "models": [
+            "auto",
+            "anthropic/claude-sonnet-4",
+            "openai/gpt-4o",
+            "google/gemini-2.5-pro-preview",
+        ],
     },
     "vercel": {
         "label": "Vercel AI",
@@ -164,7 +169,10 @@ CANONICAL_PROVIDERS: dict[str, dict[str, Any]] = {
         "env_var": "AWS_ACCESS_KEY_ID",
         "base_url": "https://bedrock-runtime.us-east-1.amazonaws.com",
         "default_model": "anthropic.claude-3-sonnet-20240229-v1:0",
-        "models": ["anthropic.claude-3-sonnet-20240229-v1:0", "anthropic.claude-3-opus-20240229-v1:0"],
+        "models": [
+            "anthropic.claude-3-sonnet-20240229-v1:0",
+            "anthropic.claude-3-opus-20240229-v1:0",
+        ],
     },
     "azure_foundry": {
         "label": "Azure AI Foundry",
@@ -235,6 +243,7 @@ def cmd_model(args) -> None:
 
 def _handle_legacy_action(args) -> None:
     from prometheus.config import Config as PrometheusConfig
+
     cfg = PrometheusConfig.load()
     if args.action == "show":
         print("\n🤖 模型配置\n")
@@ -268,8 +277,9 @@ def _print_model_help() -> None:
     print("    ptg model providers                 列出提供者\n")
 
 
-def cmd_model_list(provider: str | None = None) -> None:
+def cmd_model_list(provider: Optional[str] = None) -> None:
     from prometheus.model_catalog import list_models as catalog_list
+
     print("\n🤖 模型列表\n")
     if provider:
         spec = CANONICAL_PROVIDERS.get(provider)
@@ -301,8 +311,9 @@ def cmd_model_list(provider: str | None = None) -> None:
 
 
 def cmd_model_switch(model_name: str) -> None:
-    from prometheus.config import Config as PrometheusConfig
     from prometheus.cli.providers import resolve_provider
+    from prometheus.config import Config as PrometheusConfig
+
     cfg = PrometheusConfig.load()
     provider = resolve_provider(model_name)
     cfg.set("model.name", model_name)
@@ -314,9 +325,10 @@ def cmd_model_switch(model_name: str) -> None:
         print(f"   提供者: {provider}\n")
 
 
-def cmd_model_probe(base_url: str, api_key: str | None = None) -> None:
-    import urllib.request
+def cmd_model_probe(base_url: str, api_key: Optional[str] = None) -> None:
     import urllib.error
+    import urllib.request
+
     print(f"\n🔍 探测端点: {base_url}\n")
     if not api_key:
         api_key = os.environ.get("OPENAI_API_KEY", "")
@@ -325,10 +337,7 @@ def cmd_model_probe(base_url: str, api_key: str | None = None) -> None:
         return
     models_url = base_url.rstrip("/") + "/models"
     try:
-        req = urllib.request.Request(
-            models_url,
-            headers={"Authorization": f"Bearer {api_key}"}
-        )
+        req = urllib.request.Request(models_url, headers={"Authorization": f"Bearer {api_key}"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
         models = data.get("data", [])
@@ -351,6 +360,7 @@ def cmd_model_probe(base_url: str, api_key: str | None = None) -> None:
 
 def cmd_model_info(model_name: str) -> None:
     from prometheus.model_catalog import get_model_info
+
     print(f"\n🔍 模型信息: {model_name}\n")
     info = get_model_info(model_name)
     if info:
@@ -359,10 +369,12 @@ def cmd_model_info(model_name: str) -> None:
         print(f"  上下文长度: {info.get('context_length', '?')}")
         pricing = info.get("pricing", {})
         if pricing:
-            print(f"  价格 (输入/输出): ${pricing.get('in', 0)}/${pricing.get('out', 0)} per 1M tokens")
+            print(
+                f"  价格 (输入/输出): ${pricing.get('in', 0)}/${pricing.get('out', 0)} per 1M tokens"
+            )
     else:
         print("  未在目录中找到，可能是自定义模型")
-        for pid, spec in CANONICAL_PROVIDERS.items():
+        for _pid, spec in CANONICAL_PROVIDERS.items():
             if model_name in spec.get("models", []):
                 print(f"  提供者: {spec['label']}")
                 print(f"  默认端点: {spec['base_url']}")

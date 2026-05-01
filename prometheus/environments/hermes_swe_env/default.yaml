@@ -1,0 +1,9 @@
+test_tasks:
+  - instance_id: test_1
+    prompt: Create a file /tmp/test_file.txt with the content "Hello, Prometheus!"
+    expected_file: /tmp/test_file.txt
+    expected_content: Hello, Prometheus!
+
+  - instance_id: test_2
+    prompt: Create a directory /tmp/test_dir and list its contents
+    expected_dir: /tmp/test_dir

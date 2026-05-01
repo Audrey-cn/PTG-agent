@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 
 def cmd_gateway(args) -> None:
     action = getattr(args, "action", None)
@@ -33,6 +31,7 @@ def _print_gateway_help() -> None:
 
 def cmd_gateway_start(args) -> None:
     from prometheus.gateway_manager import start_gateway
+
     platform = getattr(args, "platform", "cli")
     result = start_gateway(platform=platform)
     if result:
@@ -43,6 +42,7 @@ def cmd_gateway_start(args) -> None:
 
 def cmd_gateway_stop(args) -> None:
     from prometheus.gateway_manager import stop_gateway
+
     result = stop_gateway()
     if result:
         print("\n✅ Gateway 已停止\n")
@@ -52,11 +52,11 @@ def cmd_gateway_stop(args) -> None:
 
 def cmd_gateway_status(args) -> None:
     from prometheus.gateway_manager import gateway_status
-    from prometheus.gateway.status import StatusTracker
+
     status = gateway_status()
     print("\n🌐 Gateway 状态\n")
     if status.get("running"):
-        print(f"  状态: 运行中")
+        print("  状态: 运行中")
         print(f"  PID: {status.get('pid')}")
         print(f"  日志: {status.get('log_file', 'N/A')}")
     else:
@@ -66,13 +66,14 @@ def cmd_gateway_status(args) -> None:
 
 def cmd_gateway_logs(args) -> None:
     from pathlib import Path
+
     lines = getattr(args, "lines", 50)
     log_file = Path.home() / ".prometheus" / "gateway.log"
     if not log_file.exists():
         print("\n⚠️  日志文件不存在\n")
         return
     print(f"\n📜 Gateway 日志 (最后 {lines} 行)\n")
-    with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+    with open(log_file, encoding="utf-8", errors="ignore") as f:
         all_lines = f.readlines()
     for line in all_lines[-lines:]:
         print("  " + line.rstrip())
@@ -80,7 +81,8 @@ def cmd_gateway_logs(args) -> None:
 
 
 def cmd_gateway_restart(args) -> None:
-    from prometheus.gateway_manager import stop_gateway, start_gateway
+    from prometheus.gateway_manager import start_gateway, stop_gateway
+
     platform = getattr(args, "platform", "cli")
     stop_gateway()
     result = start_gateway(platform=platform)
@@ -91,8 +93,9 @@ def cmd_gateway_restart(args) -> None:
 
 
 def _run_gateway_server(args) -> None:
-    from prometheus.gateway.run import GatewayRunner
     from prometheus.gateway.config import load_gateway_config
+    from prometheus.gateway.run import GatewayRunner
+
     platform = getattr(args, "platform", "cli")
     print(f"\n🌐 启动 Gateway 服务 (platform={platform})\n")
     runner = GatewayRunner()
@@ -100,6 +103,7 @@ def _run_gateway_server(args) -> None:
     runner.start(config)
     try:
         import time
+
         while runner.is_running():
             time.sleep(1)
     except KeyboardInterrupt:

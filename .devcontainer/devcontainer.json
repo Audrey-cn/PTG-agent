@@ -1,0 +1,35 @@
+{
+  "name": "Prometheus PTG",
+  "displayName": "Prometheus PTG Development Container",
+  "description": "Development environment for Prometheus PTG Agent",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "VARIANT": "3.11"
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.mypyEnabled": true,
+        "python.formatting.provider": "ruff"
+      }
+    }
+  },
+  "postCreateCommand": "pip install -e '.[dev]'",
+  "remoteUser": "vscode"
+}

@@ -1,29 +1,11 @@
 #!/usr/bin/env python3
-"""
-╔══════════════════════════════════════════════════════════════╗
-║   🔧 普罗米修斯 · 工具注册表 · Tool Registry               ║
-║                                                              ║
-║   Prometheus 作为独立 Agent 的能力边界系统。                 ║
-║   管理"我能用什么"——工具的注册、发现、权限和依赖检查。     ║
-║                                                              ║
-║   设计哲学：                                                 ║
-║     种子可以声明需要哪些工具，但工具的实际可用性             ║
-║     由 Prometheus 框架在运行时检查和管理。                   ║
-║                                                              ║
-║   三层权限模型：                                             ║
-║     required — 必须可用，否则 Agent 无法运作                 ║
-║     optional — 有则增强，无则降级                            ║
-║     forbidden — 明确禁止，即使系统有也不能用                 ║
-╚══════════════════════════════════════════════════════════════╝
-"""
+"""╔══════════════════════════════════════════════════════════════╗."""
 
-import os
-import json
 import datetime
-from typing import Dict, List, Optional, Set, Any
-from dataclasses import dataclass, field, asdict
+import json
+import os
+from dataclasses import asdict, dataclass, field
 from enum import Enum
-
 
 # ═══════════════════════════════════════════
 #   配置
@@ -35,37 +17,40 @@ os.makedirs(REGISTRY_DIR, exist_ok=True)
 
 class PermissionLevel(Enum):
     """权限层级"""
-    REQUIRED = "required"      # 必须可用
-    OPTIONAL = "optional"      # 有则增强
-    FORBIDDEN = "forbidden"    # 明确禁止
+
+    REQUIRED = "required"  # 必须可用
+    OPTIONAL = "optional"  # 有则增强
+    FORBIDDEN = "forbidden"  # 明确禁止
 
 
 class ToolCategory(Enum):
     """工具类别"""
-    FILE = "file"              # 文件操作
-    TERMINAL = "terminal"      # 终端命令
-    WEB = "web"                # 网络访问
-    SEARCH = "search"          # 搜索检索
+
+    FILE = "file"  # 文件操作
+    TERMINAL = "terminal"  # 终端命令
+    WEB = "web"  # 网络访问
+    SEARCH = "search"  # 搜索检索
     DELEGATION = "delegation"  # 子代理委派
-    MEMORY = "memory"          # 记忆系统
-    MEDIA = "media"            # 媒体处理
+    MEMORY = "memory"  # 记忆系统
+    MEDIA = "media"  # 媒体处理
     COMMUNICATION = "communication"  # 通信
-    CODE = "code"              # 代码执行
-    OTHER = "other"            # 其他
+    CODE = "code"  # 代码执行
+    OTHER = "other"  # 其他
 
 
 @dataclass
 class ToolDefinition:
     """工具定义"""
-    name: str                           # 工具名称
-    category: str = "other"             # 类别
-    description: str = ""               # 描述
-    permission: str = "optional"        # 权限层级
-    dependencies: List[str] = field(default_factory=list)  # 依赖的其他工具
-    capabilities: List[str] = field(default_factory=list)  # 提供的能力标签
-    risk_level: str = "low"             # 风险等级
-    version: str = "1.0"                # 版本
-    enabled: bool = True                # 是否启用
+
+    name: str  # 工具名称
+    category: str = "other"  # 类别
+    description: str = ""  # 描述
+    permission: str = "optional"  # 权限层级
+    dependencies: list[str] = field(default_factory=list)  # 依赖的其他工具
+    capabilities: list[str] = field(default_factory=list)  # 提供的能力标签
+    risk_level: str = "low"  # 风险等级
+    version: str = "1.0"  # 版本
+    enabled: bool = True  # 是否启用
     metadata: dict = field(default_factory=dict)  # 额外元数据
 
     def to_dict(self) -> dict:
@@ -75,12 +60,13 @@ class ToolDefinition:
 @dataclass
 class ToolCheckResult:
     """工具检查结果"""
+
     tool: str
     available: bool
     reason: str = ""
     has_permission: bool = True
     dependencies_met: bool = True
-    missing_dependencies: List[str] = field(default_factory=list)
+    missing_dependencies: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -90,71 +76,88 @@ class ToolCheckResult:
 #   工具注册表
 # ═══════════════════════════════════════════
 
+
 class ToolRegistry:
     """Prometheus 的工具注册表。
-    
+
     管理工具定义、权限检查、依赖验证和能力查询。
     """
 
     # 内置工具定义（框架自身提供的能力）
     BUILTIN_TOOLS = {
         "load_seed": ToolDefinition(
-            name="load_seed", category="file",
+            name="load_seed",
+            category="file",
             description="加载 .ttg 种子文件",
-            permission="required", capabilities=["seed_read"],
+            permission="required",
+            capabilities=["seed_read"],
         ),
         "save_seed": ToolDefinition(
-            name="save_seed", category="file",
+            name="save_seed",
+            category="file",
             description="保存 .ttg 种子文件",
-            permission="required", capabilities=["seed_write"],
+            permission="required",
+            capabilities=["seed_write"],
         ),
         "gene_edit": ToolDefinition(
-            name="gene_edit", category="file",
+            name="gene_edit",
+            category="file",
             description="编辑基因位点",
-            permission="required", capabilities=["gene_edit"],
+            permission="required",
+            capabilities=["gene_edit"],
             dependencies=["load_seed", "save_seed"],
         ),
         "audit": ToolDefinition(
-            name="audit", category="other",
+            name="audit",
+            category="other",
             description="创始铭刻验证",
-            permission="required", capabilities=["security"],
+            permission="required",
+            capabilities=["security"],
         ),
         "snapshot": ToolDefinition(
-            name="snapshot", category="file",
+            name="snapshot",
+            category="file",
             description="快照保存与恢复",
-            permission="optional", capabilities=["backup"],
+            permission="optional",
+            capabilities=["backup"],
         ),
         "health_check": ToolDefinition(
-            name="health_check", category="other",
+            name="health_check",
+            category="other",
             description="基因健康度审计",
-            permission="optional", capabilities=["diagnostics"],
+            permission="optional",
+            capabilities=["diagnostics"],
         ),
         "forge": ToolDefinition(
-            name="forge", category="other",
+            name="forge",
+            category="other",
             description="基因锻造",
-            permission="optional", capabilities=["reproduction"],
+            permission="optional",
+            capabilities=["reproduction"],
             dependencies=["load_seed"],
         ),
         "chronicler": ToolDefinition(
-            name="chronicler", category="other",
+            name="chronicler",
+            category="other",
             description="编史官 · 史诗叙事官 — 标记、追溯、附史TTG种子",
-            permission="required", capabilities=["seed_read", "seed_write", "seed_audit", "seed_lineage"],
+            permission="required",
+            capabilities=["seed_read", "seed_write", "seed_audit", "seed_lineage"],
             dependencies=["load_seed", "save_seed"],
         ),
     }
 
     def __init__(self, state_file: str = None):
         self.state_file = state_file or os.path.join(REGISTRY_DIR, "tool_registry.json")
-        self.tools: Dict[str, ToolDefinition] = {}
-        self._usage_log: List[dict] = []
+        self.tools: dict[str, ToolDefinition] = {}
+        self._usage_log: list[dict] = []
         self._load_state()
 
     def register(self, tool_def: dict) -> dict:
         """注册新工具。
-        
+
         Args:
             tool_def: 工具定义字典
-            
+
         Returns:
             {success, message, tool_name}
         """
@@ -165,7 +168,9 @@ class ToolRegistry:
         if name in self.tools:
             return {"success": False, "message": f"工具 '{name}' 已注册，请使用 update"}
 
-        td = ToolDefinition(**{k: v for k, v in tool_def.items() if k in ToolDefinition.__dataclass_fields__})
+        td = ToolDefinition(
+            **{k: v for k, v in tool_def.items() if k in ToolDefinition.__dataclass_fields__}
+        )
         self.tools[name] = td
         self._save_state()
 
@@ -207,13 +212,13 @@ class ToolRegistry:
 
     # ── 查询 ──
 
-    def get(self, name: str) -> Optional[dict]:
+    def get(self, name: str) -> dict | None:
         """获取工具定义。"""
         if name in self.tools:
             return self.tools[name].to_dict()
         return None
 
-    def list_all(self, category: str = None, permission: str = None) -> List[dict]:
+    def list_all(self, category: str = None, permission: str = None) -> list[dict]:
         """列出所有工具。"""
         tools = list(self.tools.values())
         if category:
@@ -222,11 +227,11 @@ class ToolRegistry:
             tools = [t for t in tools if t.permission == permission]
         return [t.to_dict() for t in tools]
 
-    def list_by_permission(self, level: str) -> List[dict]:
+    def list_by_permission(self, level: str) -> list[dict]:
         """按权限层级列出。"""
         return self.list_all(permission=level)
 
-    def list_capabilities(self) -> Dict[str, List[str]]:
+    def list_capabilities(self) -> dict[str, list[str]]:
         """列出所有能力及其对应的工具。"""
         cap_map = {}
         for tool in self.tools.values():
@@ -242,7 +247,8 @@ class ToolRegistry:
         """检查单个工具的可用性。"""
         if name not in self.tools:
             return ToolCheckResult(
-                tool=name, available=False,
+                tool=name,
+                available=False,
                 reason="工具未注册",
             )
 
@@ -252,7 +258,8 @@ class ToolRegistry:
         has_permission = td.permission != PermissionLevel.FORBIDDEN.value
         if not has_permission:
             return ToolCheckResult(
-                tool=name, available=False,
+                tool=name,
+                available=False,
                 reason="工具被禁止",
                 has_permission=False,
             )
@@ -260,7 +267,8 @@ class ToolRegistry:
         # 启用状态
         if not td.enabled:
             return ToolCheckResult(
-                tool=name, available=False,
+                tool=name,
+                available=False,
                 reason="工具已禁用",
                 has_permission=True,
             )
@@ -286,7 +294,7 @@ class ToolRegistry:
 
     def check_all(self) -> dict:
         """检查所有工具的可用性。
-        
+
         Returns:
             {
                 available: [str],
@@ -325,7 +333,7 @@ class ToolRegistry:
 
     def check_seed_requirements(self, seed_data: dict) -> dict:
         """检查种子声明的工具需求是否满足。
-        
+
         种子的 skill_soul 中可以声明 tools:
             required: [web_search, terminal]
             optional: [image_gen]
@@ -355,7 +363,7 @@ class ToolRegistry:
         # 总结
         required_ok = all(r["available"] for r in results["required"])
         results["all_required_met"] = required_ok
-        results["summary"] = "满足" if required_ok else f"缺少必需工具"
+        results["summary"] = "满足" if required_ok else "缺少必需工具"
 
         return results
 
@@ -363,12 +371,14 @@ class ToolRegistry:
 
     def log_usage(self, tool: str, success: bool, detail: str = ""):
         """记录工具使用。"""
-        self._usage_log.append({
-            "tool": tool,
-            "success": success,
-            "detail": detail,
-            "timestamp": datetime.datetime.now().isoformat(),
-        })
+        self._usage_log.append(
+            {
+                "tool": tool,
+                "success": success,
+                "detail": detail,
+                "timestamp": datetime.datetime.now().isoformat(),
+            }
+        )
         # 只保留最近 200 条
         self._usage_log = self._usage_log[-200:]
 
@@ -398,7 +408,7 @@ class ToolRegistry:
             "tools": {name: td.to_dict() for name, td in self.tools.items()},
             "usage_log": self._usage_log[-50:],
         }
-        with open(self.state_file, 'w', encoding='utf-8') as f:
+        with open(self.state_file, "w", encoding="utf-8") as f:
             json.dump(state, f, ensure_ascii=False, indent=2)
 
     def _load_state(self):
@@ -409,7 +419,7 @@ class ToolRegistry:
         # 再加载自定义工具（如果有）
         if os.path.exists(self.state_file):
             try:
-                with open(self.state_file, 'r', encoding='utf-8') as f:
+                with open(self.state_file, encoding="utf-8") as f:
                     state = json.load(f)
                 for name, td_dict in state.get("tools", {}).items():
                     if name not in self.tools:  # 不覆盖内置工具
@@ -422,6 +432,7 @@ class ToolRegistry:
 # ═══════════════════════════════════════════
 #   CLI 入口
 # ═══════════════════════════════════════════
+
 
 def main():
     import sys
@@ -447,24 +458,28 @@ def main():
     reg = ToolRegistry()
     action = sys.argv[1]
 
-    if action == 'list':
+    if action == "list":
         category = None
         permission = None
-        if '--category' in sys.argv:
-            idx = sys.argv.index('--category')
+        if "--category" in sys.argv:
+            idx = sys.argv.index("--category")
             category = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else None
-        if '--permission' in sys.argv:
-            idx = sys.argv.index('--permission')
+        if "--permission" in sys.argv:
+            idx = sys.argv.index("--permission")
             permission = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else None
 
         tools = reg.list_all(category=category, permission=permission)
         print(f"\n🔧 工具注册表 ({len(tools)} 个):")
         for t in tools:
-            perm_icon = {"required": "🔴", "optional": "🟢", "forbidden": "⛔"}.get(t["permission"], "⚪")
+            perm_icon = {"required": "🔴", "optional": "🟢", "forbidden": "⛔"}.get(
+                t["permission"], "⚪"
+            )
             enabled = "" if t["enabled"] else " [已禁用]"
-            print(f"  {perm_icon} {t['name']:<20} [{t['category']}] {t['description'][:40]}{enabled}")
+            print(
+                f"  {perm_icon} {t['name']:<20} [{t['category']}] {t['description'][:40]}{enabled}"
+            )
 
-    elif action == 'show' and len(sys.argv) > 2:
+    elif action == "show" and len(sys.argv) > 2:
         tool = reg.get(sys.argv[2])
         if tool:
             print(f"\n🔧 {tool['name']}:")
@@ -474,7 +489,7 @@ def main():
         else:
             print(f"❌ 工具 '{sys.argv[2]}' 不存在")
 
-    elif action == 'check':
+    elif action == "check":
         if len(sys.argv) > 2:
             result = reg.check_tool(sys.argv[2])
             status = "✅" if result.available else "❌"
@@ -482,42 +497,42 @@ def main():
         else:
             print("用法: tool_registry.py check <工具名>")
 
-    elif action == 'check-all':
+    elif action == "check-all":
         results = reg.check_all()
         print(f"\n📊 工具可用性: {results['availability_pct']}%")
         print(f"  可用: {len(results['available'])}")
         print(f"  不可用: {len(results['unavailable'])}")
-        if results['required_missing']:
+        if results["required_missing"]:
             print(f"  ⚠️ 缺少必需工具: {results['required_missing']}")
-        if results['forbidden']:
+        if results["forbidden"]:
             print(f"  ⛔ 禁止工具: {results['forbidden']}")
 
-    elif action == 'capabilities':
+    elif action == "capabilities":
         caps = reg.list_capabilities()
-        print(f"\n📋 能力映射:")
+        print("\n📋 能力映射:")
         for cap, tools in sorted(caps.items()):
             print(f"  {cap}: {', '.join(tools)}")
 
-    elif action == 'stats':
+    elif action == "stats":
         stats = reg.usage_stats()
-        print(f"\n📊 使用统计:")
+        print("\n📊 使用统计:")
         for k, v in stats.items():
             print(f"  {k}: {v}")
 
-    elif action == 'register' and len(sys.argv) > 2:
+    elif action == "register" and len(sys.argv) > 2:
         tool_def = json.loads(sys.argv[2])
         result = reg.register(tool_def)
         print(f"{'✅' if result['success'] else '❌'} {result['message']}")
 
-    elif action == 'unregister' and len(sys.argv) > 2:
+    elif action == "unregister" and len(sys.argv) > 2:
         result = reg.unregister(sys.argv[2])
         print(f"{'✅' if result['success'] else '❌'} {result['message']}")
 
-    elif action == 'enable' and len(sys.argv) > 2:
+    elif action == "enable" and len(sys.argv) > 2:
         result = reg.enable(sys.argv[2])
         print(f"{'✅' if result['success'] else '❌'} {result['message']}")
 
-    elif action == 'disable' and len(sys.argv) > 2:
+    elif action == "disable" and len(sys.argv) > 2:
         result = reg.disable(sys.argv[2])
         print(f"{'✅' if result['success'] else '❌'} {result['message']}")
 

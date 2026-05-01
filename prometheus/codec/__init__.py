@@ -1,38 +1,31 @@
-"""
-Prometheus codec 包
-
-提供种子数据的编码、压缩和解码功能：
-- Layer1: 基础编码层
-- Layer2: 语义压缩层
-"""
+"""Prometheus codec 包."""
 
 from .layer1 import (
     StringDictEncoder,
-    encode_seed,
-    decode_seed,
-    compress_file,
-    decompress_file,
     codec_info,
+    compress_file,
+    decode_seed,
+    decompress_file,
+    encode_seed,
     is_compressed,
 )
-
 from .layer2 import (
     SemanticDictionary,
-    genesis_hash,
-    has_genesis_block,
-    extract_genesis,
-    restore_genesis,
+    benchmark_layers,
     compress_genes,
-    decompress_genes,
-    semantic_hash,
-    get_seed_dict,
-    get_semantic_dict,
     compress_semantic,
+    decode_seed_l2,
+    decompress_genes,
     decompress_semantic,
     encode_seed_l2,
-    decode_seed_l2,
+    extract_genesis,
+    genesis_hash,
+    get_seed_dict,
+    get_semantic_dict,
+    has_genesis_block,
     is_layer2,
-    benchmark_layers,
+    restore_genesis,
+    semantic_hash,
 )
 
 __all__ = [

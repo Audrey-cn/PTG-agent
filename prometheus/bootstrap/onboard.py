@@ -1,18 +1,17 @@
-"""
-交互式初始化向导。
-
-对标 openclaw onboard: 5步引导式初始化流程。
-"""
+"""交互式初始化向导。."""
 
 import os
 import sys
-from datetime import datetime, timezone
-from typing import Optional
-from .workspace import ensure_workspace, complete_bootstrap, resolve_workspace_dir
+from datetime import UTC, datetime
 
+from .workspace import ensure_workspace, resolve_workspace_dir
 
 _AVAILABLE_PROVIDERS = [
-    {"name": "openrouter", "display": "OpenRouter (推荐，多模型切换)", "env_key": "OPENROUTER_API_KEY"},
+    {
+        "name": "openrouter",
+        "display": "OpenRouter (推荐，多模型切换)",
+        "env_key": "OPENROUTER_API_KEY",
+    },
     {"name": "anthropic", "display": "Anthropic Claude", "env_key": "ANTHROPIC_API_KEY"},
     {"name": "deepseek", "display": "DeepSeek", "env_key": "DEEPSEEK_API_KEY"},
     {"name": "openai", "display": "OpenAI", "env_key": "OPENAI_API_KEY"},
@@ -21,10 +20,20 @@ _AVAILABLE_PROVIDERS = [
 ]
 
 _AVAILABLE_TOOLS = [
-    {"id": "memory", "name": "记忆系统", "desc": "MD+SQLite混合存储，三层记忆模型", "required": True},
+    {
+        "id": "memory",
+        "name": "记忆系统",
+        "desc": "MD+SQLite混合存储，三层记忆模型",
+        "required": True,
+    },
     {"id": "knowledge", "name": "知识编译器", "desc": "蒸馏→汇聚→合成知识管线", "required": False},
     {"id": "seed_editor", "name": "种子编辑", "desc": "知识种子创建/编辑/演化", "required": False},
-    {"id": "accelerator", "name": "网络加速", "desc": "多节点负载均衡+fallback(国内环境推荐)", "required": False},
+    {
+        "id": "accelerator",
+        "name": "网络加速",
+        "desc": "多节点负载均衡+fallback(国内环境推荐)",
+        "required": False,
+    },
     {"id": "self_correction", "name": "自修正", "desc": "输出反思与二次校正", "required": False},
     {"id": "semantic_dict", "name": "语义字典", "desc": "术语定义/同义词映射", "required": False},
     {"id": "backup", "name": "备份恢复", "desc": "自动BAK+手动归档", "required": False},
@@ -203,39 +212,49 @@ def _step_verify(result: dict) -> dict:
     checks = []
 
     workspace_dir = result.get("workspace_dir", resolve_workspace_dir())
-    checks.append({
-        "name": "工作空间",
-        "path": workspace_dir,
-        "status": "pass" if os.path.isdir(workspace_dir) else "fail",
-    })
+    checks.append(
+        {
+            "name": "工作空间",
+            "path": workspace_dir,
+            "status": "pass" if os.path.isdir(workspace_dir) else "fail",
+        }
+    )
 
     agents_md = os.path.join(workspace_dir, "AGENTS.md")
-    checks.append({
-        "name": "AGENTS.md",
-        "path": agents_md,
-        "status": "pass" if os.path.exists(agents_md) else "fail",
-    })
+    checks.append(
+        {
+            "name": "AGENTS.md",
+            "path": agents_md,
+            "status": "pass" if os.path.exists(agents_md) else "fail",
+        }
+    )
 
     soul_md = os.path.join(workspace_dir, "SOUL.md")
-    checks.append({
-        "name": "SOUL.md",
-        "path": soul_md,
-        "status": "pass" if os.path.exists(soul_md) else "fail",
-    })
+    checks.append(
+        {
+            "name": "SOUL.md",
+            "path": soul_md,
+            "status": "pass" if os.path.exists(soul_md) else "fail",
+        }
+    )
 
     identity_md = os.path.join(workspace_dir, "IDENTITY.md")
-    checks.append({
-        "name": "IDENTITY.md",
-        "path": identity_md,
-        "status": "pass" if os.path.exists(identity_md) else "fail",
-    })
+    checks.append(
+        {
+            "name": "IDENTITY.md",
+            "path": identity_md,
+            "status": "pass" if os.path.exists(identity_md) else "fail",
+        }
+    )
 
     user_md = os.path.join(workspace_dir, "USER.md")
-    checks.append({
-        "name": "USER.md",
-        "path": user_md,
-        "status": "pass" if os.path.exists(user_md) else "fail",
-    })
+    checks.append(
+        {
+            "name": "USER.md",
+            "path": user_md,
+            "status": "pass" if os.path.exists(user_md) else "fail",
+        }
+    )
 
     print("\n  检查结果:")
     all_pass = True
@@ -253,7 +272,7 @@ def _step_verify(result: dict) -> dict:
     return {"checks": checks, "all_pass": all_pass}
 
 
-def run_onboard(workspace_dir: Optional[str] = None, non_interactive: bool = False) -> dict:
+def run_onboard(workspace_dir: str | None = None, non_interactive: bool = False) -> dict:
     """
     运行交互式初始化向导。
 
@@ -322,16 +341,16 @@ def run_onboard(workspace_dir: Optional[str] = None, non_interactive: bool = Fal
     print(f"  模型提供者: {result['provider'] or '未配置'}")
     print(f"  启用工具: {', '.join(result['enabled_tools'])}")
     print(f"  启用频道: {', '.join(result['enabled_channels'])}")
-    print(f"\n  💡 提示: 首次运行时会触发 BOOTSTRAP.md 引导流程。")
-    print(f"  💡 运行 'ptg sync' 进行记忆同步。")
-    print(f"  💡 运行 'ptg doctor' 进行系统诊断。")
+    print("\n  💡 提示: 首次运行时会触发 BOOTSTRAP.md 引导流程。")
+    print("  💡 运行 'ptg sync' 进行记忆同步。")
+    print("  💡 运行 'ptg doctor' 进行系统诊断。")
 
-    result["onboarded_at"] = datetime.now(timezone.utc).isoformat()
+    result["onboarded_at"] = datetime.now(UTC).isoformat()
 
     return result
 
 
-def _run_non_interactive(workspace_dir: Optional[str] = None) -> dict:
+def _run_non_interactive(workspace_dir: str | None = None) -> dict:
     """非交互模式：使用默认配置快速初始化。"""
     ws_dir = resolve_workspace_dir(workspace_dir)
     ws_result = ensure_workspace(ws_dir)
@@ -345,7 +364,7 @@ def _run_non_interactive(workspace_dir: Optional[str] = None) -> dict:
         "enabled_channels": ["cli"],
         "checks": [],
         "all_pass": True,
-        "onboarded_at": datetime.now(timezone.utc).isoformat(),
+        "onboarded_at": datetime.now(UTC).isoformat(),
         "non_interactive": True,
     }
 

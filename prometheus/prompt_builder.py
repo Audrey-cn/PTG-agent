@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -17,11 +17,11 @@ class PromptBuilder:
         self.system_prompt = text
         return self
 
-    def add_tool_descriptions(self, tools: list[dict[str, Any]]) -> PromptBuilder:
+    def add_tool_descriptions(self, tools: list[Dict[str, Any]]) -> PromptBuilder:
         if not tools:
             self.tool_descriptions = ""
             return self
-        lines: list[str] = []
+        lines: List[str] = []
         for tool in tools:
             name = tool.get("name", "unknown")
             desc = tool.get("description", "")
@@ -37,11 +37,11 @@ class PromptBuilder:
         self.tool_descriptions = "\n".join(lines)
         return self
 
-    def add_skill_context(self, skills: list[dict[str, Any]]) -> PromptBuilder:
+    def add_skill_context(self, skills: list[Dict[str, Any]]) -> PromptBuilder:
         if not skills:
             self.skill_context = ""
             return self
-        lines: list[str] = []
+        lines: List[str] = []
         for skill in skills:
             name = skill.get("name", "unknown")
             desc = skill.get("description", "")
@@ -53,11 +53,11 @@ class PromptBuilder:
         self.personality = soul_text
         return self
 
-    def add_memory_context(self, memories: dict[str, str]) -> PromptBuilder:
+    def add_memory_context(self, memories: Dict[str, str]) -> PromptBuilder:
         if not memories:
             self.memory_context = ""
             return self
-        lines: list[str] = []
+        lines: List[str] = []
         for key, value in memories.items():
             lines.append(f"[{key}]\n{value}")
         self.memory_context = "\n\n".join(lines)
@@ -68,7 +68,7 @@ class PromptBuilder:
         return self
 
     def build(self) -> str:
-        sections: list[tuple[str, str]] = [
+        sections: list[Tuple[str, str]] = [
             ("System", self.system_prompt),
             ("Personality", self.personality),
             ("Language", self.language_hint),
@@ -76,7 +76,7 @@ class PromptBuilder:
             ("Skills", self.skill_context),
             ("Tools", self.tool_descriptions),
         ]
-        parts: list[str] = []
+        parts: List[str] = []
         for header, content in sections:
             if content:
                 parts.append(f"--- {header} ---\n{content}")

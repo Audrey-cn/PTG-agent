@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-import urllib.request
 import urllib.error
+import urllib.request
 
 from prometheus.model_catalog import get_model_info, list_models
 from prometheus.model_normalize import normalize_model_name
@@ -17,7 +17,9 @@ def cmd_model_list(provider: str | None = None) -> None:
         return
     for m in models:
         pricing = m["pricing"]
-        print(f"  {m['id']:<24s} ctx={m['context_length']:>10,d}  in=${pricing['in']:.2f} out=${pricing['out']:.2f}  {m['description']}")
+        print(
+            f"  {m['id']:<24s} ctx={m['context_length']:>10,d}  in=${pricing['in']:.2f} out=${pricing['out']:.2f}  {m['description']}"
+        )
 
 
 def cmd_model_switch(model_name: str, config: dict) -> None:

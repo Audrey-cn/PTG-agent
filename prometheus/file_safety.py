@@ -41,21 +41,46 @@ DANGEROUS_PATHS: list[str] = [
     "~/.kube",
 ]
 
-_SAFE_EXTENSIONS: set[str] = {
-    ".txt", ".md", ".json", ".yaml", ".yml", ".toml",
-    ".py", ".js", ".ts", ".tsx", ".jsx", ".go", ".rs",
-    ".java", ".kt", ".swift", ".c", ".cpp", ".h", ".hpp",
-    ".html", ".css", ".scss", ".less", ".xml", ".sql",
-    ".sh", ".bash", ".zsh", ".fish",
-    ".csv", ".tsv", ".log",
+_SAFE_EXTENSIONS: Set[str] = {
+    ".txt",
+    ".md",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".go",
+    ".rs",
+    ".java",
+    ".kt",
+    ".swift",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".html",
+    ".css",
+    ".scss",
+    ".less",
+    ".xml",
+    ".sql",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".fish",
+    ".csv",
+    ".tsv",
+    ".log",
 }
 
-_COMPILED_PATTERNS: list[re.Pattern] = [
-    re.compile(p, re.IGNORECASE) for p in DANGEROUS_PATTERNS
-]
+_COMPILED_PATTERNS: list[re.Pattern] = [re.compile(p, re.IGNORECASE) for p in DANGEROUS_PATTERNS]
 
 
-def is_dangerous_command(command: str) -> tuple[bool, str]:
+def is_dangerous_command(command: str) -> Tuple[bool, str]:
     if not command or not command.strip():
         return False, ""
     for pattern in _COMPILED_PATTERNS:
@@ -64,7 +89,7 @@ def is_dangerous_command(command: str) -> tuple[bool, str]:
     return False, ""
 
 
-def is_dangerous_path(path: str) -> tuple[bool, str]:
+def is_dangerous_path(path: str) -> Tuple[bool, str]:
     if not path:
         return False, ""
     expanded = os.path.expanduser(path)
@@ -81,7 +106,7 @@ def is_dangerous_path(path: str) -> tuple[bool, str]:
     return False, ""
 
 
-def check_file_operation(operation: str, path: str, content: str | None = None) -> tuple[bool, str]:
+def check_file_operation(operation: str, path: str, content: str | None = None) -> Tuple[bool, str]:
     if operation not in ("read", "write", "delete", "execute"):
         return False, f"Unknown operation: {operation}"
     is_dangerous, reason = is_dangerous_path(path)
@@ -118,7 +143,7 @@ def is_safe_extension(path: str) -> bool:
     return ext in _SAFE_EXTENSIONS
 
 
-def validate_file_path(path: str, must_exist: bool = False) -> tuple[bool, str]:
+def validate_file_path(path: str, must_exist: bool = False) -> Tuple[bool, str]:
     try:
         sanitized = sanitize_path(path)
     except ValueError as e:

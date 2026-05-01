@@ -1,24 +1,9 @@
 #!/usr/bin/env python3
-"""
-╔══════════════════════════════════════════════════════════════╗
-║   ⚙️ 普罗米修斯 · 配置系统 · Config System                   ║
-║                                                              ║
-║   对齐 Hermes config.yaml 架构：                              ║
-║     • YAML 分层配置                                          ║
-║     • 环境变量覆盖                                           ║
-║     • 默认值 + 用户覆盖                                      ║
-║     • 类型安全的访问                                          ║
-║                                                              ║
-║   配置文件位置：~/.hermes/tools/prometheus/config.yaml        ║
-║   无配置文件时使用内置默认值。                                 ║
-╚══════════════════════════════════════════════════════════════╝
-"""
+"""╔══════════════════════════════════════════════════════════════╗."""
 
-import os
 import json
-from typing import Any, Optional, Dict, List
-from dataclasses import dataclass, field
-
+import os
+from typing import Any
 
 # ═══════════════════════════════════════════
 #   默认配置
@@ -33,7 +18,6 @@ DEFAULT_CONFIG = {
         "skills_dir": "~/.hermes/skills",
         "knowledge_dir": "~/.hermes/knowledge",
     },
-
     # ── 模型 ──
     "model": {
         "provider": "openrouter",
@@ -43,41 +27,36 @@ DEFAULT_CONFIG = {
         "max_tokens": 8192,
         "temperature": 0.7,
     },
-
     # ── 种子 ──
     "seed": {
-        "default_format": "markdown",     # markdown | binary | json
-        "compression": "l2",              # l1 | l2 | none
-        "auto_snapshot": True,            # 自动快照
-        "max_snapshots": 50,              # 最大快照数
-        "semantic_dict_auto_extend": True, # 语义字典自动扩展
+        "default_format": "markdown",  # markdown | binary | json
+        "compression": "l2",  # l1 | l2 | none
+        "auto_snapshot": True,  # 自动快照
+        "max_snapshots": 50,  # 最大快照数
+        "semantic_dict_auto_extend": True,  # 语义字典自动扩展
     },
-
     # ── 基因 ──
     "gene": {
-        "fusion_threshold": 0.7,          # 融合兼容度阈值
-        "mutation_rate": 0.1,             # 突变率
-        "max_generations": 100,           # 最大代数
-        "auto_audit": True,               # 自动审计
+        "fusion_threshold": 0.7,  # 融合兼容度阈值
+        "mutation_rate": 0.1,  # 突变率
+        "max_generations": 100,  # 最大代数
+        "auto_audit": True,  # 自动审计
     },
-
     # ── 记忆 ──
     "memory": {
-        "working_capacity": 20,           # 工作记忆容量
-        "episodic_capacity": 100,         # 情景记忆容量
-        "longterm_capacity": 1000,        # 长期记忆容量
-        "decay_rate": 0.01,               # 默认衰减率
-        "promotion_threshold": 0.8,       # 提升阈值
+        "working_capacity": 20,  # 工作记忆容量
+        "episodic_capacity": 100,  # 情景记忆容量
+        "longterm_capacity": 1000,  # 长期记忆容量
+        "decay_rate": 0.01,  # 默认衰减率
+        "promotion_threshold": 0.8,  # 提升阈值
     },
-
     # ── 反思 ──
     "reflection": {
         "enabled": True,
-        "proposal_threshold": 5,          # 提案累积阈值
+        "proposal_threshold": 5,  # 提案累积阈值
         "daily_review_enabled": True,
-        "observation_retention_days": 30, # 观察记录保留天数
+        "observation_retention_days": 30,  # 观察记录保留天数
     },
-
     # ── 纠错 ──
     "correction": {
         "enabled": True,
@@ -86,24 +65,21 @@ DEFAULT_CONFIG = {
         "backoff_factor": 2.0,
         "degradation_enabled": True,
     },
-
     # ── 状态机 ──
     "state": {
-        "max_transitions": 100,           # 最大转换记录
-        "auto_reflect_on_error": True,    # 错误时自动反思
-        "idle_timeout_ms": 300000,        # 空闲超时 5分钟
+        "max_transitions": 100,  # 最大转换记录
+        "auto_reflect_on_error": True,  # 错误时自动反思
+        "idle_timeout_ms": 300000,  # 空闲超时 5分钟
     },
-
     # ── 工具 ──
     "tools": {
-        "permission_level": "standard",   # strict | standard | permissive
+        "permission_level": "standard",  # strict | standard | permissive
         "max_concurrent": 3,
         "timeout_ms": 30000,
     },
-
     # ── 日志 ──
     "logging": {
-        "level": "INFO",                  # DEBUG | INFO | WARNING | ERROR
+        "level": "INFO",  # DEBUG | INFO | WARNING | ERROR
         "file": "~/.hermes/tools/prometheus/prometheus.log",
         "max_size_mb": 10,
         "backup_count": 3,
@@ -115,9 +91,10 @@ DEFAULT_CONFIG = {
 #   配置类
 # ═══════════════════════════════════════════
 
+
 class Config:
     """Prometheus 配置管理器
-    
+
     设计哲学（对齐 Hermes）：
       • YAML 文件为源，环境变量可覆盖
       • 支持 dot-notation 访问：config.get("model.name")
@@ -142,7 +119,8 @@ class Config:
         if os.path.exists(self._config_path):
             try:
                 import yaml
-                with open(self._config_path, "r", encoding="utf-8") as f:
+
+                with open(self._config_path, encoding="utf-8") as f:
                     file_config = yaml.safe_load(f)
                 if file_config and isinstance(file_config, dict):
                     self._deep_merge(self._data, file_config)
@@ -160,7 +138,7 @@ class Config:
         for key, value in os.environ.items():
             if not key.startswith(prefix):
                 continue
-            parts = key[len(prefix):].lower().split("_")
+            parts = key[len(prefix) :].lower().split("_")
             if len(parts) >= 2:
                 section = parts[0]
                 field = "_".join(parts[1:])
@@ -187,6 +165,7 @@ class Config:
     def _deep_copy(self, d: dict) -> dict:
         """深拷贝"""
         import copy
+
         return copy.deepcopy(d)
 
     def _deep_merge(self, base: dict, override: dict):
@@ -201,7 +180,7 @@ class Config:
 
     def get(self, path: str, default: Any = None) -> Any:
         """获取配置值（支持 dot-notation）
-        
+
         示例：
           config.get("model.name")
           config.get("memory.working_capacity", 20)
@@ -263,6 +242,7 @@ class Config:
         """保存当前配置到 YAML 文件"""
         try:
             import yaml
+
             save_path = path or self._config_path
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             with open(save_path, "w", encoding="utf-8") as f:
@@ -287,7 +267,7 @@ class Config:
     def is_loaded(self) -> bool:
         return self._loaded
 
-    def diff(self) -> Dict[str, Any]:
+    def diff(self) -> dict[str, Any]:
         """显示当前配置与默认值的差异"""
         changes = {}
         self._diff_dict(DEFAULT_CONFIG, self._data, "", changes)
@@ -326,7 +306,7 @@ class Config:
 #   全局实例
 # ═══════════════════════════════════════════
 
-_config: Optional[Config] = None
+_config: Config | None = None
 
 
 def get_config(config_path: str = None) -> Config:
@@ -347,12 +327,14 @@ def reset_config():
 #   CLI 入口
 # ═══════════════════════════════════════════
 
+
 def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Prometheus 配置管理")
-    parser.add_argument("command", choices=["get", "set", "show", "diff", "init", "export"],
-                       help="操作命令")
+    parser.add_argument(
+        "command", choices=["get", "set", "show", "diff", "init", "export"], help="操作命令"
+    )
     parser.add_argument("args", nargs="*", help="命令参数")
 
     args = parser.parse_args()
@@ -375,6 +357,7 @@ def main():
 
     elif args.command == "show":
         import yaml
+
         try:
             print(yaml.dump(config.to_dict(), allow_unicode=True, default_flow_style=False))
         except ImportError:

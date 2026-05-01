@@ -5,12 +5,12 @@ import hashlib
 import logging
 import struct
 import time
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 try:
     from Crypto.Cipher import AES
+
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False

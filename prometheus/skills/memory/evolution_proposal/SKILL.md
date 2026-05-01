@@ -4,7 +4,7 @@ description: 提出记忆进化更新建议
 version: 1.0.0
 author: Prometheus
 metadata:
-  hermes:
+  prometheus:
     tags:
       - memory
       - evolution

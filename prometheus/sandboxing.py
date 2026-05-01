@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
-import json
 import os
-import platform
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Optional
 
 
 def _find_python() -> str:
@@ -19,7 +16,7 @@ def _find_python() -> str:
     return sys.executable
 
 
-def _find_node() -> Optional[str]:
+def _find_node() -> str | None:
     return shutil.which("node")
 
 
@@ -50,7 +47,7 @@ class SandboxResult:
 
 
 def _run_subprocess_sandbox(
-    cmd: list[str],
+    cmd: List[str],
     cwd: Path,
     env: dict,
     timeout_s: int,
@@ -132,7 +129,9 @@ def run_bash(cmd: str, timeout_s: int = TIMEOUT_DEFAULT) -> SandboxResult:
         )
 
 
-def run_command(args: list[str], cwd: Optional[Path] = None, timeout_s: int = TIMEOUT_DEFAULT) -> SandboxResult:
+def run_command(
+    args: List[str], cwd: Path | None = None, timeout_s: int = TIMEOUT_DEFAULT
+) -> SandboxResult:
     cwd = cwd or Path.cwd()
     env = os.environ.copy()
     return _run_subprocess_sandbox(args, cwd=cwd, env=env, timeout_s=timeout_s)

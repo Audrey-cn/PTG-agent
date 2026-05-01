@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-import shutil
 import logging
+import shutil
 from pathlib import Path
 
 from prometheus.plugins import PluginManager, get_plugin_manager
@@ -63,7 +63,7 @@ def cmd_plugins_install(source: str) -> None:
         manifest_path = target_dir / "plugin.json"
 
     if not manifest_path.exists():
-        print(f"⚠️  已复制但未找到 manifest (plugin.yaml/plugin.json)")
+        print("⚠️  已复制但未找到 manifest (plugin.yaml/plugin.json)")
 
     if manager.load_plugin(source_path.name):
         print(f"✅ 插件已安装并加载: {source_path.name}")
@@ -102,12 +102,18 @@ def cmd_plugins_enable(name: str) -> None:
                     data = json.loads(manifest_path.read_text(encoding="utf-8"))
                 else:
                     import yaml
+
                     data = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
                 data["enabled"] = True
                 if manifest_name.endswith(".json"):
-                    manifest_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+                    manifest_path.write_text(
+                        json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
+                    )
                 else:
-                    manifest_path.write_text(yaml.dump(data, default_flow_style=False, allow_unicode=True), encoding="utf-8")
+                    manifest_path.write_text(
+                        yaml.dump(data, default_flow_style=False, allow_unicode=True),
+                        encoding="utf-8",
+                    )
             except Exception as e:
                 print(f"❌ 更新 manifest 失败: {e}")
                 return
@@ -138,12 +144,18 @@ def cmd_plugins_disable(name: str) -> None:
                     data = json.loads(manifest_path.read_text(encoding="utf-8"))
                 else:
                     import yaml
+
                     data = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
                 data["enabled"] = False
                 if manifest_name.endswith(".json"):
-                    manifest_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+                    manifest_path.write_text(
+                        json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
+                    )
                 else:
-                    manifest_path.write_text(yaml.dump(data, default_flow_style=False, allow_unicode=True), encoding="utf-8")
+                    manifest_path.write_text(
+                        yaml.dump(data, default_flow_style=False, allow_unicode=True),
+                        encoding="utf-8",
+                    )
             except Exception as e:
                 print(f"❌ 更新 manifest 失败: {e}")
                 return
@@ -170,12 +182,16 @@ def cmd_plugins_info(name: str) -> None:
         if m.provides_tools:
             print(f"  提供工具: {', '.join(m.provides_tools)}")
         if m.provides_commands:
-            print(f"  提供命令: {', '.join(c.get('name', '?') if isinstance(c, dict) else str(c) for c in m.provides_commands)}")
+            print(
+                f"  提供命令: {', '.join(c.get('name', '?') if isinstance(c, dict) else str(c) for c in m.provides_commands)}"
+            )
         if plugin.context:
             if plugin.context._registered_tools:
                 print(f"  已注册工具: {', '.join(plugin.context._registered_tools)}")
             if plugin.context._registered_commands:
-                print(f"  已注册命令: {', '.join(c.get('name', '?') for c in plugin.context._registered_commands)}")
+                print(
+                    f"  已注册命令: {', '.join(c.get('name', '?') for c in plugin.context._registered_commands)}"
+                )
         print()
         return
 

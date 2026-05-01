@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import os
-import sys
-from typing import Optional
 
 PROVIDER_ENV_MAP = {
     "openai": "OPENAI_API_KEY",
@@ -42,10 +40,11 @@ def set_auth(provider: str, api_key: str) -> bool:
     os.environ[env_key] = api_key
     try:
         from prometheus.config import get_env_path
+
         env_path = get_env_path()
         existing = {}
         if env_path.exists():
-            with open(env_path, "r", encoding="utf-8") as f:
+            with open(env_path, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if not line or line.startswith("#"):
@@ -71,10 +70,11 @@ def clear_auth(provider: str) -> bool:
         del os.environ[env_key]
     try:
         from prometheus.config import get_env_path
+
         env_path = get_env_path()
         if env_path.exists():
             existing = {}
-            with open(env_path, "r", encoding="utf-8") as f:
+            with open(env_path, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if not line or line.startswith("#"):
@@ -106,9 +106,18 @@ def show_auth_status() -> None:
     print()
 
 
-def get_auth_key(provider: str) -> Optional[str]:
+def get_auth_key(provider: str) -> str | None:
     provider_lower = provider.lower()
     env_key = PROVIDER_ENV_MAP.get(provider_lower)
     if not env_key:
         return None
     return os.environ.get(env_key) or None
+
+
+def get_nous_auth_status() -> Dict[str, Any]:
+    """Get Nous authentication status."""
+    nous_key = get_auth_key("nous")
+    return {
+        "logged_in": bool(nous_key),
+        "has_key": bool(nous_key),
+    }

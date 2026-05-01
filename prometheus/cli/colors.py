@@ -22,7 +22,14 @@ def colorize(text: str, color: str) -> str:
     return f"{color}{text}{Colors.RESET}"
 
 
+def color(text: str, *colors: str) -> str:
+    """Color text with multiple color codes."""
+    color_codes = "".join(colors)
+    return f"{color_codes}{text}{Colors.RESET}"
+
+
 def strip_colors(text: str) -> str:
     import re
+
     ansi_pattern = re.compile(r"\033\[[0-9;]*m")
     return ansi_pattern.sub("", text)

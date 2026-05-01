@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
-from typing import Optional
-from urllib.request import urlopen
 from urllib.error import URLError
+from urllib.request import urlopen
 
 logger = logging.getLogger(__name__)
 
 try:
     import websocket
+
     WEBSOCKET_AVAILABLE = True
 except ImportError:
     WEBSOCKET_AVAILABLE = False
@@ -18,7 +19,7 @@ except ImportError:
 class BrowserConnection:
     def __init__(self) -> None:
         self._endpoint: str = ""
-        self._ws: Optional[object] = None
+        self._ws: object | None = None
         self._connected: bool = False
         self._status: dict = {}
 
@@ -55,10 +56,8 @@ class BrowserConnection:
         if not self._connected:
             return False
         if self._ws is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._ws.close()
-            except Exception:
-                pass
             self._ws = None
         self._connected = False
         self._status = {}

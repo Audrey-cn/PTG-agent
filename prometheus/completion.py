@@ -1,32 +1,47 @@
 from __future__ import annotations
 
-import os
-import subprocess
 from pathlib import Path
 
 _SUBCOMMANDS = [
-    "setup", "s",
-    "doctor", "d",
-    "model", "m",
-    "config", "c",
-    "status", "st",
-    "seed", "se",
-    "gene", "g",
-    "memory", "mem",
-    "kb", "k",
-    "dict", "di",
-    "skill", "sk",
-    "update", "u",
-    "repl", "r",
+    "setup",
+    "s",
+    "doctor",
+    "d",
+    "model",
+    "m",
+    "config",
+    "c",
+    "status",
+    "st",
+    "seed",
+    "se",
+    "gene",
+    "g",
+    "memory",
+    "mem",
+    "kb",
+    "k",
+    "dict",
+    "di",
+    "skill",
+    "sk",
+    "update",
+    "u",
+    "repl",
+    "r",
     "chat",
     "gateway",
     "cron",
     "agent",
     "bench",
-    "snapshot", "sp",
-    "list-snapshots", "ls",
-    "restore", "rs",
-    "resume", "re",
+    "snapshot",
+    "sp",
+    "list-snapshots",
+    "ls",
+    "restore",
+    "rs",
+    "resume",
+    "re",
     "oneshot",
     "plugins",
     "debug",
@@ -63,7 +78,16 @@ _SUBCOMMAND_OPTIONS: dict[str, list[str]] = {
     "sp": ["--message", "-m"],
     "restore": [],
     "rs": [],
-    "oneshot": ["--model", "-m", "--system-prompt", "-s", "--api-key", "--base-url", "--max-tokens", "--temperature"],
+    "oneshot": [
+        "--model",
+        "-m",
+        "--system-prompt",
+        "-s",
+        "--api-key",
+        "--base-url",
+        "--max-tokens",
+        "--temperature",
+    ],
     "plugins": ["list", "install", "uninstall", "enable", "disable", "info"],
     "debug": ["--upload"],
     "logs": ["--level", "--lines", "--clear", "--rotate"],
@@ -89,7 +113,7 @@ def generate_bash_completion() -> str:
         "    return 0",
         "  fi",
         "",
-        f'  subcmd="${{COMP_WORDS[1]}}"',
+        '  subcmd="${COMP_WORDS[1]}"',
     ]
 
     case_body = '  case "$subcmd" in\n'
@@ -97,10 +121,10 @@ def generate_bash_completion() -> str:
         if not opts:
             continue
         opts_str = " ".join(opts)
-        case_body += f'    {sub})\n'
+        case_body += f"    {sub})\n"
         case_body += f'      COMPREPLY=($(compgen -W "{opts_str}" -- "$cur"))\n'
-        case_body += f'      return 0\n'
-        case_body += f'      ;;\n'
+        case_body += "      return 0\n"
+        case_body += "      ;;\n"
     case_body += "  esac\n"
 
     lines.append(case_body)
@@ -109,7 +133,7 @@ def generate_bash_completion() -> str:
         "  return 0",
         "}",
         "",
-        'complete -F _ptg_completions ptg',
+        "complete -F _ptg_completions ptg",
     ]
     return "\n".join(lines) + "\n"
 
@@ -123,22 +147,22 @@ def generate_zsh_completion() -> str:
         "  commands=(",
     ]
     for sc in _SUBCOMMANDS:
-        lines.append(f'    \'{sc}\'')
+        lines.append(f"    '{sc}'")
     lines.append("  )")
 
     lines += [
         "",
         "  _arguments -C \\",
-        "    \'--version[Show version]\' \\",
-        "    \'-V[Show version]\' \\",
-        "    \'--verbose[Verbose output]\' \\",
-        "    \'-v[Verbose output]\' \\",
-        "    \'1:command:->command\' \\",
-        "    \'*::arg:->args\'",
+        "    '--version[Show version]' \\",
+        "    '-V[Show version]' \\",
+        "    '--verbose[Verbose output]' \\",
+        "    '-v[Verbose output]' \\",
+        "    '1:command:->command' \\",
+        "    '*::arg:->args'",
         "",
         "  case $state in",
         "    command)",
-        "      _describe \'command\' commands",
+        "      _describe 'command' commands",
         "      ;;",
         "    args)",
         "      case $words[1] in",
@@ -150,14 +174,12 @@ def generate_zsh_completion() -> str:
         lines.append(f"        {sub})")
         subcmd_opts = []
         for opt in opts:
-            if opt.startswith("--"):
-                subcmd_opts.append(f"\'{opt}\'")
-            elif opt.startswith("-"):
-                subcmd_opts.append(f"\'{opt}\'")
+            if opt.startswith("--") or opt.startswith("-"):
+                subcmd_opts.append(f"'{opt}'")
             else:
-                subcmd_opts.append(f"\'{opt}\'")
+                subcmd_opts.append(f"'{opt}'")
         joined = " ".join(subcmd_opts)
-        lines.append(f"          _arguments \'*::option:(({joined}))\'")
+        lines.append(f"          _arguments '*::option:(({joined}))'")
         lines.append("          ;;")
 
     lines += [
@@ -166,50 +188,50 @@ def generate_zsh_completion() -> str:
         "  esac",
         "}",
         "",
-        "_ptg \"$@\"",
+        '_ptg "$@"',
     ]
     return "\n".join(lines) + "\n"
 
 
 def generate_fish_completion() -> str:
     lines = [
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'setup\' -d \'引导式初始化\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'s\' -d \'引导式初始化\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'doctor\' -d \'系统健康诊断\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'d\' -d \'系统健康诊断\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'model\' -d \'模型配置\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'m\' -d \'模型配置\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'config\' -d \'配置管理\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'c\' -d \'配置管理\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'status\' -d \'系统状态总览\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'st\' -d \'系统状态总览\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'seed\' -d \'种子管理\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'se\' -d \'种子管理\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'gene\' -d \'基因编辑\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'g\' -d \'基因编辑\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'memory\' -d \'向量记忆\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'mem\' -d \'向量记忆\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'kb\' -d \'知识库\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'k\' -d \'知识库\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'dict\' -d \'语义字典\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'di\' -d \'语义字典\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'skill\' -d \'技能管理\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'sk\' -d \'技能管理\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'update\' -d \'自我更新\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'u\' -d \'自我更新\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'repl\' -d \'交互式 REPL\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'r\' -d \'交互式 REPL\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'chat\' -d \'AI Agent 对话\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'gateway\' -d \'网关管理\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'cron\' -d \'定时任务\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'agent\' -d \'Agent 管理\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'bench\' -d \'性能基准测试\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'snapshot\' -d \'创建快照\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'sp\' -d \'创建快照\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'oneshot\' -d \'单次执行\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'plugins\' -d \'插件管理\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'debug\' -d \'调试报告\'",
-        "complete -c ptg -n \'__fish_use_subcommand\' -a \'logs\' -d \'日志管理\'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'setup' -d '引导式初始化'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 's' -d '引导式初始化'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'doctor' -d '系统健康诊断'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'd' -d '系统健康诊断'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'model' -d '模型配置'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'm' -d '模型配置'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'config' -d '配置管理'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'c' -d '配置管理'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'status' -d '系统状态总览'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'st' -d '系统状态总览'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'seed' -d '种子管理'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'se' -d '种子管理'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'gene' -d '基因编辑'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'g' -d '基因编辑'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'memory' -d '向量记忆'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'mem' -d '向量记忆'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'kb' -d '知识库'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'k' -d '知识库'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'dict' -d '语义字典'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'di' -d '语义字典'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'skill' -d '技能管理'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'sk' -d '技能管理'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'update' -d '自我更新'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'u' -d '自我更新'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'repl' -d '交互式 REPL'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'r' -d '交互式 REPL'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'chat' -d 'AI Agent 对话'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'gateway' -d '网关管理'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'cron' -d '定时任务'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'agent' -d 'Agent 管理'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'bench' -d '性能基准测试'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'snapshot' -d '创建快照'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'sp' -d '创建快照'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'oneshot' -d '单次执行'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'plugins' -d '插件管理'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'debug' -d '调试报告'",
+        "complete -c ptg -n '__fish_use_subcommand' -a 'logs' -d '日志管理'",
     ]
 
     for sub, opts in _SUBCOMMAND_OPTIONS.items():
@@ -217,12 +239,14 @@ def generate_fish_completion() -> str:
             continue
         for opt in opts:
             if opt.startswith("--"):
-                lines.append(f"complete -c ptg -n \'__fish_seen_subcommand_from {sub}\' -l {opt.lstrip('-')}")
+                lines.append(
+                    f"complete -c ptg -n '__fish_seen_subcommand_from {sub}' -l {opt.lstrip('-')}"
+                )
 
-    lines.append(f"complete -c ptg -n \'__fish_use_subcommand\' -l version -d \'Show version\'")
-    lines.append(f"complete -c ptg -n \'__fish_use_subcommand\' -s V -d \'Show version\'")
-    lines.append(f"complete -c ptg -n \'__fish_use_subcommand\' -l verbose -d \'Verbose output\'")
-    lines.append(f"complete -c ptg -n \'__fish_use_subcommand\' -s v -d \'Verbose output\'")
+    lines.append("complete -c ptg -n '__fish_use_subcommand' -l version -d 'Show version'")
+    lines.append("complete -c ptg -n '__fish_use_subcommand' -s V -d 'Show version'")
+    lines.append("complete -c ptg -n '__fish_use_subcommand' -l verbose -d 'Verbose output'")
+    lines.append("complete -c ptg -n '__fish_use_subcommand' -s v -d 'Verbose output'")
     return "\n".join(lines) + "\n"
 
 

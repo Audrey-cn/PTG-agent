@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class ImageRouter:
     def __init__(self) -> None:
-        self._providers: dict[str, dict[str, Any]] = {}
-        self._default_provider: str | None = None
+        self._providers: Dict[str, Dict[str, Any]] = {}
+        self._default_provider: Optional[str] = None
 
     def route_request(self, prompt: str, size: str = "1024x1024", style: str = "default") -> str:
         provider_name = self.get_provider_for_request(prompt)
@@ -42,9 +45,7 @@ class ImageRouter:
 
     def get_provider_for_request(self, prompt: str) -> str | None:
         enabled_providers = [
-            (name, info)
-            for name, info in self._providers.items()
-            if info.get("enabled", True)
+            (name, info) for name, info in self._providers.items() if info.get("enabled", True)
         ]
         if not enabled_providers:
             return self._default_provider
@@ -67,8 +68,8 @@ class ImageRouter:
         if name in self._providers:
             self._default_provider = name
 
-    def get_providers(self) -> list[str]:
+    def get_providers(self) -> List[str]:
         return list(self._providers.keys())
 
-    def get_provider_info(self, name: str) -> dict[str, Any] | None:
+    def get_provider_info(self, name: str) -> Dict[str, Any] | None:
         return self._providers.get(name)

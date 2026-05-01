@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
 import logging
+import os
 from typing import Any
 
 from openai import OpenAI
@@ -17,8 +17,8 @@ _DEFAULT_MODEL = "gpt-4o-mini"
 class AuxiliaryClient:
     def __init__(
         self,
-        api_key: str | None = None,
-        base_url: str | None = None,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
         timeout: int = _DEFAULT_TIMEOUT,
     ) -> None:
         self._api_key = api_key or ""
@@ -52,9 +52,9 @@ class AuxiliaryClient:
         )
         return self._client
 
-    def generate_title(self, messages: list[dict[str, str]]) -> str:
+    def generate_title(self, messages: list[Dict[str, str]]) -> str:
         client = self._ensure_client()
-        prompt_parts: list[str] = []
+        prompt_parts: List[str] = []
         for msg in messages[:6]:
             role = msg.get("role", "user")
             content = msg.get("content", "")
@@ -80,7 +80,7 @@ class AuxiliaryClient:
             logger.warning("AuxiliaryClient.generate_title failed: %s", e)
             return ""
 
-    def check_moderation(self, text: str) -> dict[str, Any]:
+    def check_moderation(self, text: str) -> Dict[str, Any]:
         client = self._ensure_client()
         try:
             response = client.moderations.create(input=text)

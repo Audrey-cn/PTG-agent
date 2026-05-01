@@ -1,35 +1,47 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import platform
 import subprocess
 import sys
-import logging
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Optional
+from datetime import UTC, datetime
 
 logger = logging.getLogger("prometheus.debug")
 
-_REDACT_KEYS = {"key", "api_key", "token", "secret", "password", "app_secret", "app_key", "bot_token"}
+_REDACT_KEYS = {
+    "key",
+    "api_key",
+    "token",
+    "secret",
+    "password",
+    "app_secret",
+    "app_key",
+    "bot_token",
+}
 
 
 def _redact(obj: object, depth: int = 0) -> object:
     if depth > 10:
         return "..."
     if isinstance(obj, dict):
-        return {k: "***REDACTED***" if k.lower() in _REDACT_KEYS else _redact(v, depth + 1) for k, v in obj.items()}
+        return {
+            k: "***REDACTED***" if k.lower() in _REDACT_KEYS else _redact(v, depth + 1)
+            for k, v in obj.items()
+        }
     if isinstance(obj, list):
         return [_redact(item, depth + 1) for item in obj]
     return obj
 
 
-def _get_installed_packages() -> list[str]:
+def _get_installed_packages() -> List[str]:
     try:
         result = subprocess.run(
             [sys.executable, "-m", "pip", "list", "--format=json"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode == 0:
             packages = json.loads(result.stdout)
@@ -39,9 +51,10 @@ def _get_installed_packages() -> list[str]:
     return []
 
 
-def _get_recent_errors(lines: int = 50) -> list[str]:
+def _get_recent_errors(lines: int = 50) -> List[str]:
     try:
         from prometheus.logs import read_recent_logs
+
         log_entries = read_recent_logs(lines=lines)
         return [e for e in log_entries if "ERROR" in e or "CRITICAL" in e]
     except Exception:
@@ -52,6 +65,7 @@ def _get_agent_state() -> dict:
     state: dict = {}
     try:
         from prometheus.agents.manager import get_agent_manager
+
         mgr = get_agent_manager()
         agents = mgr.list_all()
         state["active_agents"] = len(agents)
@@ -64,7 +78,7 @@ def _get_agent_state() -> dict:
 
 def generate_debug_report() -> dict:
     report: dict = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "system": {
             "python_version": sys.version,
             "python_executable": sys.executable,
@@ -76,13 +90,15 @@ def generate_debug_report() -> dict:
     }
 
     try:
-        from prometheus.constants import PROMETHEUS_VERSION
+        from prometheus.constants_core import PROMETHEUS_VERSION
+
         report["prometheus_version"] = PROMETHEUS_VERSION
     except Exception:
         report["prometheus_version"] = "unknown"
 
     try:
         from prometheus.config import Config as PrometheusConfig
+
         cfg = PrometheusConfig.load()
         config_dict = cfg.to_dict()
         report["config"] = _redact(config_dict)
@@ -93,6 +109,7 @@ def generate_debug_report() -> dict:
 
     try:
         from prometheus.config import get_prometheus_home
+
         home = get_prometheus_home()
         report["prometheus_home"] = str(home)
         report["prometheus_home_exists"] = home.exists()
@@ -104,6 +121,7 @@ def generate_debug_report() -> dict:
 
     try:
         from prometheus.plugins import get_plugin_manager
+
         pm = get_plugin_manager()
         report["plugins"] = pm.list_plugins()
     except Exception:
@@ -115,12 +133,15 @@ def generate_debug_report() -> dict:
 def upload_debug_report(report: dict) -> str:
     try:
         from prometheus.config import get_prometheus_home
+
         debug_dir = get_prometheus_home() / "debug"
         debug_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"debug_report_{ts}.json"
         filepath = debug_dir / filename
-        filepath.write_text(json.dumps(report, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+        filepath.write_text(
+            json.dumps(report, indent=2, ensure_ascii=False, default=str), encoding="utf-8"
+        )
         return str(filepath)
     except Exception as e:
         logger.error("Failed to save debug report: %s", e)
@@ -128,7 +149,7 @@ def upload_debug_report(report: dict) -> str:
 
 
 def format_debug_report(report: dict) -> str:
-    lines: list[str] = []
+    lines: List[str] = []
     lines.append("=" * 60)
     lines.append("  Prometheus Debug Report")
     lines.append("=" * 60)
@@ -182,7 +203,9 @@ def format_debug_report(report: dict) -> str:
     plugins = report.get("plugins", [])
     lines.append(f"--- Plugins ({len(plugins)}) ---")
     for p in plugins:
-        lines.append(f"  · {p.get('name', '?')} v{p.get('version', '?')} {'loaded' if p.get('loaded') else 'not loaded'}")
+        lines.append(
+            f"  · {p.get('name', '?')} v{p.get('version', '?')} {'loaded' if p.get('loaded') else 'not loaded'}"
+        )
     lines.append("")
 
     lines.append("=" * 60)

@@ -4,7 +4,7 @@ description: 快速修复 Prometheus 系统配置（守门员模式）
 version: 1.0.0
 author: Prometheus
 metadata:
-  hermes:
+  prometheus:
     tags:
       - system
       - repair

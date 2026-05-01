@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import json
 import logging
-import threading
-from typing import Optional, Any
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
 
 try:
     import websockets
+
     WEBSOCKETS_AVAILABLE = True
 except ImportError:
     WEBSOCKETS_AVAILABLE = False
@@ -33,14 +32,16 @@ class HomeAssistantAdapter(PlatformAdapter):
         self._pending_messages: list = []
         self._message_handler = None
 
-    def send(self, message: str, entity_id: str | None = None, service: str | None = None, **kwargs) -> bool:
+    def send(
+        self, message: str, entity_id: str | None = None, service: str | None = None, **kwargs
+    ) -> bool:
         if not self._ws:
             logger.warning("Home Assistant: 未连接，无法发送")
             return False
         logger.info("Home Assistant 发送: %s", message[:50])
         return True
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_messages:
             msg = self._pending_messages.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)
@@ -76,14 +77,16 @@ class HomeAssistantAdapter(PlatformAdapter):
             return
         state_value = new_state.get("state", "") if new_state else ""
         attributes = new_state.get("attributes", {}) if new_state else {}
-        self._pending_messages.append({
-            "text": f"{entity_id}: {state_value}",
-            "entity_id": entity_id,
-            "state": state_value,
-            "attributes": attributes,
-            "old_state": old_state.get("state") if old_state else None,
-            "platform": "homeassistant",
-        })
+        self._pending_messages.append(
+            {
+                "text": f"{entity_id}: {state_value}",
+                "entity_id": entity_id,
+                "state": state_value,
+                "attributes": attributes,
+                "old_state": old_state.get("state") if old_state else None,
+                "platform": "homeassistant",
+            }
+        )
         if self._message_handler:
             self._message_handler(
                 f"{entity_id}: {state_value}",

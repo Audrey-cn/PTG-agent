@@ -5,8 +5,9 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 from typing import Any
+
+from prometheus._paths import get_paths
 
 
 @dataclass
@@ -15,14 +16,14 @@ class SkillStatus:
     running: bool = False
     pinned: bool = False
     archived: bool = False
-    last_run: str | None = None
+    last_run: Optional[str] = None
     run_count: int = 0
-    error: str | None = None
+    error: Optional[str] = None
 
 
 @dataclass
 class CuratorState:
-    skills: dict[str, dict[str, Any]] = field(default_factory=dict)
+    skills: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     last_updated: str = ""
 
 
@@ -32,13 +33,13 @@ class Curator:
         self._thread: threading.Thread | None = None
         self._running = False
         self._lock = threading.Lock()
-        self._state_path = Path.home() / ".prometheus" / "curator_state.json"
+        self._state_path = get_paths().home / "curator_state.json"
         self._load_state()
 
     def _load_state(self) -> None:
         if self._state_path.exists():
             try:
-                with open(self._state_path, "r", encoding="utf-8") as f:
+                with open(self._state_path, encoding="utf-8") as f:
                     data = json.load(f)
                 self._state.skills = data.get("skills", {})
                 self._state.last_updated = data.get("last_updated", "")
@@ -50,10 +51,14 @@ class Curator:
         self._state.last_updated = datetime.now().isoformat()
         try:
             with open(self._state_path, "w", encoding="utf-8") as f:
-                json.dump({
-                    "skills": self._state.skills,
-                    "last_updated": self._state.last_updated,
-                }, f, indent=2)
+                json.dump(
+                    {
+                        "skills": self._state.skills,
+                        "last_updated": self._state.last_updated,
+                    },
+                    f,
+                    indent=2,
+                )
         except Exception:
             pass
 
@@ -80,7 +85,7 @@ class Curator:
         while self._running:
             time.sleep(60)
 
-    def run_skill(self, skill_name: str) -> dict[str, Any]:
+    def run_skill(self, skill_name: str) -> Dict[str, Any]:
         with self._lock:
             if skill_name not in self._state.skills:
                 self._state.skills[skill_name] = {
@@ -123,22 +128,26 @@ class Curator:
             self._save_state()
             return True
 
-    def get_skill_status(self, skill_name: str) -> dict[str, Any]:
+    def get_skill_status(self, skill_name: str) -> Dict[str, Any]:
         with self._lock:
-            return self._state.skills.get(skill_name, {
-                "name": skill_name,
-                "running": False,
-                "pinned": False,
-                "archived": False,
-                "last_run": None,
-                "run_count": 0,
-                "error": None,
-            })
+            return self._state.skills.get(
+                skill_name,
+                {
+                    "name": skill_name,
+                    "running": False,
+                    "pinned": False,
+                    "archived": False,
+                    "last_run": None,
+                    "run_count": 0,
+                    "error": None,
+                },
+            )
 
-    def list_background_skills(self) -> list[dict[str, Any]]:
+    def list_background_skills(self) -> list[Dict[str, Any]]:
         with self._lock:
             return [
-                skill for skill in self._state.skills.values()
+                skill
+                for skill in self._state.skills.values()
                 if skill.get("running") or skill.get("pinned")
             ]
 

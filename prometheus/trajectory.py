@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 
-def convert_to_sharegpt(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
+def convert_to_sharegpt(messages: list[Dict[str, Any]]) -> list[Dict[str, str]]:
     result = []
     for msg in messages:
         role = msg.get("role", "")
@@ -20,10 +20,10 @@ def convert_to_sharegpt(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
 
 
 def save_trajectory(
-    trajectory: list[dict[str, Any]],
+    trajectory: list[Dict[str, Any]],
     model: str,
     completed: bool,
-    filename: str | None = None,
+    filename: Optional[str] = None,
 ) -> Path:
     if filename is None:
         filename = f"trajectory_{model}_{id(trajectory)}.json"
@@ -38,7 +38,7 @@ def save_trajectory(
     return path
 
 
-def load_trajectory(filename: str) -> list[dict[str, Any]]:
+def load_trajectory(filename: str) -> list[Dict[str, Any]]:
     path = Path(filename)
     if not path.exists():
         return []
@@ -46,7 +46,7 @@ def load_trajectory(filename: str) -> list[dict[str, Any]]:
     return data.get("messages", [])
 
 
-def merge_trajectories(files: list[str]) -> list[dict[str, Any]]:
+def merge_trajectories(files: List[str]) -> list[Dict[str, Any]]:
     merged = []
     seen = set()
     for f in files:
@@ -60,9 +60,9 @@ def merge_trajectories(files: list[str]) -> list[dict[str, Any]]:
 
 
 def filter_trajectory(
-    trajectory: list[dict[str, Any]],
-    role: str | None = None,
-) -> list[dict[str, Any]]:
+    trajectory: list[Dict[str, Any]],
+    role: Optional[str] = None,
+) -> list[Dict[str, Any]]:
     if role is None:
         return trajectory
     return [msg for msg in trajectory if msg.get("role") == role]

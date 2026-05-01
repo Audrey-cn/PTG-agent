@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "name": "prometheus-agent",
+  "display_name": "Prometheus Agent",
+  "description": "Prometheus (史诗编史官) AI agent - 完整 Hermes 功能实现，包含 90+ 工具、持久化记忆、多平台支持",
+  "icon": "icon.svg",
+  "distribution": {
+    "type": "command",
+    "command": "prometheus",
+    "args": ["acp"]
+  }
+}

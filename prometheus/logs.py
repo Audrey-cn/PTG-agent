@@ -1,20 +1,21 @@
 from __future__ import annotations
 
+import contextlib
 import logging
-import os
 import shutil
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+
+from prometheus._paths import get_paths
 
 _logger_configured = False
 
 
 def get_log_file_path() -> Path:
     try:
-        from prometheus.config import get_prometheus_home
-        return get_prometheus_home() / "prometheus.log"
+        return get_paths().logs / "prometheus.log"
     except Exception:
-        return Path.home() / ".prometheus" / "prometheus.log"
+        return get_paths().home / "prometheus.log"
 
 
 def setup_logging(level: str = "INFO", log_file: str | None = None) -> None:
@@ -83,7 +84,7 @@ def read_recent_logs(lines: int = 100) -> list[str]:
         return []
 
     try:
-        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+        with open(log_path, encoding="utf-8", errors="replace") as f:
             all_lines = f.readlines()
         return [line.rstrip("\n") for line in all_lines[-lines:]]
     except Exception:
@@ -98,7 +99,5 @@ def clear_logs() -> None:
     log_path.write_text("", encoding="utf-8")
 
     for backup in sorted(log_path.parent.glob(f"{log_path.name}.*")):
-        try:
+        with contextlib.suppress(Exception):
             backup.unlink()
-        except Exception:
-            pass

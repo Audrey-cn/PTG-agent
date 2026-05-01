@@ -5,20 +5,21 @@ import logging
 import threading
 import urllib.parse
 import webbrowser
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger("prometheus.vercel_auth")
 
 HTTPX_AVAILABLE = False
 try:
     import httpx
+
     HTTPX_AVAILABLE = True
 except ImportError:
     pass
 
 
 class _VercelCallbackHandler(http.server.BaseHTTPRequestHandler):
-    auth_code: Optional[str] = None
+    auth_code: str | None = None
 
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
@@ -46,8 +47,8 @@ class VercelAuth:
 
     def __init__(
         self,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
         redirect_port: int = 8090,
     ) -> None:
         self._client_id = client_id
@@ -57,7 +58,7 @@ class VercelAuth:
 
     def start_flow(
         self,
-        client_id: Optional[str] = None,
+        client_id: str | None = None,
     ) -> str:
         cid = client_id or self._client_id
         if cid is None:
@@ -75,7 +76,7 @@ class VercelAuth:
         webbrowser.open(auth_url)
         return auth_url
 
-    def complete_flow(self, code: Optional[str] = None) -> Dict[str, Any]:
+    def complete_flow(self, code: str | None = None) -> dict[str, Any]:
         if code is None:
             code = self._wait_for_callback()
             if code is None:
@@ -97,7 +98,7 @@ class VercelAuth:
             resp.raise_for_status()
             return resp.json()
 
-    def _wait_for_callback(self, timeout: int = 120) -> Optional[str]:
+    def _wait_for_callback(self, timeout: int = 120) -> str | None:
         _VercelCallbackHandler.auth_code = None
         server = http.server.HTTPServer(("localhost", self._redirect_port), _VercelCallbackHandler)
         server.timeout = timeout

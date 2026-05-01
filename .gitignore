@@ -9,6 +9,11 @@ __pycache__/
 dist/
 build/
 .pytest_cache/
+.ruff_cache/
+.pre-commit-cache/
+htmlcov/
+.coverage
+coverage.xml
 *.db-shm
 *.db-wal
 .DS_Store
@@ -27,8 +32,9 @@ prometheus/genes/_snapshots/
 prometheus/snapshots/
 prometheus/prometheus.log
 
-# 临时和测试文件
+# 临时和测试文件（排除tests/目录）
 test_*.py
+!tests/
 demo_*.py
 final_test.py
 doctor_cli.py
@@ -47,3 +53,13 @@ ENV/
 
 # 用户配置目录（可在仓库外）
 ~/.prometheus/
+
+# 大文件（不提交到Git）
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.mp4
+*.mov
+*.avi

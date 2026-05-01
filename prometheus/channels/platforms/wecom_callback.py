@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 import xml.etree.ElementTree as ET
-from typing import Optional, Any
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 from .wecom_crypto import decrypt, verify_signature
 
@@ -28,7 +28,7 @@ class WeComCallbackAdapter(PlatformAdapter):
         logger.info("企业微信回调发送: %s", message[:50])
         return True
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_messages:
             msg = self._pending_messages.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)
@@ -61,7 +61,7 @@ class WeComCallbackAdapter(PlatformAdapter):
             logger.error("企业微信回调解密失败: %s", e)
             return ""
 
-    def handle_callback(self, signature: str, timestamp: str, nonce: str, body: str) -> Optional[str]:
+    def handle_callback(self, signature: str, timestamp: str, nonce: str, body: str) -> str | None:
         if not verify_signature(signature, timestamp, nonce, self.token):
             logger.warning("企业微信回调签名验证失败")
             return None
@@ -71,12 +71,14 @@ class WeComCallbackAdapter(PlatformAdapter):
             msg_type = root.findtext("MsgType", "")
             content = root.findtext("Content", "")
             from_user = root.findtext("FromUserName", "")
-            self._pending_messages.append({
-                "text": content,
-                "user": from_user,
-                "msg_type": msg_type,
-                "platform": "wecom_callback",
-            })
+            self._pending_messages.append(
+                {
+                    "text": content,
+                    "user": from_user,
+                    "msg_type": msg_type,
+                    "platform": "wecom_callback",
+                }
+            )
             if self._message_handler:
                 self._message_handler(content, user=from_user)
             return "success"

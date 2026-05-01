@@ -1,29 +1,11 @@
 #!/usr/bin/env python3
-"""
-╔══════════════════════════════════════════════════════════════╗
-║   🗄️ 普罗米修斯 · 统一存储层 · Storage Layer                ║
-║                                                              ║
-║   采用 Hermes 架构哲学：                                      ║
-║     • 人读层：Markdown (.md) — 报告、描述、配置               ║
-║     • 机读层：SQLite (.db)  — 记忆、状态、检索               ║
-║     • 序列化层：JSON (.json) — 快照、API 交换                ║
-║     • 生命体层：TTG (.ttg)  — 种子自包含                     ║
-║                                                              ║
-║   本模块提供统一的 SQLite 存储抽象，支持：                     ║
-║     • FTS5 全文搜索                                           ║
-║     • 结构化 CRUD                                             ║
-║     • 自动表创建和迁移                                        ║
-║     • Markdown 报告导出                                      ║
-╚══════════════════════════════════════════════════════════════╝
-"""
+"""╔══════════════════════════════════════════════════════════════╗."""
 
-import os
-import json
-import sqlite3
 import datetime
-from typing import Dict, List, Optional, Any
-from contextlib import contextmanager
-
+import json
+import os
+import sqlite3
+from contextlib import contextmanager, suppress
 
 # ═══════════════════════════════════════════
 #   配置
@@ -40,9 +22,10 @@ DEFAULT_DB = os.path.join(DATA_DIR, "prometheus.db")
 #   核心存储引擎
 # ═══════════════════════════════════════════
 
+
 class StorageEngine:
     """SQLite 存储引擎，支持 FTS5 全文搜索。
-    
+
     设计哲学（对齐 Hermes）：
       - 结构化数据统一存 SQLite，不散落多个 JSON 文件
       - 每个模块通过 table_name 隔离，共享同一个数据库文件
@@ -107,7 +90,7 @@ class StorageEngine:
                 pass  # 已存在
 
             # 自动创建 updated_at 触发器
-            try:
+            with suppress(sqlite3.OperationalError):
                 conn.execute(f"""
                     CREATE TRIGGER IF NOT EXISTS {records_table}_updated
                     AFTER UPDATE ON {records_table}
@@ -117,14 +100,17 @@ class StorageEngine:
                         WHERE id = NEW.id;
                     END
                 """)
-            except sqlite3.OperationalError:
-                pass
 
     # ─── CRUD ───────────────────────────────────
 
-    def add(self, content: str, category: str = "general",
-            tags: List[str] = None, metadata: dict = None,
-            trust_score: float = 0.5) -> int:
+    def add(
+        self,
+        content: str,
+        category: str = "general",
+        tags: list[str] = None,
+        metadata: dict = None,
+        trust_score: float = 0.5,
+    ) -> int:
         """添加记录，返回 ID"""
         tags_str = ",".join(tags) if tags else ""
         meta_str = json.dumps(metadata or {}, ensure_ascii=False)
@@ -133,27 +119,24 @@ class StorageEngine:
                 f"INSERT INTO {self.table_name} "
                 f"(content, category, tags, metadata, trust_score) "
                 f"VALUES (?, ?, ?, ?, ?)",
-                (content, category, tags_str, meta_str, trust_score)
+                (content, category, tags_str, meta_str, trust_score),
             )
             row_id = cursor.lastrowid
             # 同步 FTS 索引
-            try:
+            with suppress(sqlite3.OperationalError):
                 conn.execute(
                     f"INSERT INTO {self.table_name}_fts "
                     f"(rowid, content, tags, category) "
                     f"VALUES (?, ?, ?, ?)",
-                    (row_id, content, tags_str, category)
+                    (row_id, content, tags_str, category),
                 )
-            except sqlite3.OperationalError:
-                pass
             return row_id
 
-    def get(self, record_id: int) -> Optional[dict]:
+    def get(self, record_id: int) -> dict | None:
         """按 ID 获取单条记录"""
         with self._conn() as conn:
             row = conn.execute(
-                f"SELECT * FROM {self.table_name} WHERE id = ?",
-                (record_id,)
+                f"SELECT * FROM {self.table_name} WHERE id = ?", (record_id,)
             ).fetchone()
             return self._row_to_dict(row) if row else None
 
@@ -177,10 +160,7 @@ class StorageEngine:
         values.append(record_id)
         with self._conn() as conn:
             conn.execute(
-                f"UPDATE {self.table_name} "
-                f"SET {', '.join(set_parts)} "
-                f"WHERE id = ?",
-                values
+                f"UPDATE {self.table_name} SET {', '.join(set_parts)} WHERE id = ?", values
             )
             # 同步 FTS
             if "content" in updates or "tags" in updates:
@@ -189,16 +169,12 @@ class StorageEngine:
                     tags = updates.get("tags", "")
                     if isinstance(tags, list):
                         tags = ",".join(tags)
-                    conn.execute(
-                        f"DELETE FROM {self.table_name}_fts WHERE rowid = ?",
-                        (record_id,)
-                    )
+                    conn.execute(f"DELETE FROM {self.table_name}_fts WHERE rowid = ?", (record_id,))
                     conn.execute(
                         f"INSERT INTO {self.table_name}_fts "
                         f"(rowid, content, tags, category) "
                         f"VALUES (?, ?, ?, ?)",
-                        (record_id, content, tags,
-                         updates.get("category", "general"))
+                        (record_id, content, tags, updates.get("category", "general")),
                     )
                 except sqlite3.OperationalError:
                     pass
@@ -207,21 +183,12 @@ class StorageEngine:
     def delete(self, record_id: int) -> bool:
         """删除记录"""
         with self._conn() as conn:
-            conn.execute(
-                f"DELETE FROM {self.table_name} WHERE id = ?",
-                (record_id,)
-            )
-            try:
-                conn.execute(
-                    f"DELETE FROM {self.table_name}_fts WHERE rowid = ?",
-                    (record_id,)
-                )
-            except sqlite3.OperationalError:
-                pass
+            conn.execute(f"DELETE FROM {self.table_name} WHERE id = ?", (record_id,))
+            with suppress(sqlite3.OperationalError):
+                conn.execute(f"DELETE FROM {self.table_name}_fts WHERE rowid = ?", (record_id,))
         return True
 
-    def list_all(self, category: str = None, limit: int = 100,
-                 offset: int = 0) -> List[dict]:
+    def list_all(self, category: str = None, limit: int = 100, offset: int = 0) -> list[dict]:
         """列出所有记录（支持分类过滤）"""
         with self._conn() as conn:
             if category:
@@ -230,22 +197,20 @@ class StorageEngine:
                     f"WHERE category = ? "
                     f"ORDER BY created_at DESC "
                     f"LIMIT ? OFFSET ?",
-                    (category, limit, offset)
+                    (category, limit, offset),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    f"SELECT * FROM {self.table_name} "
-                    f"ORDER BY created_at DESC "
-                    f"LIMIT ? OFFSET ?",
-                    (limit, offset)
+                    f"SELECT * FROM {self.table_name} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                    (limit, offset),
                 ).fetchall()
             return [self._row_to_dict(r) for r in rows]
 
     # ─── 搜索 ───────────────────────────────────
 
-    def search(self, query: str, limit: int = 20) -> List[dict]:
+    def search(self, query: str, limit: int = 20) -> list[dict]:
         """混合搜索：LIKE（主） + FTS5 trigram（辅）
-        
+
         策略：
           1. LIKE 保证结果完整（支持中英文子串匹配）
           2. 如果 FTS trigram 可用，按相关性排序
@@ -261,7 +226,7 @@ class StorageEngine:
                 f"WHERE content LIKE ? OR tags LIKE ? OR category LIKE ? "
                 f"ORDER BY created_at DESC "
                 f"LIMIT ?",
-                (like_pattern, like_pattern, like_pattern, limit)
+                (like_pattern, like_pattern, like_pattern, limit),
             ).fetchall()
             return [self._row_to_dict(r) for r in rows]
 
@@ -270,22 +235,16 @@ class StorageEngine:
         with self._conn() as conn:
             if category:
                 row = conn.execute(
-                    f"SELECT COUNT(*) FROM {self.table_name} "
-                    f"WHERE category = ?",
-                    (category,)
+                    f"SELECT COUNT(*) FROM {self.table_name} WHERE category = ?", (category,)
                 ).fetchone()
             else:
-                row = conn.execute(
-                    f"SELECT COUNT(*) FROM {self.table_name}"
-                ).fetchone()
+                row = conn.execute(f"SELECT COUNT(*) FROM {self.table_name}").fetchone()
             return row[0] if row else 0
 
     def stats(self) -> dict:
         """统计概览"""
         with self._conn() as conn:
-            total = conn.execute(
-                f"SELECT COUNT(*) FROM {self.table_name}"
-            ).fetchone()[0]
+            total = conn.execute(f"SELECT COUNT(*) FROM {self.table_name}").fetchone()[0]
 
             categories = conn.execute(
                 f"SELECT category, COUNT(*) as cnt "
@@ -302,15 +261,14 @@ class StorageEngine:
 
     # ─── Markdown 导出 ──────────────────────────
 
-    def export_markdown(self, title: str = None, category: str = None,
-                        limit: int = 100) -> str:
+    def export_markdown(self, title: str = None, category: str = None, limit: int = 100) -> str:
         """导出为 Markdown 格式（人读层）"""
         title = title or f"{self.table_name} Report"
         lines = [
             f"# {title}",
-            f"",
+            "",
             f"_Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}_",
-            f"",
+            "",
         ]
 
         records = self.list_all(category=category, limit=limit)
@@ -356,10 +314,8 @@ class StorageEngine:
         d = dict(row)
         # 解析 metadata JSON
         if "metadata" in d and isinstance(d["metadata"], str):
-            try:
+            with suppress(json.JSONDecodeError):
                 d["metadata"] = json.loads(d["metadata"])
-            except json.JSONDecodeError:
-                pass
         # 解析 tags 为列表
         if "tags" in d and isinstance(d["tags"], str):
             d["tags"] = [t.strip() for t in d["tags"].split(",") if t.strip()]
@@ -374,9 +330,10 @@ class StorageEngine:
 #   状态存储（键值对，非全文搜索）
 # ═══════════════════════════════════════════
 
+
 class StateStore:
     """键值对状态存储（替代 JSON 状态文件）
-    
+
     适用于：session_state, reflection_state, correction_state 等
     每个模块独立的键值存储，简单高效。
     """
@@ -415,8 +372,7 @@ class StateStore:
         """获取值"""
         with self._conn() as conn:
             row = conn.execute(
-                f"SELECT value FROM {self.namespace}_kv WHERE key = ?",
-                (key,)
+                f"SELECT value FROM {self.namespace}_kv WHERE key = ?", (key,)
             ).fetchone()
             if row:
                 try:
@@ -427,37 +383,33 @@ class StateStore:
 
     def set(self, key: str, value):
         """设置值"""
-        val_str = json.dumps(value, ensure_ascii=False, default=str) \
-            if not isinstance(value, str) else value
+        val_str = (
+            json.dumps(value, ensure_ascii=False, default=str)
+            if not isinstance(value, str)
+            else value
+        )
         with self._conn() as conn:
             conn.execute(
                 f"INSERT OR REPLACE INTO {self.namespace}_kv "
                 f"(key, value, updated_at) VALUES (?, ?, datetime('now'))",
-                (key, val_str)
+                (key, val_str),
             )
 
     def delete(self, key: str):
         """删除键"""
         with self._conn() as conn:
-            conn.execute(
-                f"DELETE FROM {self.namespace}_kv WHERE key = ?",
-                (key,)
-            )
+            conn.execute(f"DELETE FROM {self.namespace}_kv WHERE key = ?", (key,))
 
-    def keys(self) -> List[str]:
+    def keys(self) -> list[str]:
         """列出所有键"""
         with self._conn() as conn:
-            rows = conn.execute(
-                f"SELECT key FROM {self.namespace}_kv ORDER BY key"
-            ).fetchall()
+            rows = conn.execute(f"SELECT key FROM {self.namespace}_kv ORDER BY key").fetchall()
             return [r["key"] for r in rows]
 
     def all(self) -> dict:
         """获取所有键值对"""
         with self._conn() as conn:
-            rows = conn.execute(
-                f"SELECT key, value FROM {self.namespace}_kv"
-            ).fetchall()
+            rows = conn.execute(f"SELECT key, value FROM {self.namespace}_kv").fetchall()
             result = {}
             for r in rows:
                 try:
@@ -475,6 +427,7 @@ class StateStore:
 # ═══════════════════════════════════════════
 #   便捷工厂函数
 # ═══════════════════════════════════════════
+
 
 def get_engine(table_name: str, db_path: str = None) -> StorageEngine:
     """获取存储引擎实例"""

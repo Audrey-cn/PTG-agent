@@ -2,7 +2,97 @@ from __future__ import annotations
 
 from typing import Any
 
-PROVIDER_AUTH_URLS: dict[str, str] = {
+# Alias mapping for provider names
+ALIASES: Dict[str, str] = {
+    "openai": "openrouter",
+    "glm": "zai",
+    "z-ai": "zai",
+    "z.ai": "zai",
+    "zhipu": "zai",
+    "x-ai": "xai",
+    "x.ai": "xai",
+    "grok": "xai",
+    "nim": "nvidia",
+    "nvidia-nim": "nvidia",
+    "build-nvidia": "nvidia",
+    "nemotron": "nvidia",
+    "kimi-coding": "kimi-for-coding",
+    "kimi": "kimi-for-coding",
+    "kimi-for-coding": "kimi-for-coding",
+    "kimi-coding-cn": "kimi-for-coding",
+    "moonshot": "kimi-for-coding",
+    "step": "stepfun",
+    "stepfun-coding-plan": "stepfun",
+    "minimax-china": "minimax-cn",
+    "minimax_cn": "minimax-cn",
+    "claude": "anthropic",
+    "claude-code": "anthropic",
+    "copilot": "github-copilot",
+    "github": "github-copilot",
+    "github-copilot-acp": "copilot-acp",
+    "ai-gateway": "vercel",
+    "aigateway": "vercel",
+    "vercel-ai-gateway": "vercel",
+    "opencode-zen": "opencode",
+    "zen": "opencode",
+    "go": "opencode-go",
+    "opencode-go-sub": "opencode-go",
+    "kilocode": "kilo",
+    "kilo-code": "kilo",
+    "kilo-gateway": "kilo",
+    "deep-seek": "deepseek",
+    "dashscope": "alibaba",
+    "aliyun": "alibaba",
+    "qwen": "alibaba",
+    "alibaba-cloud": "alibaba",
+    "alibaba_coding": "alibaba-coding-plan",
+    "alibaba-coding": "alibaba-coding-plan",
+    "alibaba_coding_plan": "alibaba-coding-plan",
+    "gemini-cli": "google-gemini-cli",
+    "gemini-oauth": "google-gemini-cli",
+    "hf": "huggingface",
+    "hugging-face": "huggingface",
+    "huggingface-hub": "huggingface",
+    "mimo": "xiaomi",
+    "xiaomi-mimo": "xiaomi",
+    "tencent": "tencent-tokenhub",
+    "tokenhub": "tencent-tokenhub",
+    "tencent-cloud": "tencent-tokenhub",
+    "tencentmaas": "tencent-tokenhub",
+    "aws": "bedrock",
+    "aws-bedrock": "bedrock",
+    "amazon-bedrock": "bedrock",
+    "amazon": "bedrock",
+    "arcee-ai": "arcee",
+    "arceeai": "arcee",
+    "gmi-cloud": "gmi",
+    "gmicloud": "gmi",
+    "gmi": "gmi",
+    "lmstudio": "lmstudio",
+    "lm-studio": "lmstudio",
+    "lm_studio": "lmstudio",
+    "ollama": "custom",
+    "vllm": "local",
+    "llamacpp": "local",
+    "llama.cpp": "local",
+    "llama-cpp": "local",
+}
+
+
+def normalize_provider(name: str) -> str:
+    """Resolve provider aliases to canonical names.
+
+    Args:
+        name: Input provider name or alias.
+
+    Returns:
+        Canonical provider ID string.
+    """
+    key = name.strip().lower()
+    return ALIASES.get(key, key)
+
+
+PROVIDER_AUTH_URLS: Dict[str, str] = {
     "google": "https://accounts.google.com/o/oauth2/v2/auth",
     "github_copilot": "https://github.com/login/oauth/authorize",
     "github_copilot_acp": "https://github.com/login/oauth/authorize",
@@ -10,7 +100,7 @@ PROVIDER_AUTH_URLS: dict[str, str] = {
     "huggingface": "https://huggingface.co/oauth/authorize",
 }
 
-PROVIDER_DEFAULT_MODELS: dict[str, str] = {
+PROVIDER_DEFAULT_MODELS: Dict[str, str] = {
     "openai": "gpt-4o",
     "anthropic": "claude-3.5-sonnet",
     "openrouter": "anthropic/claude-sonnet-4",
@@ -41,7 +131,7 @@ PROVIDER_DEFAULT_MODELS: dict[str, str] = {
     "zhipu": "glm-4",
 }
 
-_MODEL_PREFIX_TO_PROVIDER: dict[str, str] = {
+_MODEL_PREFIX_TO_PROVIDER: Dict[str, str] = {
     "gpt-": "openai",
     "o1": "openai",
     "o3": "openai",
@@ -60,14 +150,15 @@ _MODEL_PREFIX_TO_PROVIDER: dict[str, str] = {
     "codellama": "local_ollama",
 }
 
-_PROVIDER_MODEL_PATTERNS: dict[str, list[str]] = {
+_PROVIDER_MODEL_PATTERNS: Dict[str, List[str]] = {
     "openrouter": ["anthropic/", "openai/", "google/", "meta-llama/", "mistralai/"],
     "huggingface": ["/", "meta-llama/", "mistralai/"],
 }
 
 
-def get_provider_config(provider_name: str) -> dict[str, Any]:
+def get_provider_config(provider_name: str) -> Dict[str, Any]:
     from prometheus.cli.models import CANONICAL_PROVIDERS
+
     spec = CANONICAL_PROVIDERS.get(provider_name)
     if not spec:
         return {}
@@ -81,8 +172,9 @@ def get_provider_config(provider_name: str) -> dict[str, Any]:
     }
 
 
-def list_providers() -> list[str]:
+def list_providers() -> List[str]:
     from prometheus.cli.models import CANONICAL_PROVIDERS
+
     return list(CANONICAL_PROVIDERS.keys())
 
 
@@ -93,6 +185,7 @@ def get_provider_env_var(provider: str) -> str:
 
 def resolve_provider(model_name: str) -> str:
     from prometheus.cli.models import CANONICAL_PROVIDERS
+
     for provider, spec in CANONICAL_PROVIDERS.items():
         if model_name in spec.get("models", []):
             return provider

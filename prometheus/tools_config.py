@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 import yaml
 
-from prometheus.config import get_prometheus_home, get_config_path
+from prometheus.config import get_config_path
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,7 @@ class ToolsConfig:
     def _load(self) -> None:
         if self._config_path.exists():
             try:
-                with open(self._config_path, "r", encoding="utf-8") as f:
+                with open(self._config_path, encoding="utf-8") as f:
                     cfg = yaml.safe_load(f) or {}
                 self._data = cfg.get("tools", {})
             except Exception as e:
@@ -32,7 +31,7 @@ class ToolsConfig:
         try:
             full_cfg: dict = {}
             if self._config_path.exists():
-                with open(self._config_path, "r", encoding="utf-8") as f:
+                with open(self._config_path, encoding="utf-8") as f:
                     full_cfg = yaml.safe_load(f) or {}
             full_cfg["tools"] = self._data
             with open(self._config_path, "w", encoding="utf-8") as f:
@@ -51,7 +50,7 @@ class ToolsConfig:
             self._data["configs"][name] = {}
         return self._data
 
-    def get_enabled_tools(self) -> list[str]:
+    def get_enabled_tools(self) -> List[str]:
         enabled = self._data.get("enabled", {})
         return [name for name, is_on in enabled.items() if is_on]
 

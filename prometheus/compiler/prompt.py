@@ -1,41 +1,22 @@
 #!/usr/bin/env python3
-"""
-╔══════════════════════════════════════════════════════════════╗
-║   📝 普罗米修斯 · 提示词合成器 · Prompt Composer            ║
-║                                                              ║
-║   读取种子的 DNA，编译为可用的 system prompt。               ║
-║                                                              ║
-║   设计哲学：                                                 ║
-║     种子的 DNA 包含原则、禁忌、气质——这是"蓝图"。          ║
-║     提示词合成器是"编译器"——把蓝图变成运行时指令。          ║
-║                                                              ║
-║   编译流水线：                                               ║
-║     种子 DNA → 解析 → 分段 → 注入 → 编译 → system prompt    ║
-║                                                              ║
-║   Prometheus 作为独立 Agent 使用此模块来：                   ║
-║     1. 理解一个种子的身份和能力                              ║
-║     2. 将其转化为 LLM 可理解的 system prompt                 ║
-║     3. 支持按场景切换人格风格                                ║
-╚══════════════════════════════════════════════════════════════╝
-"""
+"""╔══════════════════════════════════════════════════════════════╗."""
 
 import os
-import re
-from typing import Dict, List, Optional, Any
 from enum import Enum
-
 
 # ═══════════════════════════════════════════
 #   人格模式
 # ═══════════════════════════════════════════
 
+
 class PersonaMode(Enum):
     """人格风格模式"""
-    BASE = "base"          # 基础模式：只使用 DNA 原始定义
-    STRICT = "strict"      # 严谨模式：强调规则和约束
+
+    BASE = "base"  # 基础模式：只使用 DNA 原始定义
+    STRICT = "strict"  # 严谨模式：强调规则和约束
     CREATIVE = "creative"  # 创意模式：放宽约束，鼓励探索
     TEACHING = "teaching"  # 教学模式：耐心解释，循循善诱
-    CONCISE = "concise"    # 简洁模式：精炼表达，直击要点
+    CONCISE = "concise"  # 简洁模式：精炼表达，直击要点
     KARPATHY = "karpathy"  # Karpathy模式：遵循 Karpathy 编码指南
 
 
@@ -76,13 +57,14 @@ PERSONA_MODIFIERS = {
 #   DNA 解析器
 # ═══════════════════════════════════════════
 
+
 class DNAParser:
     """解析种子 DNA 中的关键信息段"""
 
     @staticmethod
     def parse(seed_data: dict) -> dict:
         """从 load_seed() 的返回值中提取 DNA 信息。
-        
+
         Returns:
             {
                 identity: {life_id, sacred_name, mission},
@@ -110,12 +92,14 @@ class DNAParser:
             if isinstance(entry, str):
                 founder_decoded.append({"tag": tag, "raw": entry})
             elif isinstance(entry, dict):
-                founder_decoded.append({
-                    "tag": tag,
-                    "desc": entry.get("desc", tag),
-                    "element": entry.get("element", "?"),
-                    "weight": entry.get("weight", "normal"),
-                })
+                founder_decoded.append(
+                    {
+                        "tag": tag,
+                        "desc": entry.get("desc", tag),
+                        "element": entry.get("element", "?"),
+                        "weight": entry.get("weight", "normal"),
+                    }
+                )
 
         return {
             "identity": {
@@ -147,9 +131,10 @@ class DNAParser:
 #   提示词合成器
 # ═══════════════════════════════════════════
 
+
 class PromptComposer:
     """将种子 DNA 编译为 system prompt。
-    
+
     编译流水线：
       1. 解析 DNA（DNAParser.parse）
       2. 生成各段落（identity / soul / lineage / founder / genes）
@@ -167,18 +152,21 @@ class PromptComposer:
         self.persona = persona
         self.dna = DNAParser.parse(self.seed_data) if self.seed_data else {}
 
-    def compose(self, extra_context: str = None,
-                include_lineage: bool = True,
-                include_founder: bool = True,
-                include_genes: bool = False) -> str:
+    def compose(
+        self,
+        extra_context: str = None,
+        include_lineage: bool = True,
+        include_founder: bool = True,
+        include_genes: bool = False,
+    ) -> str:
         """编译 system prompt。
-        
+
         Args:
             extra_context: 额外上下文信息（如当前任务描述）
             include_lineage: 是否包含谱系信息
             include_founder: 是否包含创始印记
             include_genes: 是否包含基因详情（默认不包含，太长）
-            
+
         Returns:
             编译后的 system prompt 文本
         """
@@ -240,7 +228,7 @@ class PromptComposer:
 
     def decompose(self, prompt: str) -> dict:
         """反向解析：从已有 system prompt 中提取结构化信息。
-        
+
         用于分析其他系统生成的 prompt，或验证合成结果。
         """
         sections = {}
@@ -356,7 +344,7 @@ class PromptComposer:
                 desc = d.get("desc", d.get("raw", d.get("tag", "")))
                 element = d.get("element", "")
                 weight = d.get("weight", "")
-                tag = d.get("tag", "")
+                d.get("tag", "")
                 suffix = " ◆eternal" if weight == "eternal" else ""
                 prefix = f"{element} · " if element else ""
                 lines.append(f"- {prefix}「{desc}」{suffix}")
@@ -392,7 +380,7 @@ class PromptComposer:
             return ""
         return f"## Communication Style\n\n{modifier}"
 
-    def _list_sections(self) -> List[str]:
+    def _list_sections(self) -> list[str]:
         """列出将包含的段落"""
         sections = ["identity", "soul"]
         if self.dna.get("lineage", {}).get("variant"):
@@ -403,8 +391,9 @@ class PromptComposer:
             sections.append("persona_modifier")
         return sections
 
-    def compose_with_memory(self, memory_mgr, max_tokens: int = 4000,
-                            query: str = None, **kwargs) -> dict:
+    def compose_with_memory(
+        self, memory_mgr, max_tokens: int = 4000, query: str = None, **kwargs
+    ) -> dict:
         """从 MemoryManager 拉取上下文，合成带记忆的完整 prompt。
 
         流程：
@@ -466,7 +455,7 @@ class PromptComposer:
         """估算任意文本的 token 数（复用 memory 模块的逻辑）"""
         if not text:
             return 0
-        chinese_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
+        chinese_chars = sum(1 for c in text if "\u4e00" <= c <= "\u9fff")
         other_chars = len(text) - chinese_chars
         return int(chinese_chars * 1.5 + other_chars / 4)
 
@@ -474,7 +463,7 @@ class PromptComposer:
         """估算总 token 数"""
         prompt = self.compose()
         # 粗略估算
-        chinese_chars = sum(1 for c in prompt if '\u4e00' <= c <= '\u9fff')
+        chinese_chars = sum(1 for c in prompt if "\u4e00" <= c <= "\u9fff")
         other_chars = len(prompt) - chinese_chars
         return int(chinese_chars * 1.5 + other_chars / 4)
 
@@ -483,19 +472,22 @@ class PromptComposer:
 #   便捷函数
 # ═══════════════════════════════════════════
 
-def compose_prompt_from_file(seed_path: str, persona: str = "base",
-                             extra_context: str = None) -> str:
+
+def compose_prompt_from_file(
+    seed_path: str, persona: str = "base", extra_context: str = None
+) -> str:
     """从种子文件直接合成 prompt。
-    
+
     Args:
         seed_path: .ttg 文件路径
         persona: 人格模式名称
         extra_context: 额外上下文
-        
+
     Returns:
         system prompt 文本
     """
     import sys
+
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from prometheus import load_seed
 
@@ -517,6 +509,7 @@ def compose_prompt_from_file(seed_path: str, persona: str = "base",
 #   CLI 入口
 # ═══════════════════════════════════════════
 
+
 def main():
     """命令行接口"""
     import sys
@@ -535,25 +528,28 @@ def main():
 
     action = sys.argv[1]
 
-    if action == 'compose' and len(sys.argv) > 2:
+    if action == "compose" and len(sys.argv) > 2:
         seed_path = sys.argv[2]
         persona = "base"
         extra_context = None
 
         i = 3
         while i < len(sys.argv):
-            if sys.argv[i] == '--persona' and i + 1 < len(sys.argv):
-                persona = sys.argv[i + 1]; i += 2
-            elif sys.argv[i] == '--context' and i + 1 < len(sys.argv):
-                extra_context = sys.argv[i + 1]; i += 2
+            if sys.argv[i] == "--persona" and i + 1 < len(sys.argv):
+                persona = sys.argv[i + 1]
+                i += 2
+            elif sys.argv[i] == "--context" and i + 1 < len(sys.argv):
+                extra_context = sys.argv[i + 1]
+                i += 2
             else:
                 i += 1
 
         prompt = compose_prompt_from_file(seed_path, persona=persona, extra_context=extra_context)
         print(prompt)
 
-    elif action == 'metadata' and len(sys.argv) > 2:
+    elif action == "metadata" and len(sys.argv) > 2:
         from prometheus import load_seed
+
         data = load_seed(sys.argv[2])
         if data:
             composer = PromptComposer(data)
@@ -565,8 +561,8 @@ def main():
                 else:
                     print(f"  {k}: {v}")
 
-    elif action == 'decompose' and len(sys.argv) > 2:
-        with open(sys.argv[2], 'r', encoding='utf-8') as f:
+    elif action == "decompose" and len(sys.argv) > 2:
+        with open(sys.argv[2], encoding="utf-8") as f:
             prompt = f.read()
         composer = PromptComposer()
         sections = composer.decompose(prompt)
@@ -575,7 +571,7 @@ def main():
             preview = content[:100] + "..." if len(content) > 100 else content
             print(f"  [{section}] {preview}")
 
-    elif action == 'modes':
+    elif action == "modes":
         print("\n🎭 可用人格模式:")
         for mode in PersonaMode:
             desc = PERSONA_MODIFIERS.get(mode, "")

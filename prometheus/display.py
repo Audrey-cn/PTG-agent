@@ -1,18 +1,19 @@
-
 """
 Prometheus 史诗级显示系统
 包含动态旋转动画、工具emoji映射、工具执行显示
 """
+
+import contextlib
 import sys
-import time
 import threading
-import os
+import time
 
 
 def _get_skin():
     """获取皮肤（懒加载避免循环依赖）"""
     try:
         from prometheus import skin_engine
+
         return skin_engine.get_active_skin()
     except Exception:
         return None
@@ -39,6 +40,7 @@ def get_skin_tool_prefix():
     """获取工具前缀"""
     try:
         from prometheus import skin_engine
+
         return skin_engine.get_active_tool_prefix()
     except Exception:
         return "┊"
@@ -46,6 +48,7 @@ def get_skin_tool_prefix():
 
 class KawaiiSpinner:
     """史诗级动态旋转器"""
+
     SPINNERS = {
         "dots": ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
     }
@@ -74,10 +77,8 @@ class KawaiiSpinner:
     def _write(self, text, end="\n", flush=False):
         """安全写入输出"""
         if self._print_fn is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._print_fn(text)
-            except Exception:
-                pass
             return
         try:
             self._out.write(text + end)
@@ -126,7 +127,7 @@ def get_cute_tool_message(tool_name, args, duration, result=None):
     """生成格式化的工具完成信息"""
     prefix = get_skin_tool_prefix()
     emoji = get_tool_emoji(tool_name)
-    return "%s %s %s" % (prefix, emoji, tool_name)
+    return f"{prefix} {emoji} {tool_name}"
 
 
 def build_tool_preview(tool_name, args, max_len=None):
@@ -137,4 +138,3 @@ def build_tool_preview(tool_name, args, max_len=None):
 def extract_edit_diff(tool_name, result=None, **kwargs):
     """从工具结果提取差异"""
     return None
-

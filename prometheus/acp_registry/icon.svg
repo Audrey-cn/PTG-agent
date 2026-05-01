@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="prometheus-gold" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#B8860B;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="prometheus-fire" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#FF6B35;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFE4B5;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="30" fill="#1a1a2e" opacity="0.9" />
+  <!-- Torch base -->
+  <rect x="28" y="30" width="8" height="28" rx="2" fill="url(#prometheus-gold)" />
+  <!-- Torch handle detail -->
+  <rect x="29" y="35" width="6" height="2" rx="1" fill="#8B6914" />
+  <rect x="29" y="42" width="6" height="2" rx="1" fill="#8B6914" />
+  <rect x="29" y="49" width="6" height="2" rx="1" fill="#8B6914" />
+  <!-- Fire flames -->
+  <path d="M32 10 C28 14, 24 18, 26 24 C24 20, 28 18, 32 22 C36 18, 40 20, 38 24 C40 18, 36 14, 32 10"
+        fill="url(#prometheus-fire)" />
+  <!-- Inner flame core -->
+  <path d="M32 14 C30 17, 29 20, 30 23 C29 20, 31 19, 32 21 C33 19, 35 20, 34 23 C35 20, 34 17, 32 14"
+        fill="#FFFACD" opacity="0.9" />
+  <!-- Sparkles -->
+  <circle cx="24" cy="16" r="1.5" fill="#FFD700" opacity="0.7" />
+  <circle cx="40" cy="18" r="1" fill="#FFD700" opacity="0.6" />
+  <circle cx="26" cy="26" r="1" fill="#FFD700" opacity="0.5" />
+  <circle cx="38" cy="24" r="1.2" fill="#FFD700" opacity="0.6" />
+</svg>

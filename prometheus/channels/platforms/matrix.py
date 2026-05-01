@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import threading
-from typing import Optional, Any
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 try:
     from matrix_client.client import MatrixClient as MatrixLibClient
     from matrix_client.room import Room
+
     MATRIX_AVAILABLE = True
 except ImportError:
     MATRIX_AVAILABLE = False
@@ -50,7 +52,7 @@ class MatrixAdapter(PlatformAdapter):
             logger.error("Matrix send failed: %s", e)
             return False
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_messages:
             msg = self._pending_messages.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)
@@ -73,12 +75,14 @@ class MatrixAdapter(PlatformAdapter):
                 if event.get("sender") == self.user_id:
                     return
                 text = event.get("content", {}).get("body", "")
-                self._pending_messages.append({
-                    "text": text,
-                    "room_id": room.room_id,
-                    "user": event.get("sender", ""),
-                    "platform": "matrix",
-                })
+                self._pending_messages.append(
+                    {
+                        "text": text,
+                        "room_id": room.room_id,
+                        "user": event.get("sender", ""),
+                        "platform": "matrix",
+                    }
+                )
                 if self._message_handler:
                     try:
                         self._message_handler(text, room_id=room.room_id)
@@ -107,10 +111,8 @@ class MatrixAdapter(PlatformAdapter):
 
     def stop(self) -> bool:
         if self._client:
-            try:
+            with contextlib.suppress(Exception):
                 self._client.stop_listener_thread()
-            except Exception:
-                pass
         self._started = False
         logger.info("Matrix 适配器已停止")
         return True

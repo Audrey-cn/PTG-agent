@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -58,13 +57,12 @@ def detect_platform_from_config(config: dict) -> str:
         return "homeassistant"
     if "ws_url" in config and "bot_qq" in config:
         return "qq"
-    if "api_key" in config and "api_base" in config:
-        if "yuanbao" in config.get("api_base", ""):
-            return "yuanbao"
+    if "api_key" in config and "api_base" in config and "yuanbao" in config.get("api_base", ""):
+        return "yuanbao"
     return "unknown"
 
 
-def validate_platform_config(platform: str, config: dict) -> tuple[bool, str]:
+def validate_platform_config(platform: str, config: dict) -> Tuple[bool, str]:
     if not config:
         return False, "配置为空"
     platform_validators = {
@@ -89,19 +87,19 @@ def validate_platform_config(platform: str, config: dict) -> tuple[bool, str]:
     return True, f"平台 {platform} 无特定验证规则"
 
 
-def _validate_telegram(config: dict) -> tuple[bool, str]:
+def _validate_telegram(config: dict) -> Tuple[bool, str]:
     if not config.get("bot_token"):
         return False, "Telegram 需要 bot_token"
     return True, "配置有效"
 
 
-def _validate_discord(config: dict) -> tuple[bool, str]:
+def _validate_discord(config: dict) -> Tuple[bool, str]:
     if not config.get("bot_token"):
         return False, "Discord 需要 bot_token"
     return True, "配置有效"
 
 
-def _validate_feishu(config: dict) -> tuple[bool, str]:
+def _validate_feishu(config: dict) -> Tuple[bool, str]:
     if not config.get("app_id"):
         return False, "飞书需要 app_id"
     if not config.get("app_secret"):
@@ -109,13 +107,13 @@ def _validate_feishu(config: dict) -> tuple[bool, str]:
     return True, "配置有效"
 
 
-def _validate_dingtalk(config: dict) -> tuple[bool, str]:
+def _validate_dingtalk(config: dict) -> Tuple[bool, str]:
     if not config.get("webhook_url") and not config.get("app_key"):
         return False, "钉钉需要 webhook_url 或 app_key"
     return True, "配置有效"
 
 
-def _validate_wecom(config: dict) -> tuple[bool, str]:
+def _validate_wecom(config: dict) -> Tuple[bool, str]:
     if not config.get("corp_id"):
         return False, "企业微信需要 corp_id"
     if not config.get("corp_secret") and not config.get("webhook_url"):
@@ -123,7 +121,7 @@ def _validate_wecom(config: dict) -> tuple[bool, str]:
     return True, "配置有效"
 
 
-def _validate_wecom_callback(config: dict) -> tuple[bool, str]:
+def _validate_wecom_callback(config: dict) -> Tuple[bool, str]:
     if not config.get("wecom_token"):
         return False, "企业微信回调需要 wecom_token"
     if not config.get("wecom_encoding_aes_key"):
@@ -131,13 +129,13 @@ def _validate_wecom_callback(config: dict) -> tuple[bool, str]:
     return True, "配置有效"
 
 
-def _validate_slack(config: dict) -> tuple[bool, str]:
+def _validate_slack(config: dict) -> Tuple[bool, str]:
     if not config.get("bot_token"):
         return False, "Slack 需要 bot_token"
     return True, "配置有效"
 
 
-def _validate_slack_events(config: dict) -> tuple[bool, str]:
+def _validate_slack_events(config: dict) -> Tuple[bool, str]:
     if not config.get("bot_token"):
         return False, "Slack Events 需要 bot_token"
     if not config.get("signing_secret"):
@@ -145,7 +143,7 @@ def _validate_slack_events(config: dict) -> tuple[bool, str]:
     return True, "配置有效"
 
 
-def _validate_slack_socket(config: dict) -> tuple[bool, str]:
+def _validate_slack_socket(config: dict) -> Tuple[bool, str]:
     if not config.get("bot_token"):
         return False, "Slack Socket 需要 bot_token"
     if not config.get("app_token"):
@@ -153,25 +151,25 @@ def _validate_slack_socket(config: dict) -> tuple[bool, str]:
     return True, "配置有效"
 
 
-def _validate_mattermost_slash(config: dict) -> tuple[bool, str]:
+def _validate_mattermost_slash(config: dict) -> Tuple[bool, str]:
     if not config.get("webhook_url"):
         return False, "Mattermost Slash 需要 webhook_url"
     return True, "配置有效"
 
 
-def _validate_qq(config: dict) -> tuple[bool, str]:
+def _validate_qq(config: dict) -> Tuple[bool, str]:
     if not config.get("access_token") and not config.get("ws_url"):
         return False, "QQ Bot 需要 access_token 或 ws_url"
     return True, "配置有效"
 
 
-def _validate_yuanbao(config: dict) -> tuple[bool, str]:
+def _validate_yuanbao(config: dict) -> Tuple[bool, str]:
     if not config.get("api_key"):
         return False, "元宝需要 api_key"
     return True, "配置有效"
 
 
-def _validate_homeassistant(config: dict) -> tuple[bool, str]:
+def _validate_homeassistant(config: dict) -> Tuple[bool, str]:
     if not config.get("ha_url"):
         return False, "Home Assistant 需要 ha_url"
     if not config.get("access_token"):

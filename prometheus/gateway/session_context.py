@@ -1,103 +1,114 @@
-from __future__ import annotations
+"""Session-scoped context variables for the Prometheus gateway."""
 
-import json
-import threading
-from pathlib import Path
-from typing import Any, Dict, Optional
+from contextvars import ContextVar
+from typing import Any
 
-from prometheus.config import get_prometheus_home
+_UNSET: Any = object()
 
+_SESSION_PLATFORM: ContextVar = ContextVar("PROMETHEUS_SESSION_PLATFORM", default=_UNSET)
+_SESSION_CHAT_ID: ContextVar = ContextVar("PROMETHEUS_SESSION_CHAT_ID", default=_UNSET)
+_SESSION_CHAT_NAME: ContextVar = ContextVar("PROMETHEUS_SESSION_CHAT_NAME", default=_UNSET)
+_SESSION_THREAD_ID: ContextVar = ContextVar("PROMETHEUS_SESSION_THREAD_ID", default=_UNSET)
+_SESSION_USER_ID: ContextVar = ContextVar("PROMETHEUS_SESSION_USER_ID", default=_UNSET)
+_SESSION_USER_NAME: ContextVar = ContextVar("PROMETHEUS_SESSION_USER_NAME", default=_UNSET)
+_SESSION_KEY: ContextVar = ContextVar("PROMETHEUS_SESSION_KEY", default=_UNSET)
 
-class SessionContext:
-    def __init__(self):
-        self._contexts: Dict[str, Dict[str, Any]] = {}
-        self._lock = threading.Lock()
-        self._base_path = get_prometheus_home() / "sessions"
-        self._ensure_base_path()
-    
-    def _ensure_base_path(self):
-        if not self._base_path.exists():
-            self._base_path.mkdir(parents=True, exist_ok=True)
-    
-    def _get_context_path(self, session_id: str) -> Path:
-        return self._base_path / session_id / "context.json"
-    
-    def _load_from_disk(self, session_id: str) -> Dict[str, Any]:
-        context_path = self._get_context_path(session_id)
-        if context_path.exists():
-            try:
-                with open(context_path, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, IOError):
-                return {}
-        return {}
-    
-    def _save_to_disk(self, session_id: str, context: Dict[str, Any]):
-        context_path = self._get_context_path(session_id)
-        context_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(context_path, "w", encoding="utf-8") as f:
-            json.dump(context, f, ensure_ascii=False, indent=2)
-    
-    def get(self, session_id: str, key: str, default: Any = None) -> Any:
-        with self._lock:
-            if session_id not in self._contexts:
-                self._contexts[session_id] = self._load_from_disk(session_id)
-            return self._contexts[session_id].get(key, default)
-    
-    def set(self, session_id: str, key: str, value: Any):
-        with self._lock:
-            if session_id not in self._contexts:
-                self._contexts[session_id] = self._load_from_disk(session_id)
-            self._contexts[session_id][key] = value
-            self._save_to_disk(session_id, self._contexts[session_id])
-    
-    def delete(self, session_id: str, key: str):
-        with self._lock:
-            if session_id not in self._contexts:
-                self._contexts[session_id] = self._load_from_disk(session_id)
-            if key in self._contexts[session_id]:
-                del self._contexts[session_id][key]
-                self._save_to_disk(session_id, self._contexts[session_id])
-    
-    def clear(self, session_id: str):
-        with self._lock:
-            self._contexts[session_id] = {}
-            context_path = self._get_context_path(session_id)
-            if context_path.exists():
-                context_path.unlink()
-    
-    def get_all(self, session_id: str) -> Dict[str, Any]:
-        with self._lock:
-            if session_id not in self._contexts:
-                self._contexts[session_id] = self._load_from_disk(session_id)
-            return dict(self._contexts[session_id])
-    
-    def session_exists(self, session_id: str) -> bool:
-        with self._lock:
-            if session_id in self._contexts:
-                return True
-            context_path = self._get_context_path(session_id)
-            return context_path.exists()
-    
-    def list_sessions(self) -> list:
-        with self._lock:
-            sessions = set(self._contexts.keys())
-            if self._base_path.exists():
-                for path in self._base_path.iterdir():
-                    if path.is_dir() and (path / "context.json").exists():
-                        sessions.add(path.name)
-            return list(sessions)
-    
-    def delete_session(self, session_id: str):
-        with self._lock:
-            if session_id in self._contexts:
-                del self._contexts[session_id]
-            context_path = self._get_context_path(session_id)
-            if context_path.exists():
-                context_path.unlink()
-            session_dir = context_path.parent
-            if session_dir.exists() and not any(session_dir.iterdir()):
-                session_dir.rmdir()
+_CRON_AUTO_DELIVER_PLATFORM: ContextVar = ContextVar(
+    "PROMETHEUS_CRON_AUTO_DELIVER_PLATFORM", default=_UNSET
+)
+_CRON_AUTO_DELIVER_CHAT_ID: ContextVar = ContextVar(
+    "PROMETHEUS_CRON_AUTO_DELIVER_CHAT_ID", default=_UNSET
+)
+_CRON_AUTO_DELIVER_THREAD_ID: ContextVar = ContextVar(
+    "PROMETHEUS_CRON_AUTO_DELIVER_THREAD_ID", default=_UNSET
+)
+
+_VAR_MAP = {
+    "PROMETHEUS_SESSION_PLATFORM": _SESSION_PLATFORM,
+    "PROMETHEUS_SESSION_CHAT_ID": _SESSION_CHAT_ID,
+    "PROMETHEUS_SESSION_CHAT_NAME": _SESSION_CHAT_NAME,
+    "PROMETHEUS_SESSION_THREAD_ID": _SESSION_THREAD_ID,
+    "PROMETHEUS_SESSION_USER_ID": _SESSION_USER_ID,
+    "PROMETHEUS_SESSION_USER_NAME": _SESSION_USER_NAME,
+    "PROMETHEUS_SESSION_KEY": _SESSION_KEY,
+    "PROMETHEUS_CRON_AUTO_DELIVER_PLATFORM": _CRON_AUTO_DELIVER_PLATFORM,
+    "PROMETHEUS_CRON_AUTO_DELIVER_CHAT_ID": _CRON_AUTO_DELIVER_CHAT_ID,
+    "PROMETHEUS_CRON_AUTO_DELIVER_THREAD_ID": _CRON_AUTO_DELIVER_THREAD_ID,
+}
 
 
-session_context = SessionContext()
+def set_session_vars(
+    platform: str = "",
+    chat_id: str = "",
+    chat_name: str = "",
+    thread_id: str = "",
+    user_id: str = "",
+    user_name: str = "",
+    session_key: str = "",
+) -> list:
+    """Set all session context variables and return reset tokens.
+
+    Call ``clear_session_vars(tokens)`` in a ``finally`` block to restore
+    the previous values when the handler exits.
+
+    Returns a list of ``Token`` objects (one per variable) that can be
+    passed to ``clear_session_vars``.
+    """
+    tokens = [
+        _SESSION_PLATFORM.set(platform),
+        _SESSION_CHAT_ID.set(chat_id),
+        _SESSION_CHAT_NAME.set(chat_name),
+        _SESSION_THREAD_ID.set(thread_id),
+        _SESSION_USER_ID.set(user_id),
+        _SESSION_USER_NAME.set(user_name),
+        _SESSION_KEY.set(session_key),
+    ]
+    return tokens
+
+
+def clear_session_vars(tokens: list) -> None:
+    """Mark session context variables as explicitly cleared.
+
+    Sets all variables to ``""`` so that ``get_session_env`` returns an empty
+    string instead of falling back to (potentially stale) ``os.environ``
+    values.  The *tokens* argument is accepted for API compatibility with
+    callers that saved the return value of ``set_session_vars``, but the
+    actual clearing uses ``var.set("")`` rather than ``var.reset(token)``
+    to ensure the "explicitly cleared" state is distinguishable from
+    "never set" (which holds the ``_UNSET`` sentinel).
+    """
+    for var in (
+        _SESSION_PLATFORM,
+        _SESSION_CHAT_ID,
+        _SESSION_CHAT_NAME,
+        _SESSION_THREAD_ID,
+        _SESSION_USER_ID,
+        _SESSION_USER_NAME,
+        _SESSION_KEY,
+    ):
+        var.set("")
+
+
+def get_session_env(name: str, default: str = "") -> str:
+    """Read a session context variable by its legacy ``PROMETHEUS_SESSION_*`` name.
+
+    Drop-in replacement for ``os.getenv("PROMETHEUS_SESSION_*", default)``.
+
+    Resolution order:
+    1. Context variable (set by the gateway for concurrency-safe access).
+       If the variable was explicitly set (even to ``""``) via
+       ``set_session_vars`` or ``clear_session_vars``, that value is
+       returned — **no fallback to os.environ**.
+    2. ``os.environ`` (only when the context variable was never set in
+       this context — i.e. CLI, cron scheduler, and test processes that
+       don't use ``set_session_vars`` at all).
+    3. *default*
+    """
+    import os
+
+    var = _VAR_MAP.get(name)
+    if var is not None:
+        value = var.get()
+        if value is not _UNSET:
+            return value
+    return os.getenv(name, default)

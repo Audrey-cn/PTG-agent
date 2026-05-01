@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-GEMINI_SUPPORTED_FEATURES: dict[str, bool] = {
+GEMINI_SUPPORTED_FEATURES: Dict[str, bool] = {
     "function_calling": True,
     "streaming": True,
     "vision": True,
@@ -13,7 +13,7 @@ GEMINI_SUPPORTED_FEATURES: dict[str, bool] = {
 }
 
 
-def convert_tools_to_gemini(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def convert_tools_to_gemini(tools: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
     gemini_tools = []
     for tool in tools:
         if tool.get("type") == "function":
@@ -23,9 +23,7 @@ def convert_tools_to_gemini(tools: list[dict[str, Any]]) -> list[dict[str, Any]]
                     {
                         "name": func.get("name", ""),
                         "description": func.get("description", ""),
-                        "parameters": _convert_schema_to_gemini(
-                            func.get("parameters", {})
-                        ),
+                        "parameters": _convert_schema_to_gemini(func.get("parameters", {})),
                     }
                 ]
             }
@@ -33,7 +31,7 @@ def convert_tools_to_gemini(tools: list[dict[str, Any]]) -> list[dict[str, Any]]
     return gemini_tools
 
 
-def _convert_schema_to_gemini(schema: dict[str, Any]) -> dict[str, Any]:
+def _convert_schema_to_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
     result = {}
     if "type" in schema:
         type_map = {
@@ -58,7 +56,7 @@ def _convert_schema_to_gemini(schema: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def convert_response_from_gemini(response: dict[str, Any]) -> dict[str, Any]:
+def convert_response_from_gemini(response: Dict[str, Any]) -> Dict[str, Any]:
     candidates = response.get("candidates", [])
     if not candidates:
         return {"role": "assistant", "content": ""}
@@ -95,6 +93,5 @@ def convert_response_from_gemini(response: dict[str, Any]) -> dict[str, Any]:
 def is_gemini_model(model: str) -> bool:
     model_lower = model.lower()
     return any(
-        prefix in model_lower
-        for prefix in ["gemini", "gemini-pro", "gemini-ultra", "gemini-1.5"]
+        prefix in model_lower for prefix in ["gemini", "gemini-pro", "gemini-ultra", "gemini-1.5"]
     )

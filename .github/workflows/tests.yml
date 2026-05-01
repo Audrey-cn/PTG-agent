@@ -1,0 +1,52 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install ".[dev]"
+
+      - name: Run tests
+        run: |
+          python -m pytest prometheus/tests/ -v --cov=prometheus --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: matrix.python-version == '3.12' && matrix.os == 'ubuntu-latest'
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t ptg-agent:ci -f docker/Dockerfile .
+
+      - name: Smoke test
+        run: |
+          docker run --rm ptg-agent:ci python -c "from prometheus import __version__; print('OK: v' + __version__)"

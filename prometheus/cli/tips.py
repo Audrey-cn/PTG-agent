@@ -24,6 +24,7 @@ TIPS = [
 
 def show_random_tip() -> str:
     import random
+
     return random.choice(TIPS)
 
 

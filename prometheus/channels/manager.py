@@ -1,42 +1,26 @@
-"""
-Prometheus 频道管理器
+"""Prometheus 频道管理器."""
 
-参考 Hermes Gateway 架构
-
-统一的频道管理系统：
-- 平台适配器注册与启动管理
-- 统一的配置读取与频道创建
-- 频道选择菜单
-"""
-import os
-import sys
-from pathlib import Path
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
 
+from prometheus.config import PrometheusConfig
+
 from .base import (
     Channel,
-    ChannelType,
     ChannelConfig,
-    ChannelMessage,
-    ChannelResponse,
+    ChannelType,
     CLIChannel,
-    HTTPWebhookChannel,
     FileWatchChannel,
-    CHANNEL_TYPE_MAP,
+    HTTPWebhookChannel,
 )
 from .registry import (
-    ChannelRegistry,
     get_channel_registry,
-    create_default_channels,
 )
-
-from prometheus.config import PrometheusConfig
 
 
 class PlatformType(Enum):
     """支持的平台类型"""
+
     CLI = "cli"
     HTTP_WEBHOOK = "http_webhook"
     FILE_WATCH = "file_watch"
@@ -55,13 +39,14 @@ class PlatformType(Enum):
 @dataclass
 class PlatformInfo:
     """平台信息"""
+
     type: PlatformType
     name: str
     description: str
     config_key: str
-    dependencies: List[str]
+    dependencies: list[str]
     enabled: bool = False
-    requires_config: List[str] = None
+    requires_config: list[str] = None
 
     def __post_init__(self):
         if self.requires_config is None:
@@ -168,11 +153,11 @@ class ChannelManager:
         self.registry = get_channel_registry()
         self.platforms = {p.type: p for p in PLATFORMS}
 
-    def get_platform_info(self, platform_type: PlatformType) -> Optional[PlatformInfo]:
+    def get_platform_info(self, platform_type: PlatformType) -> PlatformInfo | None:
         """获取平台信息"""
         return self.platforms.get(platform_type)
 
-    def get_enabled_platforms(self) -> List[PlatformInfo]:
+    def get_enabled_platforms(self) -> list[PlatformInfo]:
         """获取所有启用的平台"""
         enabled = []
         for p in PLATFORMS:
@@ -186,11 +171,11 @@ class ChannelManager:
                 enabled.append(p)
         return enabled
 
-    def get_available_platforms(self) -> List[PlatformInfo]:
+    def get_available_platforms(self) -> list[PlatformInfo]:
         """获取所有可用平台"""
         return list(PLATFORMS)
 
-    def create_channel(self, platform_type: PlatformType, name: str = None) -> Optional[Channel]:
+    def create_channel(self, platform_type: PlatformType, name: str = None) -> Channel | None:
         """创建频道"""
         platform = self.get_platform_info(platform_type)
         if not platform:
@@ -244,11 +229,12 @@ class ChannelManager:
             else:
                 # 平台 Adapter
                 from .platforms import (
-                    TelegramAdapter,
+                    DingtalkAdapter,
                     DiscordAdapter,
                     FeishuAdapter,
-                    DingtalkAdapter,
+                    TelegramAdapter,
                 )
+
                 channel_config = ChannelConfig(
                     ChannelType.HTTP_WEBHOOK,  # 通用类型
                     name or platform.config_key,
@@ -270,10 +256,11 @@ class ChannelManager:
         except Exception as e:
             print(f"❌ 创建 {platform.name} 失败: {e}")
             import traceback
+
             traceback.print_exc()
             return None
 
-    def select_platform_menu(self) -> Optional[PlatformType]:
+    def select_platform_menu(self) -> PlatformType | None:
         """显示平台选择菜单"""
         print("\n" + "=" * 60)
         print("🔥 Prometheus 频道选择")
@@ -302,9 +289,9 @@ class ChannelManager:
         try:
             idx = int(choice)
             if 1 <= idx <= len(available):
-                return available[idx-1].type
+                return available[idx - 1].type
             elif 1 <= idx <= len(enabled):
-                return enabled[idx-1].type
+                return enabled[idx - 1].type
             else:
                 print("⚠️ 无效的选择")
                 return None
@@ -314,7 +301,7 @@ class ChannelManager:
 
 
 # 全局单例
-_channel_manager: Optional[ChannelManager] = None
+_channel_manager: ChannelManager | None = None
 
 
 def get_channel_manager() -> ChannelManager:

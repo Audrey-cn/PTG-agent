@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import json
+import contextlib
 import logging
 import threading
-from typing import Optional, Any
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 try:
     from slack_bolt import App as SlackApp
     from slack_bolt.adapter.socket_mode import SocketModeHandler
+
     SLACK_AVAILABLE = True
 except ImportError:
     SLACK_AVAILABLE = False
@@ -52,7 +53,7 @@ class SlackSocketAdapter(PlatformAdapter):
             logger.error("Slack Socket send failed: %s", e)
             return False
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_messages:
             msg = self._pending_messages.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)
@@ -75,12 +76,14 @@ class SlackSocketAdapter(PlatformAdapter):
                 user = event.get("user", "")
                 if self.allowed_channels and channel_id not in self.allowed_channels:
                     return
-                self._pending_messages.append({
-                    "text": text,
-                    "channel": channel_id,
-                    "user": user,
-                    "platform": "slack_socket",
-                })
+                self._pending_messages.append(
+                    {
+                        "text": text,
+                        "channel": channel_id,
+                        "user": user,
+                        "platform": "slack_socket",
+                    }
+                )
                 if self._message_handler:
                     try:
                         response = self._message_handler(text, channel=channel_id)
@@ -105,10 +108,8 @@ class SlackSocketAdapter(PlatformAdapter):
 
     def stop(self) -> bool:
         if self._handler:
-            try:
+            with contextlib.suppress(Exception):
                 self._handler.close()
-            except Exception:
-                pass
         self._started = False
         logger.info("Slack Socket 适配器已停止")
         return True

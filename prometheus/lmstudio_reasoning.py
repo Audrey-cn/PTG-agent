@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 
 class LMStudioReasoning:
     def __init__(self) -> None:
@@ -23,7 +21,7 @@ class LMStudioReasoning:
             return prompt
         return f"{self._reasoning_prefix}\n{prompt}\n{self._reasoning_suffix}"
 
-    def extract_reasoning(self, response: str) -> tuple[str, str]:
+    def extract_reasoning(self, response: str) -> Tuple[str, str]:
         if self._reasoning_prefix not in response:
             return "", response
         start = response.find(self._reasoning_prefix) + len(self._reasoning_prefix)

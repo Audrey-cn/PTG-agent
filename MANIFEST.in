@@ -1,0 +1,39 @@
+# MANIFEST.in — 控制 sdist 发布包内容
+# 参考: https://packaging.python.org/en/latest/guides/using-manifest-in/
+
+# 包含根文档
+include README.md
+include LICENSE
+include CHANGELOG.md
+
+# 包含 pyproject.toml（构建必需）
+global-include pyproject.toml
+
+# 包含技能文件
+graft prometheus/skills
+
+# 包含插件文件
+graft prometheus/plugins
+
+# 包含测试数据
+graft prometheus/tests
+
+# 排除不需要的文件
+prune __pycache__
+prune .git
+prune .venv
+prune venv
+prune build
+prune dist
+prune *.egg-info
+prune .trae
+prune .pytest_cache
+prune .mypy_cache
+prune .ruff_cache
+prune .github
+prune docs_internal
+prune scripts
+exclude *.pyc
+exclude *.pyo
+exclude *.pyd
+exclude .DS_Store

@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import json
 import logging
-from typing import Optional, Any
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ class MattermostSlashAdapter(PlatformAdapter):
         logger.info("Mattermost Slash 发送: %s", message[:50])
         return True
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_commands:
             msg = self._pending_commands.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)
@@ -57,7 +56,7 @@ class MattermostSlashAdapter(PlatformAdapter):
             return True
         expected = hmac.new(
             self.webhook_secret.encode("utf-8"),
-            f"{timestamp}:{body}".encode("utf-8"),
+            f"{timestamp}:{body}".encode(),
             hashlib.sha256,
         ).hexdigest()
         return hmac.compare_digest(expected, signature)
@@ -71,15 +70,17 @@ class MattermostSlashAdapter(PlatformAdapter):
         user_name = request_data.get("user_name", "")
         channel_id = request_data.get("channel_id", "")
         team_domain = request_data.get("team_domain", "")
-        self._pending_commands.append({
-            "text": text,
-            "command": command,
-            "user_id": user_id,
-            "user_name": user_name,
-            "channel_id": channel_id,
-            "team_domain": team_domain,
-            "platform": "mattermost_slash",
-        })
+        self._pending_commands.append(
+            {
+                "text": text,
+                "command": command,
+                "user_id": user_id,
+                "user_name": user_name,
+                "channel_id": channel_id,
+                "team_domain": team_domain,
+                "platform": "mattermost_slash",
+            }
+        )
         if self._message_handler:
             try:
                 response = self._message_handler(text, channel_id=channel_id, user_id=user_id)

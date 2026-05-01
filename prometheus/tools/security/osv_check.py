@@ -1,0 +1,130 @@
+"""OSV malware check for MCP extension packages."""
+
+import json
+import logging
+import os
+import re
+import urllib.request
+
+logger = logging.getLogger(__name__)
+
+_OSV_ENDPOINT = os.getenv("OSV_ENDPOINT", "https://api.osv.dev/v1/query")
+_TIMEOUT = 10
+
+
+def check_package_for_malware(command: str, args: list) -> str | None:
+    """Check if an MCP server package has known malware advisories.
+
+    Inspects the *command* (e.g. ``npx``, ``uvx``) and *args* to infer the
+    package name and ecosystem.  Queries the OSV API for MAL-* advisories.
+
+    Returns:
+        An error message string if malware is found, or None if clean/unknown.
+        Returns None (allow) on network errors or unrecognized commands.
+    """
+    ecosystem = _infer_ecosystem(command)
+    if not ecosystem:
+        return None
+
+    package, version = _parse_package_from_args(args, ecosystem)
+    if not package:
+        return None
+
+    try:
+        malware = _query_osv(package, ecosystem, version)
+    except Exception as exc:
+        logger.debug("OSV check failed for %s/%s (allowing): %s", ecosystem, package, exc)
+        return None
+
+    if malware:
+        ids = ", ".join(m["id"] for m in malware[:3])
+        summaries = "; ".join(m.get("summary", m["id"])[:100] for m in malware[:3])
+        return (
+            f"BLOCKED: Package '{package}' ({ecosystem}) has known malware "
+            f"advisories: {ids}. Details: {summaries}"
+        )
+    return None
+
+
+def _infer_ecosystem(command: str) -> str | None:
+    """Infer package ecosystem from the command name."""
+    base = os.path.basename(command).lower()
+    if base in ("npx", "npx.cmd"):
+        return "npm"
+    if base in ("uvx", "uvx.cmd", "pipx"):
+        return "PyPI"
+    return None
+
+
+def _parse_package_from_args(args: list, ecosystem: str) -> tuple[str | None, str | None]:
+    """Extract package name and optional version from command args.
+
+    Returns (package_name, version) or (None, None) if not parseable.
+    """
+    if not args:
+        return None, None
+
+    package_token = None
+    for arg in args:
+        if not isinstance(arg, str):
+            continue
+        if arg.startswith("-"):
+            continue
+        package_token = arg
+        break
+
+    if not package_token:
+        return None, None
+
+    if ecosystem == "npm":
+        return _parse_npm_package(package_token)
+    elif ecosystem == "PyPI":
+        return _parse_pypi_package(package_token)
+    return package_token, None
+
+
+def _parse_npm_package(token: str) -> tuple[str | None, str | None]:
+    """Parse npm package: @scope/name@version or name@version."""
+    if token.startswith("@"):
+        match = re.match(r"^(@[^/]+/[^@]+)(?:@(.+))?$", token)
+        if match:
+            return match.group(1), match.group(2)
+        return token, None
+    if "@" in token:
+        parts = token.rsplit("@", 1)
+        name = parts[0]
+        version = parts[1] if len(parts) > 1 and parts[1] != "latest" else None
+        return name, version
+    return token, None
+
+
+def _parse_pypi_package(token: str) -> tuple[str | None, str | None]:
+    """Parse PyPI package: name==version or name[extras]==version."""
+    match = re.match(r"^([a-zA-Z0-9._-]+)(?:\[[^\]]*\])?(?:==(.+))?$", token)
+    if match:
+        return match.group(1), match.group(2)
+    return token, None
+
+
+def _query_osv(package: str, ecosystem: str, version: str | None = None) -> list:
+    """Query the OSV API for MAL-* advisories. Returns list of malware vulns."""
+    payload = {"package": {"name": package, "ecosystem": ecosystem}}
+    if version:
+        payload["version"] = version
+
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        _OSV_ENDPOINT,
+        data=data,
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "prometheus-agent-osv-check/1.0",
+        },
+        method="POST",
+    )
+
+    with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+        result = json.loads(resp.read())
+
+    vulns = result.get("vulns", [])
+    return [v for v in vulns if v.get("id", "").startswith("MAL-")]

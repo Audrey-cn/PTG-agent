@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import json
-from typing import Any, Optional
 
 _TOOL_DEFINITIONS: list[dict] = []
 _TOOL_HANDLERS: dict[str, callable] = {}
@@ -23,19 +22,23 @@ def get_tool_definitions() -> list[dict]:
     try:
         from .tools.registry import registry
     except ImportError:
-        from tools.registry import registry
+        from prometheus.tools.registry import registry
 
     dynamic = []
-    if hasattr(registry, '_tools'):
+    if hasattr(registry, "_tools"):
         for name, entry in registry._tools.items():
-            dynamic.append({
-                "type": "function",
-                "function": {
-                    "name": name,
-                    "description": getattr(entry, 'description', ''),
-                    "parameters": getattr(entry.schema, 'parameters', {}) if hasattr(entry, 'schema') else {},
-                },
-            })
+            dynamic.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": getattr(entry, "description", ""),
+                        "parameters": getattr(entry.schema, "parameters", {})
+                        if hasattr(entry, "schema")
+                        else {},
+                    },
+                }
+            )
 
     return _TOOL_DEFINITIONS + dynamic
 
@@ -53,9 +56,9 @@ def handle_tool_call(tool_name: str, tool_args: dict) -> str:
     try:
         from .tools.registry import registry
     except ImportError:
-        from tools.registry import registry
+        from prometheus.tools.registry import registry
 
-    entry = registry.get(tool_name) if hasattr(registry, 'get') else None
+    entry = registry.get(tool_name) if hasattr(registry, "get") else None
     if entry is None:
         return json.dumps({"error": f"Unknown tool: {tool_name}"})
 
@@ -74,8 +77,8 @@ def has_tool(tool_name: str) -> bool:
     try:
         from .tools.registry import registry
     except ImportError:
-        from tools.registry import registry
-    return bool(registry.get(tool_name)) if hasattr(registry, 'get') else False
+        from prometheus.tools.registry import registry
+    return bool(registry.get(tool_name)) if hasattr(registry, "get") else False
 
 
 def get_tool_count() -> int:

@@ -1,7 +1,7 @@
 import logging
-from typing import Optional, Any
 
 from prometheus.channels.base import ChannelConfig, ChannelResponse
+
 from . import PlatformAdapter
 
 logger = logging.getLogger(__name__)
@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 try:
     import discord
     from discord.ext import commands
+
     DISCORD_AVAILABLE = True
 except ImportError:
     DISCORD_AVAILABLE = False
@@ -37,6 +38,7 @@ class DiscordAdapter(PlatformAdapter):
                 channel = self._bot.get_channel(int(target_id))
                 if channel:
                     import asyncio
+
                     loop = asyncio.get_event_loop()
                     if loop.is_running():
                         asyncio.ensure_future(channel.send(message[:2000]))
@@ -48,7 +50,7 @@ class DiscordAdapter(PlatformAdapter):
             logger.error("Discord send failed: %s", e)
             return False
 
-    def receive(self, timeout: float = 30, **kwargs) -> Optional[ChannelResponse]:
+    def receive(self, timeout: float = 30, **kwargs) -> ChannelResponse | None:
         if self._pending_messages:
             msg = self._pending_messages.pop(0)
             return ChannelResponse(content=msg.get("text", ""), metadata=msg)
@@ -74,25 +76,32 @@ class DiscordAdapter(PlatformAdapter):
             async def on_message(message):
                 if message.author == self._bot.user:
                     return
-                if self.allowed_channels and message.channel.id not in [int(c) for c in self.allowed_channels]:
+                if self.allowed_channels and message.channel.id not in [
+                    int(c) for c in self.allowed_channels
+                ]:
                     return
 
-                self._pending_messages.append({
-                    "text": message.content,
-                    "channel_id": message.channel.id,
-                    "user": str(message.author),
-                    "platform": "discord",
-                })
+                self._pending_messages.append(
+                    {
+                        "text": message.content,
+                        "channel_id": message.channel.id,
+                        "user": str(message.author),
+                        "platform": "discord",
+                    }
+                )
 
                 if self._message_handler:
                     try:
-                        response = self._message_handler(message.content, channel_id=message.channel.id)
+                        response = self._message_handler(
+                            message.content, channel_id=message.channel.id
+                        )
                         if response:
                             await message.channel.send(str(response)[:2000])
                     except Exception as e:
                         logger.error("Message handler error: %s", e)
 
             import threading
+
             def _run():
                 self._bot.run(self.token)
 
@@ -109,6 +118,7 @@ class DiscordAdapter(PlatformAdapter):
         if self._bot:
             try:
                 import asyncio
+
                 asyncio.run(self._bot.close())
             except Exception:
                 pass

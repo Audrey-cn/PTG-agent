@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -32,35 +33,23 @@ class RateLimitTracker:
             for key, value in headers.items():
                 key_lower = key.lower()
                 if key_lower in ("x-ratelimit-remaining-requests", "x-ratelimit-remaining"):
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         state.remaining_requests = int(value)
-                    except (ValueError, TypeError):
-                        pass
                 elif key_lower in ("x-ratelimit-remaining-tokens",):
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         state.remaining_tokens = int(value)
-                    except (ValueError, TypeError):
-                        pass
                 elif key_lower in ("x-ratelimit-reset-requests", "x-ratelimit-reset"):
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         state.reset_requests_at = float(value)
-                    except (ValueError, TypeError):
-                        pass
                 elif key_lower in ("x-ratelimit-reset-tokens",):
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         state.reset_tokens_at = float(value)
-                    except (ValueError, TypeError):
-                        pass
                 elif key_lower in ("x-ratelimit-limit-requests", "x-ratelimit-limit"):
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         state.limit_requests = int(value)
-                    except (ValueError, TypeError):
-                        pass
                 elif key_lower in ("x-ratelimit-limit-tokens",):
-                    try:
+                    with contextlib.suppress(ValueError, TypeError):
                         state.limit_tokens = int(value)
-                    except (ValueError, TypeError):
-                        pass
 
             now = time.time()
             if state.reset_requests_at is not None and now >= state.reset_requests_at:

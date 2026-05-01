@@ -3,10 +3,9 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from typing import Optional
 
 
-def _get_platform_commands() -> dict[str, tuple[str, ...]]:
+def _get_platform_commands() -> Dict[str, Tuple[str, ...]]:
     if sys.platform == "darwin":
         return {
             "copy": ("pbcopy",),
@@ -36,10 +35,8 @@ def _is_command_available(command: str) -> bool:
         return False
 
 
-def _get_fallback_commands() -> dict[str, tuple[str, ...]]:
-    if sys.platform == "darwin":
-        return {}
-    elif sys.platform == "win32":
+def _get_fallback_commands() -> Dict[str, Tuple[str, ...]]:
+    if sys.platform == "darwin" or sys.platform == "win32":
         return {}
     else:
         if _is_command_available("xclip"):
@@ -104,14 +101,22 @@ def copy_image_to_clipboard(image_path: str) -> bool:
             ext = os.path.splitext(image_path)[1].lower()
             if ext in (".png",):
                 result = subprocess.run(
-                    ["osascript", "-e", f'set the clipboard to (read (POSIX file "{image_path}") as PNG picture)'],
+                    [
+                        "osascript",
+                        "-e",
+                        f'set the clipboard to (read (POSIX file "{image_path}") as PNG picture)',
+                    ],
                     capture_output=True,
                     text=True,
                 )
                 return result.returncode == 0
             elif ext in (".jpg", ".jpeg"):
                 result = subprocess.run(
-                    ["osascript", "-e", f'set the clipboard to (read (POSIX file "{image_path}") as JPEG picture)'],
+                    [
+                        "osascript",
+                        "-e",
+                        f'set the clipboard to (read (POSIX file "{image_path}") as JPEG picture)',
+                    ],
                     capture_output=True,
                     text=True,
                 )
@@ -188,9 +193,7 @@ def is_clipboard_available() -> bool:
         return True
     fallback = _get_fallback_commands()
     copy_cmd = fallback.get("copy")
-    if copy_cmd and _is_command_available(copy_cmd[0]):
-        return True
-    return False
+    return bool(copy_cmd and _is_command_available(copy_cmd[0]))
 
 
 def clear_clipboard() -> bool:

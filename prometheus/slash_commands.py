@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import copy
+import json
 import os
 import sys
-import json
 import time
-import copy
-from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass(frozen=True)
@@ -14,9 +17,9 @@ class CommandDef:
     name: str
     description: str
     category: str = "General"
-    aliases: tuple[str, ...] = ()
+    aliases: Tuple[str, ...] = ()
     args_hint: str = ""
-    subcommands: tuple[str, ...] = ()
+    subcommands: Tuple[str, ...] = ()
     cli_only: bool = False
     gateway_only: bool = False
 
@@ -34,23 +37,51 @@ COMMAND_REGISTRY: list[CommandDef] = [
     CommandDef("background", "在后台运行提示词", "Session", aliases=("bg",), args_hint="<prompt>"),
     CommandDef("queue", "排队下一条提示", "Session", aliases=("q",), args_hint="<prompt>"),
     CommandDef("status", "显示会话信息", "Session"),
-
     CommandDef("config", "显示当前配置", "Configuration", cli_only=True),
-    CommandDef("model", "切换或查看当前模型", "Configuration", aliases=("provider",), args_hint="[model]"),
+    CommandDef(
+        "model", "切换或查看当前模型", "Configuration", aliases=("provider",), args_hint="[model]"
+    ),
     CommandDef("personality", "设置预定义个性", "Configuration", args_hint="[name]"),
     CommandDef("yolo", "切换 YOLO 模式（跳过危险命令审批）", "Configuration"),
-    CommandDef("reasoning", "管理推理力度", "Configuration", args_hint="[level|show|hide]", subcommands=("none", "low", "medium", "high", "show", "hide")),
+    CommandDef(
+        "reasoning",
+        "管理推理力度",
+        "Configuration",
+        args_hint="[level|show|hide]",
+        subcommands=("none", "low", "medium", "high", "show", "hide"),
+    ),
     CommandDef("skin", "显示或切换皮肤/主题", "Configuration", cli_only=True, args_hint="[name]"),
     CommandDef("verbose", "切换工具进度显示", "Configuration", cli_only=True),
-
-    CommandDef("tools", "管理工具：/tools [list|disable|enable]", "Tools & Skills", args_hint="[list|disable|enable] [name...]"),
+    CommandDef(
+        "tools",
+        "管理工具：/tools [list|disable|enable]",
+        "Tools & Skills",
+        args_hint="[list|disable|enable] [name...]",
+    ),
     CommandDef("toolsets", "列出可用工具集", "Tools & Skills", cli_only=True),
-    CommandDef("skills", "搜索、安装、检查或管理技能", "Tools & Skills", cli_only=True, subcommands=("search", "browse", "inspect", "install")),
-    CommandDef("cron", "管理定时任务", "Tools & Skills", cli_only=True, subcommands=("list", "add", "remove", "run")),
+    CommandDef(
+        "skills",
+        "搜索、安装、检查或管理技能",
+        "Tools & Skills",
+        cli_only=True,
+        subcommands=("search", "browse", "inspect", "install"),
+    ),
+    CommandDef(
+        "cron",
+        "管理定时任务",
+        "Tools & Skills",
+        cli_only=True,
+        subcommands=("list", "add", "remove", "run"),
+    ),
     CommandDef("reload", "重载 .env 变量到运行会话", "Tools & Skills", cli_only=True),
     CommandDef("reload-mcp", "重载 MCP 服务器配置", "Tools & Skills", aliases=("reload_mcp",)),
-    CommandDef("browser", "连接浏览器工具到 Chrome (CDP)", "Tools & Skills", cli_only=True, subcommands=("connect", "disconnect", "status")),
-
+    CommandDef(
+        "browser",
+        "连接浏览器工具到 Chrome (CDP)",
+        "Tools & Skills",
+        cli_only=True,
+        subcommands=("connect", "disconnect", "status"),
+    ),
     CommandDef("help", "显示可用命令", "Info"),
     CommandDef("usage", "显示当前会话的 Token 使用量", "Info"),
     CommandDef("insights", "显示使用洞察和分析", "Info", args_hint="[days]"),
@@ -59,19 +90,17 @@ COMMAND_REGISTRY: list[CommandDef] = [
     CommandDef("image", "附加本地图片文件到下一条提示", "Info", cli_only=True, args_hint="<path>"),
     CommandDef("update", "更新 Prometheus Agent 到最新版本", "Info"),
     CommandDef("debug", "上传调试报告并获取分享链接", "Info"),
-
     CommandDef("stamp", "在种子上烙印", "Chronicler", args_hint="<path> [mark]"),
     CommandDef("trace", "追溯种子历史", "Chronicler", args_hint="<path>"),
     CommandDef("append", "附加历史记录到种子", "Chronicler", args_hint="<path> <note>"),
     CommandDef("inspect", "检查种子", "Chronicler", args_hint="<path>"),
     CommandDef("stamps", "列出种子上的烙印", "Chronicler", args_hint="<path>"),
-
     CommandDef("quit", "退出 CLI", "Exit", cli_only=True, aliases=("exit",)),
 ]
 
 
-def _build_command_lookup() -> dict[str, CommandDef]:
-    lookup: dict[str, CommandDef] = {}
+def _build_command_lookup() -> Dict[str, CommandDef]:
+    lookup: Dict[str, CommandDef] = {}
     for cmd in COMMAND_REGISTRY:
         lookup[cmd.name] = cmd
         for alias in cmd.aliases:
@@ -79,21 +108,21 @@ def _build_command_lookup() -> dict[str, CommandDef]:
     return lookup
 
 
-_COMMAND_LOOKUP: dict[str, CommandDef] = _build_command_lookup()
+_COMMAND_LOOKUP: Dict[str, CommandDef] = _build_command_lookup()
 
 
 def resolve_command(name: str) -> CommandDef | None:
     return _COMMAND_LOOKUP.get(name.lower().lstrip("/"))
 
 
-COMMANDS: dict[str, str] = {}
+COMMANDS: Dict[str, str] = {}
 for _cmd in COMMAND_REGISTRY:
     if not _cmd.gateway_only:
         COMMANDS[f"/{_cmd.name}"] = _cmd.description
         for _alias in _cmd.aliases:
             COMMANDS[f"/{_alias}"] = f"{_cmd.description} (alias for /{_cmd.name})"
 
-COMMANDS_BY_CATEGORY: dict[str, dict[str, str]] = {}
+COMMANDS_BY_CATEGORY: Dict[str, Dict[str, str]] = {}
 for _cmd in COMMAND_REGISTRY:
     if not _cmd.gateway_only:
         _cat = COMMANDS_BY_CATEGORY.setdefault(_cmd.category, {})
@@ -101,7 +130,7 @@ for _cmd in COMMAND_REGISTRY:
         for _alias in _cmd.aliases:
             _cat[f"/{_alias}"] = COMMANDS[f"/{_alias}"]
 
-SUBCOMMANDS: dict[str, list[str]] = {}
+SUBCOMMANDS: Dict[str, List[str]] = {}
 for _cmd in COMMAND_REGISTRY:
     if _cmd.subcommands:
         SUBCOMMANDS[f"/{_cmd.name}"] = list(_cmd.subcommands)
@@ -125,7 +154,7 @@ class ChatSession:
         self._stopped: bool = False
         self._queued_prompt: str | None = None
 
-    def add_exchange(self, user_msg: str, assistant_msg: str, cost: dict | None = None):
+    def add_exchange(self, user_msg: str, assistant_msg: str, cost: Dict | None = None):
         self.history.append({"role": "user", "content": user_msg})
         self.history.append({"role": "assistant", "content": assistant_msg})
         self._last_user_message = user_msg
@@ -159,7 +188,7 @@ class ChatSession:
 class SlashCommandDispatcher:
     def __init__(self, session: ChatSession):
         self.session = session
-        self._handlers: dict[str, Callable] = {
+        self._handlers: Dict[str, Callable] = {
             "new": self._cmd_new,
             "reset": self._cmd_new,
             "clear": self._cmd_clear,
@@ -205,7 +234,7 @@ class SlashCommandDispatcher:
             "exit": self._cmd_quit,
         }
 
-    def dispatch(self, raw_input: str) -> tuple[bool, str | None]:
+    def dispatch(self, raw_input: str) -> Tuple[bool, str | None]:
         stripped = raw_input.strip()
         if not stripped.startswith("/"):
             return False, None
@@ -233,14 +262,14 @@ class SlashCommandDispatcher:
 
     def _cmd_clear(self, args: str) -> None:
         self.session.clear()
-        os.system('cls' if os.name == 'nt' else 'clear')
+        os.system("cls" if os.name == "nt" else "clear")
         print("  ✨ 屏幕已清除，新会话已开始")
 
     def _cmd_history(self, args: str) -> None:
         if not self.session.history:
             print("  (无对话历史)")
             return
-        for i, msg in enumerate(self.session.history):
+        for _i, msg in enumerate(self.session.history):
             role = msg.get("role", "?")
             content = msg.get("content", "")
             if role == "user":
@@ -251,13 +280,16 @@ class SlashCommandDispatcher:
                 prefix = f"  [{role}]"
             display = content[:120] + ("..." if len(content) > 120 else "")
             print(f"{prefix} {display}")
-        print(f"\n  共 {self.session.turn_count} 轮对话，约 {self.session.estimate_tokens()} tokens")
+        print(
+            f"\n  共 {self.session.turn_count} 轮对话，约 {self.session.estimate_tokens()} tokens"
+        )
 
     def _cmd_save(self, args: str) -> None:
         if not self.session.history:
             print("  (无对话可保存)")
             return
         from prometheus.config import get_prometheus_home
+
         save_dir = get_prometheus_home() / "saves"
         save_dir.mkdir(parents=True, exist_ok=True)
         ts = time.strftime("%Y%m%d_%H%M%S")
@@ -316,6 +348,7 @@ class SlashCommandDispatcher:
         focus = args.strip() if args.strip() else None
         try:
             from prometheus.context_compressor import compress_history
+
             compressed = compress_history(self.session.history, focus=focus)
             old_count = len(self.session.history)
             self.session.history = compressed
@@ -326,8 +359,12 @@ class SlashCommandDispatcher:
             if total > 20000:
                 half = len(self.session.history) // 2
                 removed = len(self.session.history) - half
-                self.session.history = self.session.history[-half:] if half > 0 else self.session.history
-                print(f"  🗜️  简易压缩: 移除前 {removed} 条消息，保留最近 {len(self.session.history)} 条")
+                self.session.history = (
+                    self.session.history[-half:] if half > 0 else self.session.history
+                )
+                print(
+                    f"  🗜️  简易压缩: 移除前 {removed} 条消息，保留最近 {len(self.session.history)} 条"
+                )
             else:
                 print(f"  当前上下文约 {total} tokens，无需压缩")
 
@@ -337,17 +374,20 @@ class SlashCommandDispatcher:
 
     def _cmd_status(self, args: str) -> None:
         est = self.session.estimate_tokens()
-        print(f"  📊 会话状态:")
+        print("  📊 会话状态:")
         print(f"     轮次: {self.session.turn_count}")
         print(f"     消息: {len(self.session.history)} 条")
         print(f"     估算 Token: ~{est}")
-        print(f"     实际 Token: {self.session.total_tokens_in}in / {self.session.total_tokens_out}out")
+        print(
+            f"     实际 Token: {self.session.total_tokens_in}in / {self.session.total_tokens_out}out"
+        )
         print(f"     工具调用: {self.session.tool_calls_count}")
         print(f"     YOLO: {'开' if self.session.yolo_mode else '关'}")
         print(f"     标题: {self.session.title or '(未设置)'}")
 
     def _cmd_config(self, args: str) -> None:
         from prometheus.config import Config as PrometheusConfig
+
         cfg = PrometheusConfig.load()
         d = cfg.to_dict()
         print("  ⚙️  当前配置:")
@@ -383,6 +423,7 @@ class SlashCommandDispatcher:
             return
         try:
             from prometheus.config import Config as PrometheusConfig
+
             cfg = PrometheusConfig.load()
             d = cfg.to_dict()
             personalities = d.get("agent", {}).get("personalities", {})
@@ -392,7 +433,9 @@ class SlashCommandDispatcher:
                 self.session.agent.system_prompt = prompt
                 print(f"  🎭 个性已切换为: {name}")
             else:
-                print(f"  未知个性: {name}。可用: {', '.join(personalities.keys()) if personalities else '(无)'}")
+                print(
+                    f"  未知个性: {name}。可用: {', '.join(personalities.keys()) if personalities else '(无)'}"
+                )
         except Exception as e:
             print(f"  错误: {e}")
 
@@ -418,7 +461,8 @@ class SlashCommandDispatcher:
     def _cmd_skin(self, args: str) -> None:
         if not args.strip():
             try:
-                from prometheus.skin_engine import list_skins, get_active_skin_name
+                from prometheus.skin_engine import get_active_skin_name, list_skins
+
                 skins = list_skins()
                 active = get_active_skin_name()
                 print("  可用皮肤:")
@@ -429,7 +473,8 @@ class SlashCommandDispatcher:
                 print("  皮肤引擎不可用")
             return
         try:
-            from prometheus.skin_engine import set_active_skin, list_skins
+            from prometheus.skin_engine import list_skins, set_active_skin
+
             available = {s["name"] for s in list_skins()}
             name = args.strip()
             if name not in available:
@@ -447,11 +492,12 @@ class SlashCommandDispatcher:
 
     def _cmd_tools(self, args: str) -> None:
         from prometheus.tools.registry import registry
+
         parts = args.strip().split()
         if not parts or parts[0] == "list":
             tool_names = registry.get_all_tool_names()
             print(f"\n  可用工具 ({len(tool_names)}):")
-            tools_by_set: dict[str, list[str]] = {}
+            tools_by_set: Dict[str, List[str]] = {}
             for name in tool_names:
                 toolset = registry.get_toolset_for_tool(name) or "default"
                 tools_by_set.setdefault(toolset, []).append(name)
@@ -472,13 +518,16 @@ class SlashCommandDispatcher:
 
     def _cmd_toolsets(self, args: str) -> None:
         from prometheus.tools.registry import registry
+
         tool_names = registry.get_all_tool_names()
-        toolsets: set[str] = set()
+        toolsets: Set[str] = set()
         for name in tool_names:
             toolsets.add(registry.get_toolset_for_tool(name) or "default")
         print(f"\n  可用工具集 ({len(toolsets)}):")
         for ts in sorted(toolsets):
-            count = sum(1 for n in tool_names if (registry.get_toolset_for_tool(n) or "default") == ts)
+            count = sum(
+                1 for n in tool_names if (registry.get_toolset_for_tool(n) or "default") == ts
+            )
             print(f"    - {ts} ({count} 工具)")
         print()
 
@@ -488,6 +537,7 @@ class SlashCommandDispatcher:
         if sub == "browse":
             try:
                 from prometheus.tools.skill_loader import list_available_skills
+
                 skills = list_available_skills()
                 if not skills:
                     print("  (无可用技能)")
@@ -501,7 +551,7 @@ class SlashCommandDispatcher:
             except Exception as e:
                 print(f"  错误: {e}")
         else:
-            print(f"  用法: /skills [browse|search|inspect|install]")
+            print("  用法: /skills [browse|search|inspect|install]")
 
     def _cmd_cron(self, args: str) -> None:
         parts = args.strip().split()
@@ -509,6 +559,7 @@ class SlashCommandDispatcher:
         if sub == "list":
             try:
                 from prometheus.tools.cron import list_jobs
+
                 jobs = list_jobs()
                 if not jobs:
                     print("  (无定时任务)")
@@ -518,14 +569,16 @@ class SlashCommandDispatcher:
             except Exception:
                 print("  定时任务系统不可用")
         else:
-            print(f"  用法: /cron [list|add|remove|run]")
+            print("  用法: /cron [list|add|remove|run]")
 
     def _cmd_reload(self, args: str) -> None:
         from pathlib import Path
+
         env_file = Path(".") / ".env"
         if env_file.exists():
             from prometheus.config import Config as PrometheusConfig
-            cfg = PrometheusConfig.load()
+
+            PrometheusConfig.load()
             print("  ✅ 配置已重新加载")
         else:
             print("  未找到 .env 文件")
@@ -543,7 +596,7 @@ class SlashCommandDispatcher:
             print("  浏览器: 已断开")
 
     def _cmd_help(self, args: str) -> None:
-        print(f"\n  🔥 Prometheus 斜杠命令\n")
+        print("\n  🔥 Prometheus 斜杠命令\n")
         for category, cmds in COMMANDS_BY_CATEGORY.items():
             print(f"  ── {category} ──")
             for cmd, desc in cmds.items():
@@ -552,7 +605,7 @@ class SlashCommandDispatcher:
         print("  提示: 直接输入消息与 AI 对话，无需 / 前缀\n")
 
     def _cmd_usage(self, args: str) -> None:
-        print(f"  📊 Token 使用量:")
+        print("  📊 Token 使用量:")
         print(f"     输入: {self.session.total_tokens_in:,}")
         print(f"     输出: {self.session.total_tokens_out:,}")
         print(f"     总计: {self.session.total_tokens_in + self.session.total_tokens_out:,}")
@@ -560,15 +613,18 @@ class SlashCommandDispatcher:
         print(f"     对话轮次: {self.session.turn_count}")
 
     def _cmd_insights(self, args: str) -> None:
-        print(f"  📈 使用洞察:")
+        print("  📈 使用洞察:")
         print(f"     总轮次: {self.session.turn_count}")
         print(f"     总 Token: {self.session.total_tokens_in + self.session.total_tokens_out:,}")
-        avg = (self.session.total_tokens_in + self.session.total_tokens_out) / max(self.session.turn_count, 1)
+        avg = (self.session.total_tokens_in + self.session.total_tokens_out) / max(
+            self.session.turn_count, 1
+        )
         print(f"     平均每轮 Token: {avg:.0f}")
 
     def _cmd_platforms(self, args: str) -> None:
         try:
             from prometheus.gateway_manager import gateway_status
+
             status = gateway_status()
             if status.get("running"):
                 print(f"  🌐 Gateway 运行中 (pid: {status.get('pid', '?')})")
@@ -583,6 +639,7 @@ class SlashCommandDispatcher:
             return
         try:
             import subprocess
+
             process = subprocess.Popen(
                 ["pbcopy"] if sys.platform == "darwin" else ["xclip", "-selection", "clipboard"],
                 stdin=subprocess.PIPE,
@@ -607,6 +664,7 @@ class SlashCommandDispatcher:
         print("  🔄 正在检查更新...")
         try:
             from prometheus.cli.main import _cmd_update_check
+
             _cmd_update_check()
         except Exception as e:
             print(f"  更新检查失败: {e}")
@@ -631,6 +689,7 @@ class SlashCommandDispatcher:
         mark = parts[1] if len(parts) > 1 else ""
         try:
             from prometheus.tools.registry import registry
+
             result = registry.dispatch("stamp_seed", {"seed_path": seed_path, "mark": mark})
             print(f"  {result}")
         except Exception as e:
@@ -643,6 +702,7 @@ class SlashCommandDispatcher:
             return
         try:
             from prometheus.tools.registry import registry
+
             result = registry.dispatch("trace_seed", {"seed_path": path})
             print(f"  {result}")
         except Exception as e:
@@ -655,7 +715,10 @@ class SlashCommandDispatcher:
             return
         try:
             from prometheus.tools.registry import registry
-            result = registry.dispatch("append_historical_note", {"seed_path": parts[0], "note": parts[1]})
+
+            result = registry.dispatch(
+                "append_historical_note", {"seed_path": parts[0], "note": parts[1]}
+            )
             print(f"  {result}")
         except Exception as e:
             print(f"  错误: {e}")
@@ -667,6 +730,7 @@ class SlashCommandDispatcher:
             return
         try:
             from prometheus.tools.registry import registry
+
             result = registry.dispatch("inspect_seed", {"seed_path": path})
             print(f"  {result}")
         except Exception as e:
@@ -679,6 +743,7 @@ class SlashCommandDispatcher:
             return
         try:
             from prometheus.tools.registry import registry
+
             result = registry.dispatch("list_stamps", {"seed_path": path})
             print(f"  {result}")
         except Exception as e:

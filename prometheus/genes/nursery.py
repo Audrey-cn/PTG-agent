@@ -1,23 +1,12 @@
 #!/usr/bin/env python3
-"""
-╔══════════════════════════════════════════════════════════════╗
-║   🧪 基因筛 · Gene Sieve & 苗圃 · Nursery                   ║
-║                                                              ║
-║   「百花齐放，只取最艳；一粒入土，观其一生。」               ║
-║                                                              ║
-║   对应碳基生物学的自然选择机制：                            ║
-║   - 基因筛(GeneSieve) → 自然选择筛选适应者                 ║
-║   - 苗圃培育(Nursery) → 表型评估与适合度测试               ║
-║   - 多维度评分 → 适合度(Fitness)评估                       ║
-╚══════════════════════════════════════════════════════════════╝
+"""╔══════════════════════════════════════════════════════════════╗."""
 
-碳基生物学对照：
-- 自然选择(Natural Selection)：环境筛选适应者，淘汰不适应者
-- 适合度(Fitness)：个体生存和繁殖能力的综合度量
-- 表型评估(Phenotype Evaluation)：观察个体表现型特征
-- 培育周期：对应个体发育过程，从种子到成熟个体
-"""
-import os, sys, re, json, datetime, hashlib, shutil
+import datetime
+import json
+import os
+import re
+import shutil
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -32,25 +21,26 @@ os.makedirs(NURSERY_DIR, exist_ok=True)
 # Part 1: Seed Loader (shared between Sieve & Nursery)
 # =====================================================
 
+
 def _load_seed_meta(path):
     """提取种子元数据，不完整解析，容忍格式问题。"""
     if not os.path.exists(path):
         return None
-    with open(path, 'r') as f:
+    with open(path) as f:
         content = f.read()
 
     meta = {"path": path, "size": len(content), "content": content}
 
     # life_id
     m = re.search(r'life_id:\s*"([^"]+)"', content)
-    meta["life_id"] = m.group(1) if m else os.path.basename(path).replace('.ttg', '')
+    meta["life_id"] = m.group(1) if m else os.path.basename(path).replace(".ttg", "")
 
     # sacred_name
     m = re.search(r'sacred_name:\s*"([^"]+)"', content)
     meta["sacred_name"] = m.group(1) if m else "?"
 
     # generation
-    m = re.search(r'generation:\s*(\d+)', content)
+    m = re.search(r"generation:\s*(\d+)", content)
     meta["generation"] = int(m.group(1)) if m else 1
 
     # variant
@@ -63,13 +53,13 @@ def _load_seed_meta(path):
     meta["gene_ids"] = genes
 
     # carbon_bonded check
-    meta["has_carbon"] = 'carbon_bonded: true' in content
+    meta["has_carbon"] = "carbon_bonded: true" in content
 
     # forge_config
-    m = re.search(r'forge_config:(.*?)(?=\n```|\n# 🔥|\Z)', content, re.DOTALL)
+    m = re.search(r"forge_config:(.*?)(?=\n```|\n# 🔥|\Z)", content, re.DOTALL)
     if m:
         forge_raw = m.group(1)
-        genes_added = re.search(r'genes_added:\s*(\[.*?\])', forge_raw)
+        genes_added = re.search(r"genes_added:\s*(\[.*?\])", forge_raw)
         meta["forge_genes"] = json.loads(genes_added.group(1)) if genes_added else []
         parent = re.search(r'parent:\s*"([^"]+)"', forge_raw)
         meta["forge_parent"] = parent.group(1) if parent else None
@@ -88,15 +78,16 @@ def _load_seed_meta(path):
 # Part 2: GeneSieve — 多维度筛选器
 # =====================================================
 
+
 class GeneSieve:
     """基因筛：从变异体批次中选出最优种子。"""
 
     DEFAULT_WEIGHTS = {
-        "health": 0.30,       # 结构完整性
+        "health": 0.30,  # 结构完整性
         "completeness": 0.20,  # 基因覆盖率
-        "novelty": 0.25,      # 与亲代差异度
-        "elegance": 0.15,     # 简洁性（奥卡姆剃刀）
-        "stability": 0.10,    # 文件完整性
+        "novelty": 0.25,  # 与亲代差异度
+        "elegance": 0.15,  # 简洁性（奥卡姆剃刀）
+        "stability": 0.10,  # 文件完整性
     }
 
     def __init__(self, weights=None):
@@ -123,7 +114,7 @@ class GeneSieve:
         # 加载所有变异体
         variants = []
         for fname in sorted(os.listdir(lab_dir)):
-            if not fname.endswith('.ttg'):
+            if not fname.endswith(".ttg"):
                 continue
             path = os.path.join(lab_dir, fname)
             meta = _load_seed_meta(path)
@@ -151,7 +142,7 @@ class GeneSieve:
         cutoff = max(40, scored[0][0] * 0.5) if scored else 40
         top = [s for s in scored if s[0] >= 60][:top_k]
         discard = [s for s in scored if s[0] < cutoff]
-        mid = [s for s in scored if cutoff <= s[0] < 60]
+        [s for s in scored if cutoff <= s[0] < 60]
 
         return {
             "batch_id": manifest["batch_id"] if manifest else os.path.basename(lab_dir),
@@ -159,18 +150,31 @@ class GeneSieve:
             "top_count": len(top),
             "discard_count": len(discard),
             "rankings": [
-                {"rank": i+1, "id": s[2]["life_id"], "score": round(s[0], 1),
-                 "detail": s[1], "path": s[2]["path"]}
+                {
+                    "rank": i + 1,
+                    "id": s[2]["life_id"],
+                    "score": round(s[0], 1),
+                    "detail": s[1],
+                    "path": s[2]["path"],
+                }
                 for i, s in enumerate(scored)
             ],
             "top": [
-                {"rank": i+1, "id": s[2]["life_id"], "score": round(s[0], 1),
-                 "detail": s[1], "path": s[2]["path"]}
+                {
+                    "rank": i + 1,
+                    "id": s[2]["life_id"],
+                    "score": round(s[0], 1),
+                    "detail": s[1],
+                    "path": s[2]["path"],
+                }
                 for i, s in enumerate(top)
             ],
             "discard": [
-                {"id": s[2]["life_id"], "score": round(s[0], 1),
-                 "reason": self._discard_reason(s[1])}
+                {
+                    "id": s[2]["life_id"],
+                    "score": round(s[0], 1),
+                    "reason": self._discard_reason(s[1]),
+                }
                 for s in discard[:10]
             ],
         }
@@ -185,9 +189,13 @@ class GeneSieve:
         elegance = self._score_elegance(variant)
         stability = self._score_stability(variant)
 
-        total = (health * w["health"] + completeness * w["completeness"] +
-                 novelty * w["novelty"] + elegance * w["elegance"] +
-                 stability * w["stability"])
+        total = (
+            health * w["health"]
+            + completeness * w["completeness"]
+            + novelty * w["novelty"]
+            + elegance * w["elegance"]
+            + stability * w["stability"]
+        )
 
         return {
             "health": round(health, 1),
@@ -224,7 +232,7 @@ class GeneSieve:
         p_genes = set(parent.get("gene_ids", []))
         v_genes = set(v.get("gene_ids", []))
         if p_genes == v_genes:
-            return 0   # 完全没变异
+            return 0  # 完全没变异
         added = v_genes - p_genes
         removed = p_genes - v_genes
         # 差异基因越多越新颖，但差异太大可能有问题
@@ -246,9 +254,9 @@ class GeneSieve:
         """文件稳定性：大小合理 + checksum有效"""
         size = v.get("size", 0)
         if size < 1000:
-            return 10   # 太小，可能损坏
+            return 10  # 太小，可能损坏
         if size > 500000:
-            return 50   # 太大，可能冗余
+            return 50  # 太大，可能冗余
         return 90
 
     def _discard_reason(self, scores):
@@ -279,25 +287,29 @@ class GeneSieve:
 
         # 命名
         new_name = name or meta.get("sacred_name", "unnamed")
-        safe_name = re.sub(r'[^\w\-\.]', '_', new_name)
-        fname = "{}.ttg".format(safe_name)
+        safe_name = re.sub(r"[^\w\-\.]", "_", new_name)
+        fname = f"{safe_name}.ttg"
 
         if to_vault:
             dest = os.path.join(SEED_VAULT, fname)
             shutil.copy2(variant_path, dest)
 
             # 更新变异体的sacred_name并确保创始铭刻存在
-            with open(dest, 'r') as f:
+            with open(dest) as f:
                 content = f.read()
-            content = re.sub(r'(sacred_name:\s*)"[^"]*"',
-                             lambda m: m.group(1) + '"{}"'.format(new_name),
-                             content)
+            content = re.sub(
+                r'(sacred_name:\s*)"[^"]*"', lambda m: m.group(1) + f'"{new_name}"', content
+            )
             # 确保创始铭刻存在（安全网）
-            from prometheus import inject_founder_chronicle
             import datetime
-            epoch = "Y{}-D{}".format(datetime.datetime.now().year, datetime.datetime.now().timetuple().tm_yday)
+
+            from prometheus import inject_founder_chronicle
+
+            epoch = (
+                f"Y{datetime.datetime.now().year}-D{datetime.datetime.now().timetuple().tm_yday}"
+            )
             content = inject_founder_chronicle(content, epoch)
-            with open(dest, 'w') as f:
+            with open(dest, "w") as f:
                 f.write(content)
         else:
             dest = variant_path
@@ -327,12 +339,17 @@ class GeneSieve:
                     os.remove(path)
                     removed.append(r["id"])
 
-        return {"kept": kept, "removed": removed, "message": "保留 {} 个，移除 {} 个".format(len(kept), len(removed))}
+        return {
+            "kept": kept,
+            "removed": removed,
+            "message": f"保留 {len(kept)} 个，移除 {len(removed)} 个",
+        }
 
 
 # =====================================================
 # Part 3: Nursery — 苗圃沙箱
 # =====================================================
+
 
 class Nursery:
     """苗圃容器：在隔离环境中培育种子，模拟完整生命周期。
@@ -354,11 +371,11 @@ class Nursery:
         Returns: {pot_id, phases: {}}, report
         """
         if not os.path.exists(seed_path):
-            return {"error": "种子文件不存在: {}".format(seed_path)}
+            return {"error": f"种子文件不存在: {seed_path}"}
 
         meta = _load_seed_meta(seed_path)
         pot_id = pot_name or "pot-{}".format(meta["life_id"][:20])
-        pot_path = os.path.join(self.pot_dir, pot_id)
+        os.path.join(self.pot_dir, pot_id)
 
         # 阶段0：入土 — 校验结构
         phase_soil = self._phase_soil(seed_path, meta)
@@ -388,8 +405,8 @@ class Nursery:
         }
 
         # 保存报告
-        report_path = os.path.join(NURSERY_DIR, "{}-report.json".format(pot_id))
-        with open(report_path, 'w') as f:
+        report_path = os.path.join(NURSERY_DIR, f"{pot_id}-report.json")
+        with open(report_path, "w") as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
 
         return report
@@ -403,7 +420,7 @@ class Nursery:
 
         # 2. YAML可解析
         content = meta.get("content", "")
-        has_yaml = '```yaml' in content
+        has_yaml = "```yaml" in content
         checks.append({"check": "YAML块存在", "passed": has_yaml})
 
         # 3. G000存在
@@ -412,12 +429,16 @@ class Nursery:
 
         # 4. 核心基因
         required = ["G001", "G002", "G003", "G004", "G005", "G006", "G007", "G008"]
-        missing = [r for r in required if not any(g.startswith(r) for g in meta.get("gene_ids", []))]
-        checks.append({
-            "check": "核心基因 (8个)",
-            "passed": len(missing) == 0,
-            "detail": "缺失: {}".format(missing) if missing else "完整"
-        })
+        missing = [
+            r for r in required if not any(g.startswith(r) for g in meta.get("gene_ids", []))
+        ]
+        checks.append(
+            {
+                "check": "核心基因 (8个)",
+                "passed": len(missing) == 0,
+                "detail": f"缺失: {missing}" if missing else "完整",
+            }
+        )
 
         # 5. 碳基检查
         checks.append({"check": "碳基依赖标记", "passed": meta.get("has_carbon", False)})
@@ -529,6 +550,7 @@ class Nursery:
 # CLI
 # =====================================================
 
+
 def print_help():
     print("""
 🧪 基因筛 + 苗圃 · GeneSieve & Nursery
@@ -548,6 +570,7 @@ def print_help():
     python nursery.py plant ~/.hermes/seed-vault/my-seed.ttg
 """)
 
+
 def main():
     if len(sys.argv) < 2:
         print_help()
@@ -557,15 +580,17 @@ def main():
     sieve = GeneSieve()
     nursery = Nursery()
 
-    if action == 'sieve' and len(sys.argv) > 2:
+    if action == "sieve" and len(sys.argv) > 2:
         lab_dir = os.path.expanduser(sys.argv[2])
         top_k = 5
         i = 3
         while i < len(sys.argv):
-            if sys.argv[i] == '--top' and i+1 < len(sys.argv):
-                top_k = int(sys.argv[i+1]); i += 2
-            elif sys.argv[i] == '--parent' and i+1 < len(sys.argv):
-                parent = sys.argv[i+1]; i += 2
+            if sys.argv[i] == "--top" and i + 1 < len(sys.argv):
+                top_k = int(sys.argv[i + 1])
+                i += 2
+            elif sys.argv[i] == "--parent" and i + 1 < len(sys.argv):
+                parent = sys.argv[i + 1]
+                i += 2
             else:
                 i += 1
 
@@ -592,18 +617,23 @@ def main():
             for t in result["top"]:
                 d = t["detail"]
                 print("  #{:<2} {}  总分 {:.0f}".format(t["rank"], t["id"][:30], t["score"]))
-                print("       健康:{:.0f} 完整:{:.0f} 新颖:{:.0f} 简洁:{:.0f} 稳定:{:.0f}".format(
-                    d["health"], d["completeness"], d["novelty"], d["elegance"], d["stability"]))
+                print(
+                    "       健康:{:.0f} 完整:{:.0f} 新颖:{:.0f} 简洁:{:.0f} 稳定:{:.0f}".format(
+                        d["health"], d["completeness"], d["novelty"], d["elegance"], d["stability"]
+                    )
+                )
             print()
 
         if result["discard"]:
             print("💀 淘汰区 ({}个):".format(len(result["discard"])))
             for d in result["discard"][:5]:
-                print("  {}  总分 {:.0f}  ({})".format(d["id"][:30], d["score"], d.get("reason", "")))
+                print(
+                    "  {}  总分 {:.0f}  ({})".format(d["id"][:30], d["score"], d.get("reason", ""))
+                )
             if len(result["discard"]) > 5:
                 print("  ... 还有 {} 个".format(len(result["discard"]) - 5))
 
-    elif action == 'promote' and len(sys.argv) > 2:
+    elif action == "promote" and len(sys.argv) > 2:
         path = os.path.expanduser(sys.argv[2])
         name = sys.argv[3] if len(sys.argv) > 3 else None
         result = sieve.promote(path, name=name)
@@ -612,7 +642,7 @@ def main():
         else:
             print("❌ {}".format(result["message"]))
 
-    elif action == 'discard' and len(sys.argv) > 2:
+    elif action == "discard" and len(sys.argv) > 2:
         lab_dir = os.path.expanduser(sys.argv[2])
         keep = int(sys.argv[3]) if len(sys.argv) > 3 else 3
         result = sieve.discard_batch(lab_dir, keep_top=keep)
@@ -621,13 +651,14 @@ def main():
         else:
             print("✅ {}".format(result["message"]))
 
-    elif action == 'plant' and len(sys.argv) > 2:
+    elif action == "plant" and len(sys.argv) > 2:
         seed_path = os.path.expanduser(sys.argv[2])
         pot_name = None
         i = 3
         while i < len(sys.argv):
-            if sys.argv[i] == '--name' and i+1 < len(sys.argv):
-                pot_name = sys.argv[i+1]; i += 2
+            if sys.argv[i] == "--name" and i + 1 < len(sys.argv):
+                pot_name = sys.argv[i + 1]
+                i += 2
             else:
                 i += 1
 
@@ -649,8 +680,11 @@ def main():
             detail = " ({})".format(c.get("detail", "")) if c.get("detail") else ""
             print("    {} {}{}".format(mark, c["check"], detail))
 
-        print("\n  🌱 发芽  基因自检    {:.0f}/100  ({}/{})".format(
-            phases["sprout"]["score"], phases["sprout"]["passed"], phases["sprout"]["total"]))
+        print(
+            "\n  🌱 发芽  基因自检    {:.0f}/100  ({}/{})".format(
+                phases["sprout"]["score"], phases["sprout"]["passed"], phases["sprout"]["total"]
+            )
+        )
         failed = [g for g in phases["sprout"]["gene_checks"] if not g["passed"]]
         if failed:
             for f in failed:
@@ -665,12 +699,16 @@ def main():
         print("\n  🌸 开花  综合评估")
         print("    总分: {:.0f}/100".format(phases["bloom"]["overall_score"]))
         print("    判定: {}".format(phases["bloom"]["verdict"]))
-        print("    基因数: {} | 锻造史: {}".format(
-            phases["bloom"]["gene_count"],
-            "有" if phases["bloom"]["has_forge_history"] else "无"))
+        print(
+            "    基因数: {} | 锻造史: {}".format(
+                phases["bloom"]["gene_count"],
+                "有" if phases["bloom"]["has_forge_history"] else "无",
+            )
+        )
 
     else:
         print_help()
+
 
 if __name__ == "__main__":
     main()

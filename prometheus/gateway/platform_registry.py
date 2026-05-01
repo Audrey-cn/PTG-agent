@@ -1,176 +1,132 @@
-from __future__ import annotations
+"""Platform Adapter Registry."""
 
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
 class PlatformEntry:
+    """Metadata and factory for a single platform adapter."""
+
     name: str
     label: str
-    adapter_factory: Callable[[], Any] | None = None
-    check_fn: Callable[[], bool] | None = None
-    validate_config: Callable[[dict], list[str]] | None = None
-    required_env: list[str] = field(default_factory=list)
+    adapter_factory: Callable[[Any], Any]
+    check_fn: Callable[[], bool]
+    validate_config: Callable[[Any], bool] | None = None
+    is_connected: Callable[[Any], bool] | None = None
+    required_env: list = field(default_factory=list)
     install_hint: str = ""
+    setup_fn: Callable[[], None] | None = None
+    source: str = "plugin"
+    plugin_name: str = ""
+    allowed_users_env: str = ""
+    allow_all_env: str = ""
+    max_message_length: int = 0
+    pii_safe: bool = False
+    emoji: str = "🔌"
+    allow_update_command: bool = True
+    platform_hint: str = ""
 
 
 class PlatformRegistry:
+    """Central registry of platform adapters.
+
+    Thread-safe for reads (dict lookups are atomic under GIL).
+    Writes happen at startup during sequential discovery.
+    """
+
     def __init__(self) -> None:
-        self._entries: dict[str, PlatformEntry] = {}
+        self._entries: Dict[str, PlatformEntry] = {}
 
     def register(self, entry: PlatformEntry) -> None:
+        """Register a platform adapter entry.
+
+        If an entry with the same name exists, it is replaced (last writer
+        wins -- this lets plugins override built-in adapters if desired).
+        """
+        if entry.name in self._entries:
+            prev = self._entries[entry.name]
+            logger.info(
+                "Platform '%s' re-registered (was %s, now %s)",
+                entry.name,
+                prev.source,
+                entry.source,
+            )
         self._entries[entry.name] = entry
+        logger.debug("Registered platform adapter: %s (%s)", entry.name, entry.source)
+
+    def unregister(self, name: str) -> bool:
+        """Remove a platform entry.  Returns True if it existed."""
+        return self._entries.pop(name, None) is not None
 
     def get(self, name: str) -> PlatformEntry | None:
+        """Look up a platform entry by name."""
         return self._entries.get(name)
 
-    def create_adapter(self, name: str, config: dict | None = None) -> Any:
-        entry = self._entries.get(name)
-        if not entry:
-            raise ValueError(f"Unknown platform: {name}")
-        if entry.adapter_factory:
-            return entry.adapter_factory()
-        return None
+    def all_entries(self) -> list[PlatformEntry]:
+        """Return all registered platform entries."""
+        return list(self._entries.values())
 
-    def list_platforms(self) -> list[str]:
-        return list(self._entries.keys())
+    def plugin_entries(self) -> list[PlatformEntry]:
+        """Return only plugin-registered platform entries."""
+        return [e for e in self._entries.values() if e.source == "plugin"]
 
-    def is_available(self, name: str) -> bool:
-        entry = self._entries.get(name)
-        if not entry:
-            return False
-        if entry.check_fn:
-            return entry.check_fn()
-        for env_var in entry.required_env:
-            import os
-            if not os.environ.get(env_var):
-                return False
-        return True
+    def is_registered(self, name: str) -> bool:
+        return name in self._entries
 
-    def validate_platform(self, name: str, config: dict) -> list[str]:
+    def create_adapter(self, name: str, config: Any) -> Any | None:
+        """Create an adapter instance for the given platform name.
+
+        Returns None if:
+        - No entry registered for *name*
+        - check_fn() returns False (missing deps)
+        - validate_config() returns False (misconfigured)
+        - The factory raises an exception
+        """
         entry = self._entries.get(name)
-        if not entry:
-            return [f"Unknown platform: {name}"]
-        errors: list[str] = []
-        for env_var in entry.required_env:
-            import os
-            if not os.environ.get(env_var):
-                errors.append(f"Missing environment variable: {env_var}")
-        if entry.validate_config:
-            errors.extend(entry.validate_config(config))
-        return errors
+        if entry is None:
+            return None
+
+        if not entry.check_fn():
+            hint = f" ({entry.install_hint})" if entry.install_hint else ""
+            logger.warning(
+                "Platform '%s' requirements not met%s",
+                entry.label,
+                hint,
+            )
+            return None
+
+        if entry.validate_config is not None:
+            try:
+                if not entry.validate_config(config):
+                    logger.warning(
+                        "Platform '%s' config validation failed",
+                        entry.label,
+                    )
+                    return None
+            except Exception as e:
+                logger.warning(
+                    "Platform '%s' config validation error: %s",
+                    entry.label,
+                    e,
+                )
+                return None
+
+        try:
+            adapter = entry.adapter_factory(config)
+            return adapter
+        except Exception as e:
+            logger.error(
+                "Failed to create adapter for platform '%s': %s",
+                entry.label,
+                e,
+                exc_info=True,
+            )
+            return None
 
 
 platform_registry = PlatformRegistry()
-
-
-def _register_builtin_platforms() -> None:
-    def _check_cli() -> bool:
-        return True
-
-    platform_registry.register(PlatformEntry(
-        name="cli",
-        label="Command Line Interface",
-        check_fn=_check_cli,
-        required_env=[],
-        install_hint="Built-in platform, always available",
-    ))
-
-    def _check_telegram() -> bool:
-        import os
-        return bool(os.environ.get("TELEGRAM_BOT_TOKEN"))
-
-    platform_registry.register(PlatformEntry(
-        name="telegram",
-        label="Telegram Bot",
-        check_fn=_check_telegram,
-        required_env=["TELEGRAM_BOT_TOKEN"],
-        install_hint="Set TELEGRAM_BOT_TOKEN environment variable",
-    ))
-
-    def _check_discord() -> bool:
-        import os
-        return bool(os.environ.get("DISCORD_BOT_TOKEN"))
-
-    platform_registry.register(PlatformEntry(
-        name="discord",
-        label="Discord Bot",
-        check_fn=_check_discord,
-        required_env=["DISCORD_BOT_TOKEN"],
-        install_hint="Set DISCORD_BOT_TOKEN environment variable",
-    ))
-
-    def _check_slack() -> bool:
-        import os
-        return bool(os.environ.get("SLACK_BOT_TOKEN"))
-
-    platform_registry.register(PlatformEntry(
-        name="slack",
-        label="Slack Bot",
-        check_fn=_check_slack,
-        required_env=["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"],
-        install_hint="Set SLACK_BOT_TOKEN and SLACK_APP_TOKEN environment variables",
-    ))
-
-    def _check_webhook() -> bool:
-        return True
-
-    platform_registry.register(PlatformEntry(
-        name="webhook",
-        label="HTTP Webhook",
-        check_fn=_check_webhook,
-        required_env=[],
-        install_hint="Built-in platform for HTTP webhooks",
-    ))
-
-    def _check_matrix() -> bool:
-        import os
-        return bool(os.environ.get("MATRIX_ACCESS_TOKEN"))
-
-    platform_registry.register(PlatformEntry(
-        name="matrix",
-        label="Matrix",
-        check_fn=_check_matrix,
-        required_env=["MATRIX_ACCESS_TOKEN", "MATRIX_HOMESERVER"],
-        install_hint="Set MATRIX_ACCESS_TOKEN and MATRIX_HOMESERVER environment variables",
-    ))
-
-    def _check_wechat() -> bool:
-        import os
-        return bool(os.environ.get("WECHAT_APP_ID"))
-
-    platform_registry.register(PlatformEntry(
-        name="wechat",
-        label="WeChat",
-        check_fn=_check_wechat,
-        required_env=["WECHAT_APP_ID", "WECHAT_APP_SECRET"],
-        install_hint="Set WECHAT_APP_ID and WECHAT_APP_SECRET environment variables",
-    ))
-
-    def _check_feishu() -> bool:
-        import os
-        return bool(os.environ.get("FEISHU_APP_ID"))
-
-    platform_registry.register(PlatformEntry(
-        name="feishu",
-        label="Feishu",
-        check_fn=_check_feishu,
-        required_env=["FEISHU_APP_ID", "FEISHU_APP_SECRET"],
-        install_hint="Set FEISHU_APP_ID and FEISHU_APP_SECRET environment variables",
-    ))
-
-    def _check_dingtalk() -> bool:
-        import os
-        return bool(os.environ.get("DINGTALK_APP_KEY"))
-
-    platform_registry.register(PlatformEntry(
-        name="dingtalk",
-        label="DingTalk",
-        check_fn=_check_dingtalk,
-        required_env=["DINGTALK_APP_KEY", "DINGTALK_APP_SECRET"],
-        install_hint="Set DINGTALK_APP_KEY and DINGTALK_APP_SECRET environment variables",
-    ))
-
-
-_register_builtin_platforms()

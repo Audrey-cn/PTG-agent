@@ -4,39 +4,37 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger("prometheus.acp_adapter.events")
 
-EVENT_TYPES = {
-    "tool_call",
-    "message",
-    "error",
-    "state_change"
-}
+EVENT_TYPES = {"tool_call", "message", "error", "state_change"}
 
 
 @dataclass
 class Event:
     event_type: str
-    data: Dict[str, Any]
+    data: dict[str, Any]
     timestamp: datetime = field(default_factory=datetime.now)
 
 
 class ACPEvents:
     def __init__(self, max_history: int = 100) -> None:
-        self._subscribers: Dict[str, List[Callable]] = defaultdict(list)
-        self._history: Dict[str, List[Event]] = defaultdict(list)
+        self._subscribers: dict[str, list[Callable]] = defaultdict(list)
+        self._history: dict[str, list[Event]] = defaultdict(list)
         self._max_history = max_history
 
-    def subscribe(self, event_type: str, callback: Callable[[Dict[str, Any]], None]) -> None:
+    def subscribe(self, event_type: str, callback: Callable[[dict[str, Any]], None]) -> None:
         if event_type not in EVENT_TYPES:
             logger.warning(f"Unknown event type: {event_type}")
 
         self._subscribers[event_type].append(callback)
         logger.debug(f"Subscribed to event: {event_type}")
 
-    def unsubscribe(self, event_type: str, callback: Callable[[Dict[str, Any]], None]) -> bool:
+    def unsubscribe(self, event_type: str, callback: Callable[[dict[str, Any]], None]) -> bool:
         if event_type not in self._subscribers:
             return False
 
@@ -47,7 +45,7 @@ class ACPEvents:
 
         return False
 
-    def emit(self, event_type: str, data: Dict[str, Any]) -> None:
+    def emit(self, event_type: str, data: dict[str, Any]) -> None:
         if event_type not in EVENT_TYPES:
             logger.warning(f"Unknown event type: {event_type}")
 
@@ -55,7 +53,7 @@ class ACPEvents:
 
         self._history[event_type].append(event)
         if len(self._history[event_type]) > self._max_history:
-            self._history[event_type] = self._history[event_type][-self._max_history:]
+            self._history[event_type] = self._history[event_type][-self._max_history :]
 
         for callback in self._subscribers[event_type]:
             try:
@@ -65,7 +63,7 @@ class ACPEvents:
 
         logger.debug(f"Emitted event: {event_type}")
 
-    def get_event_history(self, event_type: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_event_history(self, event_type: str, limit: int | None = None) -> list[dict[str, Any]]:
         if event_type not in self._history:
             return []
 
@@ -74,15 +72,11 @@ class ACPEvents:
             history = history[-limit:]
 
         return [
-            {
-                "event_type": e.event_type,
-                "data": e.data,
-                "timestamp": e.timestamp.isoformat()
-            }
+            {"event_type": e.event_type, "data": e.data, "timestamp": e.timestamp.isoformat()}
             for e in history
         ]
 
-    def clear_history(self, event_type: Optional[str] = None) -> None:
+    def clear_history(self, event_type: str | None = None) -> None:
         if event_type:
             self._history[event_type] = []
         else:
@@ -92,5 +86,5 @@ class ACPEvents:
     def get_subscriber_count(self, event_type: str) -> int:
         return len(self._subscribers.get(event_type, []))
 
-    def list_event_types(self) -> List[str]:
+    def list_event_types(self) -> list[str]:
         return list(EVENT_TYPES)

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import json
-import time
 import threading
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Optional
+import time
 from collections import defaultdict
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from prometheus.config import get_prometheus_home
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclass
@@ -28,12 +30,24 @@ class UsageTracker:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self._records: list[UsageRecord] = []
         self._lock = threading.Lock()
-        self._session_totals: dict[str, dict] = defaultdict(lambda: {
-            "tokens_in": 0, "tokens_out": 0, "tool_calls": 0, "requests": 0,
-        })
+        self._session_totals: Dict[str, dict] = defaultdict(
+            lambda: {
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "tool_calls": 0,
+                "requests": 0,
+            }
+        )
 
-    def record(self, model: str, provider: str = "", tokens_in: int = 0,
-               tokens_out: int = 0, tool_calls: int = 0, session_id: str = ""):
+    def record(
+        self,
+        model: str,
+        provider: str = "",
+        tokens_in: int = 0,
+        tokens_out: int = 0,
+        tool_calls: int = 0,
+        session_id: str = "",
+    ):
         rec = UsageRecord(
             timestamp=time.time(),
             model=model,
@@ -53,14 +67,22 @@ class UsageTracker:
 
     def get_session_usage(self, session_id: str = "default") -> dict:
         with self._lock:
-            return dict(self._session_totals.get(session_id, {
-                "tokens_in": 0, "tokens_out": 0, "tool_calls": 0, "requests": 0,
-            }))
+            return dict(
+                self._session_totals.get(
+                    session_id,
+                    {
+                        "tokens_in": 0,
+                        "tokens_out": 0,
+                        "tool_calls": 0,
+                        "requests": 0,
+                    },
+                )
+            )
 
     def get_total_usage(self) -> dict:
         with self._lock:
             total = {"tokens_in": 0, "tokens_out": 0, "tool_calls": 0, "requests": 0, "sessions": 0}
-            for sid, data in self._session_totals.items():
+            for _sid, data in self._session_totals.items():
                 for k in ("tokens_in", "tokens_out", "tool_calls", "requests"):
                     total[k] += data[k]
                 total["sessions"] += 1
@@ -70,13 +92,19 @@ class UsageTracker:
         now = time.time()
         cutoff = now - (days * 86400)
         with self._lock:
-            daily: dict[str, dict] = {}
+            daily: Dict[str, dict] = {}
             for rec in self._records:
                 if rec.timestamp < cutoff:
                     continue
                 day = time.strftime("%Y-%m-%d", time.localtime(rec.timestamp))
                 if day not in daily:
-                    daily[day] = {"date": day, "tokens_in": 0, "tokens_out": 0, "tool_calls": 0, "requests": 0}
+                    daily[day] = {
+                        "date": day,
+                        "tokens_in": 0,
+                        "tokens_out": 0,
+                        "tool_calls": 0,
+                        "requests": 0,
+                    }
                 daily[day]["tokens_in"] += rec.tokens_in
                 daily[day]["tokens_out"] += rec.tokens_out
                 daily[day]["tool_calls"] += rec.tool_calls

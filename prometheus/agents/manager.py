@@ -1,30 +1,15 @@
-"""
-Agent 管理器
+"""Agent 管理器."""
 
-参照 Hermes (ElizaOS) AgentRuntime 中的 agent lifecycle management,
-实现 Agent 实例的创建、启停、状态查询与 agents.json 持久化。
-
-Agent 实例模型:
-- agent_id: 唯一标识
-- name: 显示名称
-- provider_id: 绑定的模型提供者
-- tools: 启用的工具列表
-- channels: 绑定的频道列表
-- state: 当前运行状态 (idle/running/error)
-"""
-
-import os
-import json
-import time
 import datetime
+import json
+import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 try:
-    from ..channels import ChannelRegistry, get_channel_registry, ChannelMessage, ChannelResponse
+    from ..channels import ChannelMessage, ChannelRegistry, ChannelResponse, get_channel_registry
     from ..models import get_provider_registry
 except ImportError:
-    from channels import ChannelRegistry, get_channel_registry, ChannelMessage, ChannelResponse
+    from channels import get_channel_registry
     from models import get_provider_registry
 
 
@@ -35,11 +20,11 @@ class AgentConfig:
     description: str = ""
     provider_id: str = "openrouter"
     model: str = ""
-    tools: List[str] = field(default_factory=lambda: [
-        "memory", "knowledge", "seed_editor", "network_accelerator"
-    ])
-    channels: List[str] = field(default_factory=lambda: ["cli"])
-    settings: Dict[str, str] = field(default_factory=dict)
+    tools: list[str] = field(
+        default_factory=lambda: ["memory", "knowledge", "seed_editor", "network_accelerator"]
+    )
+    channels: list[str] = field(default_factory=lambda: ["cli"])
+    settings: dict[str, str] = field(default_factory=dict)
     workspace_dir: str = ""
 
     def to_dict(self) -> dict:
@@ -74,14 +59,16 @@ class AgentConfig:
 class AgentInstance:
     config: AgentConfig
     state: str = "idle"
-    started_at: Optional[str] = None
-    last_active: Optional[str] = None
-    error_message: Optional[str] = None
-    stats: Dict[str, int] = field(default_factory=lambda: {
-        "messages_processed": 0,
-        "errors": 0,
-        "total_latency_ms": 0,
-    })
+    started_at: str | None = None
+    last_active: str | None = None
+    error_message: str | None = None
+    stats: dict[str, int] = field(
+        default_factory=lambda: {
+            "messages_processed": 0,
+            "errors": 0,
+            "total_latency_ms": 0,
+        }
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -110,7 +97,7 @@ class AgentManager:
     def __init__(self, config_dir: str = None):
         home = os.path.expanduser("~")
         self._config_dir = config_dir or os.path.join(home, ".prometheus", "agents")
-        self._agents: Dict[str, AgentInstance] = {}
+        self._agents: dict[str, AgentInstance] = {}
         self._agents_file = os.path.join(self._config_dir, "agents.json")
         self._load()
 
@@ -118,7 +105,7 @@ class AgentManager:
         os.makedirs(self._config_dir, exist_ok=True)
         if os.path.exists(self._agents_file):
             try:
-                with open(self._agents_file, 'r', encoding='utf-8') as f:
+                with open(self._agents_file, encoding="utf-8") as f:
                     data = json.load(f)
                 for agent_data in data.get("agents", []):
                     instance = AgentInstance.from_dict(agent_data)
@@ -130,9 +117,13 @@ class AgentManager:
     def _save(self):
         os.makedirs(self._config_dir, exist_ok=True)
         agents_data = [a.to_dict() for a in self._agents.values()]
-        with open(self._agents_file + ".tmp", 'w', encoding='utf-8') as f:
-            json.dump({"agents": agents_data, "updated_at": datetime.datetime.now().isoformat()},
-                      f, ensure_ascii=False, indent=2)
+        with open(self._agents_file + ".tmp", "w", encoding="utf-8") as f:
+            json.dump(
+                {"agents": agents_data, "updated_at": datetime.datetime.now().isoformat()},
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
         os.rename(self._agents_file + ".tmp", self._agents_file)
 
     def create(self, config: AgentConfig) -> AgentInstance:
@@ -179,13 +170,13 @@ class AgentManager:
         self._save()
         return True
 
-    def get(self, agent_id: str) -> Optional[AgentInstance]:
+    def get(self, agent_id: str) -> AgentInstance | None:
         return self._agents.get(agent_id)
 
-    def list_all(self) -> List[AgentInstance]:
+    def list_all(self) -> list[AgentInstance]:
         return list(self._agents.values())
 
-    def status(self, agent_id: str) -> Optional[dict]:
+    def status(self, agent_id: str) -> dict | None:
         instance = self._agents.get(agent_id)
         if not instance:
             return None
@@ -205,10 +196,12 @@ class AgentManager:
         channel_status = []
         for ch_name in instance.config.channels:
             ch = ch_registry.get(ch_name)
-            channel_status.append({
-                "name": ch_name,
-                "active": ch.is_started if ch else False,
-            })
+            channel_status.append(
+                {
+                    "name": ch_name,
+                    "active": ch.is_started if ch else False,
+                }
+            )
 
         return {
             "agent_id": instance.config.agent_id,
@@ -229,7 +222,7 @@ class AgentManager:
             "config_dir": self._config_dir,
         }
 
-    def detect_available_tools(self) -> Dict[str, dict]:
+    def detect_available_tools(self) -> dict[str, dict]:
         tools = {
             "memory": {
                 "id": "memory",
@@ -283,8 +276,9 @@ class AgentManager:
         }
         return tools
 
-    def process_message(self, agent_id: str, channel: str, sender: str, content: str,
-                        metadata: dict = None) -> dict:
+    def process_message(
+        self, agent_id: str, channel: str, sender: str, content: str, metadata: dict = None
+    ) -> dict:
         instance = self._agents.get(agent_id)
         if not instance:
             return {"success": False, "error": f"Agent {agent_id} 不存在"}
@@ -303,7 +297,7 @@ class AgentManager:
         }
 
 
-_manager: Optional[AgentManager] = None
+_manager: AgentManager | None = None
 
 
 def get_agent_manager() -> AgentManager:
@@ -329,7 +323,14 @@ def create_default_agent(workspace_dir: str = None, provider_id: str = None) -> 
         name="普罗米修斯 · Prometheus",
         description="碳硅知识架构师 · Teach-To-Grow 基因编辑器",
         provider_id=provider_id,
-        tools=["memory", "knowledge", "seed_editor", "network_accelerator", "semantic_dict", "self_correction"],
+        tools=[
+            "memory",
+            "knowledge",
+            "seed_editor",
+            "network_accelerator",
+            "semantic_dict",
+            "self_correction",
+        ],
         channels=["cli"],
         workspace_dir=workspace_dir or os.path.expanduser("~/.prometheus/workspace"),
     )

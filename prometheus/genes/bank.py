@@ -1,24 +1,10 @@
 #!/usr/bin/env python3
-"""
-╔══════════════════════════════════════════════════════════════╗
-║   🏦 基因银行 · Gene Bank                                   ║
-║                                                              ║
-║   「基因不管理，就如货币不流通。」                           ║
-║                                                              ║
-║   对应碳基生物学的基因库概念：                              ║
-║   - 基因库(Gene Pool) → 种群中所有等位基因的总和           ║
-║   - 基因增删 → 基因流(Gene Flow)与遗传漂变                 ║
-║   - 基因融合 → 同源重组(Homologous Recombination)          ║
-║   - 版本追踪 → 等位基因频率追踪                             ║
-╚══════════════════════════════════════════════════════════════╝
+"""╔══════════════════════════════════════════════════════════════╗."""
 
-碳基生物学对照：
-- 基因库(Gene Pool)：一个种群中所有个体的全部基因
-- 基因流(Gene Flow)：基因在种群间迁移，增加/减少基因
-- 遗传漂变(Genetic Drift)：小种群中基因频率随机变化
-- 同源重组(Homologous Recombination)：DNA片段交换产生新组合
-"""
-import os, sys, json, hashlib, datetime, copy
+import datetime
+import json
+import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -33,35 +19,42 @@ os.makedirs(GENES_DIR, exist_ok=True)
 # Catalog I/O
 # =====================================================
 
+
 def _load_catalog():
     if os.path.exists(CATALOG_PATH):
-        with open(CATALOG_PATH, 'r') as f:
+        with open(CATALOG_PATH) as f:
             return json.load(f)
     return {"standard": {}, "optional": []}
 
+
 def _save_catalog(catalog):
-    with open(CATALOG_PATH, 'w') as f:
+    with open(CATALOG_PATH, "w") as f:
         json.dump(catalog, f, ensure_ascii=False, indent=2)
+
 
 def _load_versions():
     if os.path.exists(VERSIONS_PATH):
-        with open(VERSIONS_PATH, 'r') as f:
+        with open(VERSIONS_PATH) as f:
             return json.load(f)
     return []
 
+
 def _save_versions(versions):
-    with open(VERSIONS_PATH, 'w') as f:
+    with open(VERSIONS_PATH, "w") as f:
         json.dump(versions, f, ensure_ascii=False, indent=2)
+
 
 def _load_fusions():
     if os.path.exists(FUSIONS_PATH):
-        with open(FUSIONS_PATH, 'r') as f:
+        with open(FUSIONS_PATH) as f:
             return json.load(f)
     return []
 
+
 def _save_fusions(fusions):
-    with open(FUSIONS_PATH, 'w') as f:
+    with open(FUSIONS_PATH, "w") as f:
         json.dump(fusions, f, ensure_ascii=False, indent=2)
+
 
 def _find_gene(gene_id):
     """在标准基因和可选基因中查找。返回 (catalog, gene_def, section)"""
@@ -79,6 +72,7 @@ def _find_gene(gene_id):
 # =====================================================
 # GeneBank 核心操作
 # =====================================================
+
 
 class GeneBank:
     """基因库管理器。"""
@@ -111,7 +105,7 @@ class GeneBank:
         # 查重
         _, existing, section = _find_gene(gene_id)
         if existing:
-            return {"success": False, "message": "基因 {} 已存在 ({})".format(gene_id, section)}
+            return {"success": False, "message": f"基因 {gene_id} 已存在 ({section})"}
 
         name = gene_def.get("name", gene_id)
         category = gene_def.get("category", "custom")
@@ -152,8 +146,7 @@ class GeneBank:
         # 同时写入独立基因文件
         self._write_gene_file(gene_id, entry)
 
-        return {"success": True, "message": "基因 {} ({}) 已入库".format(gene_id, name),
-                "gene_id": gene_id}
+        return {"success": True, "message": f"基因 {gene_id} ({name}) 已入库", "gene_id": gene_id}
 
     # ── 删 ──
 
@@ -165,11 +158,13 @@ class GeneBank:
         """
         _, gene_def, section = _find_gene(gene_id)
         if not gene_def:
-            return {"success": False, "message": "基因 {} 不存在".format(gene_id)}
+            return {"success": False, "message": f"基因 {gene_id} 不存在"}
 
         if section == "standard" and not force:
-            return {"success": False,
-                    "message": "基因 {} 是碳基/标准基因，不可删除（--force 强制）".format(gene_id)}
+            return {
+                "success": False,
+                "message": f"基因 {gene_id} 是碳基/标准基因，不可删除（--force 强制）",
+            }
 
         catalog = _load_catalog()
 
@@ -183,11 +178,11 @@ class GeneBank:
         self._log_version(gene_id, "remove", {})
 
         # 删除独立文件
-        gene_file = os.path.join(GENES_DIR, "{}.json".format(gene_id.replace('-', '_')))
+        gene_file = os.path.join(GENES_DIR, "{}.json".format(gene_id.replace("-", "_")))
         if os.path.exists(gene_file):
             os.remove(gene_file)
 
-        return {"success": True, "message": "基因 {} 已从库中移除".format(gene_id)}
+        return {"success": True, "message": f"基因 {gene_id} 已从库中移除"}
 
     # ── 改 ──
 
@@ -200,13 +195,12 @@ class GeneBank:
         """
         catalog, gene_def, section = _find_gene(gene_id)
         if not gene_def:
-            return {"success": False, "message": "基因 {} 不存在".format(gene_id)}
+            return {"success": False, "message": f"基因 {gene_id} 不存在"}
 
         forbidden = ["gene_id", "carbon_bonded", "version"]
         for key in forbidden:
             if key in updates:
-                return {"success": False,
-                        "message": "字段 '{}' 不可直接编辑".format(key)}
+                return {"success": False, "message": f"字段 '{key}' 不可直接编辑"}
 
         # 应用更新
         for key, value in updates.items():
@@ -219,11 +213,17 @@ class GeneBank:
         gene_def["updated"] = datetime.datetime.now().isoformat()
 
         _save_catalog(catalog)
-        self._log_version(gene_id, "edit", {"version": gene_def["version"], "changes": list(updates.keys())})
+        self._log_version(
+            gene_id, "edit", {"version": gene_def["version"], "changes": list(updates.keys())}
+        )
         self._write_gene_file(gene_id, gene_def)
 
-        return {"success": True, "message": "基因 {} 已更新至 v{}".format(gene_id, gene_def["version"]),
-                "gene_id": gene_id, "version": gene_def["version"]}
+        return {
+            "success": True,
+            "message": "基因 {} 已更新至 v{}".format(gene_id, gene_def["version"]),
+            "gene_id": gene_id,
+            "version": gene_def["version"],
+        }
 
     # ── 融合 ──
 
@@ -241,23 +241,21 @@ class GeneBank:
         _, def_b, _ = _find_gene(gene_b)
 
         if not def_a:
-            return {"success": False, "message": "基因 A ({}) 不存在".format(gene_a)}
+            return {"success": False, "message": f"基因 A ({gene_a}) 不存在"}
         if not def_b:
-            return {"success": False, "message": "基因 B ({}) 不存在".format(gene_b)}
+            return {"success": False, "message": f"基因 B ({gene_b}) 不存在"}
 
         # 冲突检测
         conflicts = []
         cat_a = def_a.get("category", "?")
         cat_b = def_b.get("category", "?")
         if cat_a != cat_b and cat_a != "eternal" and cat_b != "eternal":
-            conflicts.append("类别不同: {} vs {}".format(cat_a, cat_b))
+            conflicts.append(f"类别不同: {cat_a} vs {cat_b}")
 
-        if def_a.get("conflicts_with"):
-            if gene_b in def_a["conflicts_with"]:
-                conflicts.append("{} 声明与 {} 冲突".format(gene_a, gene_b))
-        if def_b.get("conflicts_with"):
-            if gene_a in def_b["conflicts_with"]:
-                conflicts.append("{} 声明与 {} 冲突".format(gene_b, gene_a))
+        if def_a.get("conflicts_with") and gene_b in def_a["conflicts_with"]:
+            conflicts.append(f"{gene_a} 声明与 {gene_b} 冲突")
+        if def_b.get("conflicts_with") and gene_a in def_b["conflicts_with"]:
+            conflicts.append(f"{gene_b} 声明与 {gene_a} 冲突")
 
         # 兼容性分析
         compat_a = set(def_a.get("compatible_with", []))
@@ -268,16 +266,22 @@ class GeneBank:
 
         # 构建新基因
         new_id = new_gene_id or "G{}-fusion".format(
-            gene_a.split('-')[0] + gene_b.split('-')[0] if '-' in gene_a else gene_a)
+            gene_a.split("-")[0] + gene_b.split("-")[0] if "-" in gene_a else gene_a
+        )
         new_name_val = new_name or "{}·{}融合体".format(
-            def_a.get("name", gene_a), def_b.get("name", gene_b))
+            def_a.get("name", gene_a), def_b.get("name", gene_b)
+        )
 
         merged_cat = cat_a if cat_a == cat_b else "synthesis"
-        merged_desc = "[融合] {} + {}: {}".format(gene_a, gene_b,
-                    def_a.get("description", "")[:60] + " | " + def_b.get("description", "")[:60])
+        merged_desc = "[融合] {} + {}: {}".format(
+            gene_a,
+            gene_b,
+            def_a.get("description", "")[:60] + " | " + def_b.get("description", "")[:60],
+        )
         merged_compat = list(compat_a | compat_b)
-        merged_mutations = list(set(
-            def_a.get("mutations_allowed", []) + def_b.get("mutations_allowed", [])))
+        merged_mutations = list(
+            set(def_a.get("mutations_allowed", []) + def_b.get("mutations_allowed", []))
+        )
 
         new_gene = {
             "gene_id": new_id,
@@ -300,19 +304,21 @@ class GeneBank:
         if result["success"]:
             # 记录融合操作
             fusions = _load_fusions()
-            fusions.append({
-                "time": datetime.datetime.now().isoformat(),
-                "gene_a": gene_a,
-                "gene_b": gene_b,
-                "result": new_id,
-                "strategy": strategy,
-                "conflicts": conflicts,
-                "compatibility": {
-                    "shared": list(shared),
-                    "unique_to_a": list(unique_a),
-                    "unique_to_b": list(unique_b),
+            fusions.append(
+                {
+                    "time": datetime.datetime.now().isoformat(),
+                    "gene_a": gene_a,
+                    "gene_b": gene_b,
+                    "result": new_id,
+                    "strategy": strategy,
+                    "conflicts": conflicts,
+                    "compatibility": {
+                        "shared": list(shared),
+                        "unique_to_a": list(unique_a),
+                        "unique_to_b": list(unique_b),
+                    },
                 }
-            })
+            )
             _save_fusions(fusions)
             result["fusion_analysis"] = {
                 "conflicts": conflicts,
@@ -320,7 +326,7 @@ class GeneBank:
                     "shared": list(shared),
                     "unique_to_a": list(unique_a),
                     "unique_to_b": list(unique_b),
-                }
+                },
             }
 
         return result
@@ -375,19 +381,16 @@ class GeneBank:
             if ref in all_ids:
                 return True
             # 尝试前缀匹配
-            for full_id in all_ids:
-                if full_id.startswith(ref + '-'):
-                    return True
-            return False
+            return any(full_id.startswith(ref + "-") for full_id in all_ids)
 
         def _check(gdef, location):
             gid = gdef.get("gene_id", "?")
             for field in ["name", "category", "description"]:
                 if not gdef.get(field):
-                    issues.append("[{}] 缺少字段: {}".format(gid, field))
+                    issues.append(f"[{gid}] 缺少字段: {field}")
             for compat in gdef.get("compatible_with", []):
                 if not _resolve(compat):
-                    issues.append("[{}] compatible_with 指向不存在基因: {}".format(gid, compat))
+                    issues.append(f"[{gid}] compatible_with 指向不存在基因: {compat}")
 
         for gid, gdef in catalog.get("standard", {}).items():
             gdef = dict(gdef)
@@ -408,12 +411,14 @@ class GeneBank:
 
     def _log_version(self, gene_id, action, detail):
         versions = _load_versions()
-        versions.append({
-            "gene_id": gene_id,
-            "action": action,
-            "detail": detail,
-            "time": datetime.datetime.now().isoformat(),
-        })
+        versions.append(
+            {
+                "gene_id": gene_id,
+                "action": action,
+                "detail": detail,
+                "time": datetime.datetime.now().isoformat(),
+            }
+        )
         _save_versions(versions)
 
     def version_history(self, gene_id=None):
@@ -427,9 +432,9 @@ class GeneBank:
 
     def _write_gene_file(self, gene_id, gene_def):
         """将基因定义写入独立文件。"""
-        fname = gene_id.replace('-', '_') + ".json"
+        fname = gene_id.replace("-", "_") + ".json"
         fpath = os.path.join(GENES_DIR, fname)
-        with open(fpath, 'w') as f:
+        with open(fpath, "w") as f:
             json.dump(gene_def, f, ensure_ascii=False, indent=2)
 
     # ── 快照 ──
@@ -439,19 +444,21 @@ class GeneBank:
         snapshot_dir = os.path.join(GENES_DIR, "_snapshots")
         os.makedirs(snapshot_dir, exist_ok=True)
         ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        fname = "catalog-{}.json".format(ts)
+        fname = f"catalog-{ts}.json"
         fpath = os.path.join(snapshot_dir, fname)
 
         catalog = _load_catalog()
-        with open(fpath, 'w') as f:
-            json.dump({"catalog": catalog, "note": note, "time": ts}, f,
-                      ensure_ascii=False, indent=2)
+        with open(fpath, "w") as f:
+            json.dump(
+                {"catalog": catalog, "note": note, "time": ts}, f, ensure_ascii=False, indent=2
+            )
         return fpath
 
 
 # =====================================================
 # CLI
 # =====================================================
+
 
 def print_help():
     print("""
@@ -474,6 +481,7 @@ def print_help():
     python genebank.py fuse G100-writer G101-vision --name "创意表达器"
 """)
 
+
 def main():
     if len(sys.argv) < 2:
         print_help()
@@ -482,7 +490,7 @@ def main():
     bank = GeneBank()
     action = sys.argv[1]
 
-    if action == 'list':
+    if action == "list":
         all_genes = bank.list_all()
         print("\n🏦 基因银行 · 库存总览\n")
         print("═══ 标准基因 ({}个) ═══".format(len(all_genes["standard"])))
@@ -495,10 +503,10 @@ def main():
             gid = g.get("gene_id") or g.get("locus", "?")
             print("  {} · {} [{}] v{}".format(gid, g["name"], g["category"], g.get("version", 1)))
 
-    elif action == 'show' and len(sys.argv) > 2:
+    elif action == "show" and len(sys.argv) > 2:
         gene = bank.get(sys.argv[2])
         if not gene:
-            print("❌ 基因 {} 不存在".format(sys.argv[2]))
+            print(f"❌ 基因 {sys.argv[2]} 不存在")
             return
         print("\n🧬 {}".format(gene["gene_id"]))
         print("  名称: {}".format(gene["name"]))
@@ -521,9 +529,13 @@ def main():
         if gene.get("version_history"):
             print("\n  📜 版本历史:")
             for v in gene["version_history"][-5:]:
-                print("    {}  {}  v{}".format(v["time"][:16], v["action"], v.get("detail", {}).get("version", "?")))
+                print(
+                    "    {}  {}  v{}".format(
+                        v["time"][:16], v["action"], v.get("detail", {}).get("version", "?")
+                    )
+                )
 
-    elif action == 'add' and len(sys.argv) > 2:
+    elif action == "add" and len(sys.argv) > 2:
         gene_def = json.loads(sys.argv[2])
         result = bank.add(gene_def)
         if result["success"]:
@@ -531,7 +543,7 @@ def main():
         else:
             print("❌ {}".format(result["message"]))
 
-    elif action == 'edit' and len(sys.argv) > 3:
+    elif action == "edit" and len(sys.argv) > 3:
         gene_id = sys.argv[2]
         updates = json.loads(sys.argv[3])
         result = bank.edit(gene_id, updates)
@@ -540,26 +552,28 @@ def main():
         else:
             print("❌ {}".format(result["message"]))
 
-    elif action == 'remove' and len(sys.argv) > 2:
+    elif action == "remove" and len(sys.argv) > 2:
         gene_id = sys.argv[2]
-        force = '--force' in sys.argv
+        force = "--force" in sys.argv
         result = bank.remove(gene_id, force)
         if result["success"]:
             print("✅ {}".format(result["message"]))
         else:
             print("❌ {}".format(result["message"]))
 
-    elif action == 'fuse' and len(sys.argv) > 3:
+    elif action == "fuse" and len(sys.argv) > 3:
         gene_a = sys.argv[2]
         gene_b = sys.argv[3]
         new_name = None
         new_id = None
         i = 4
         while i < len(sys.argv):
-            if sys.argv[i] == '--name' and i+1 < len(sys.argv):
-                new_name = sys.argv[i+1]; i += 2
-            elif sys.argv[i] == '--id' and i+1 < len(sys.argv):
-                new_id = sys.argv[i+1]; i += 2
+            if sys.argv[i] == "--name" and i + 1 < len(sys.argv):
+                new_name = sys.argv[i + 1]
+                i += 2
+            elif sys.argv[i] == "--id" and i + 1 < len(sys.argv):
+                new_id = sys.argv[i + 1]
+                i += 2
             else:
                 i += 1
 
@@ -576,23 +590,27 @@ def main():
         else:
             print("❌ {}".format(result["message"]))
 
-    elif action == 'validate':
+    elif action == "validate":
         result = bank.validate()
         if result["healthy"]:
             print("✅ 基因库健康 ({}个基因, 0个问题)".format(result["total_genes"]))
         else:
             print("⚠️ 基因库有 {} 个问题:".format(len(result["issues"])))
             for issue in result["issues"]:
-                print("  - {}".format(issue))
-        print("  标准基因: {}, 可选基因: {}".format(result["standard_count"], result["optional_count"]))
+                print(f"  - {issue}")
+        print(
+            "  标准基因: {}, 可选基因: {}".format(
+                result["standard_count"], result["optional_count"]
+            )
+        )
 
-    elif action == 'versions':
+    elif action == "versions":
         gene_id = sys.argv[2] if len(sys.argv) > 2 else None
         versions = bank.version_history(gene_id)
         if not versions:
             print("暂无版本记录")
             return
-        print("\n📜 版本历史 ({}条):".format(len(versions)))
+        print(f"\n📜 版本历史 ({len(versions)}条):")
         for v in versions[-20:]:
             detail = v.get("detail", {})
             extra = ""
@@ -602,13 +620,14 @@ def main():
                     extra += " [{}]".format(", ".join(detail["changes"]))
             print("  {}  {} · {}{}".format(v["time"][:16], v["gene_id"], v["action"], extra))
 
-    elif action == 'snapshot':
+    elif action == "snapshot":
         note = sys.argv[2] if len(sys.argv) > 2 else ""
         path = bank.snapshot(note)
-        print("📸 快照已保存: {}".format(path))
+        print(f"📸 快照已保存: {path}")
 
     else:
         print_help()
+
 
 if __name__ == "__main__":
     main()

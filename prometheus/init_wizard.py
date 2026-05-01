@@ -1,130 +1,150 @@
-import os
-import sys
-import json
 import getpass
-import urllib.request
+import json
+import os
 import urllib.error
+import urllib.request
 
-from prometheus.config import Config, DEFAULT_CONFIG, get_prometheus_home
+from prometheus.config import Config, get_prometheus_home
 
 __version__ = "0.8.0"
 
 try:
     from colorama import Fore, Style, init
+
     init()
     C = Fore
     S = Style
 except ImportError:
+
     class _NoColor:
         def __getattr__(self, name):
             return ""
+
     C = _NoColor()
     S = _NoColor()
 
 PROVIDERS = [
-    ("openrouter",     "OpenRouter",                  "OPENROUTER_API_KEY",        "100+ models, pay-per-use"),
-    ("nous",           "Nous Portal",                 None,                        "Nous Research subscription (OAuth)"),
-    ("ai-gateway",     "Vercel AI Gateway",           "AI_GATEWAY_API_KEY",        "200+ models, $5 credit, no markup"),
-    ("anthropic",      "Anthropic",                   "ANTHROPIC_API_KEY",         "Claude models — API key"),
-    ("openai",         "OpenAI",                      "OPENAI_API_KEY",            "GPT-4o, o3, o4-mini"),
-    ("openai-codex",   "OpenAI Codex",                None,                        "Codex coding agent (OAuth)"),
-    ("xiaomi",         "Xiaomi MiMo",                 "XIAOMI_API_KEY",            "MiMo-V2.5 pro/omni/flash"),
-    ("nvidia",         "NVIDIA NIM",                  "NVIDIA_API_KEY",            "Nemotron models"),
-    ("qwen-oauth",     "Qwen OAuth (Portal)",         None,                        "Qwen OAuth — local CLI login"),
-    ("copilot",        "GitHub Copilot",              "GITHUB_TOKEN",              "Uses gh auth token"),
-    ("copilot-acp",    "GitHub Copilot ACP",          None,                        "Subprocess copilot --acp --stdio"),
-    ("huggingface",    "Hugging Face",                "HF_TOKEN",                  "20+ open models via Inference Providers"),
-    ("gemini",         "Google AI Studio",            "GOOGLE_API_KEY",            "Gemini models — native API"),
-    ("google-gemini-cli", "Google Gemini (OAuth)",    None,                        "OAuth + Code Assist, free tier"),
-    ("deepseek",       "DeepSeek",                    "DEEPSEEK_API_KEY",          "V3, R1, coder — direct API"),
-    ("xai",            "xAI",                         "XAI_API_KEY",               "Grok models"),
-    ("zai",            "Z.AI / GLM",                  "GLM_API_KEY",               "Zhipu AI direct API"),
-    ("kimi-coding",    "Kimi / Moonshot",             "KIMI_API_KEY",              "Kimi Coding Plan"),
-    ("kimi-coding-cn", "Kimi / Moonshot (China)",     "KIMI_CN_API_KEY",           "Moonshot CN direct API"),
-    ("stepfun",        "StepFun Step Plan",           "STEPFUN_API_KEY",           "Agent/coding models"),
-    ("minimax",        "MiniMax",                     "MINIMAX_API_KEY",           "Global direct API"),
-    ("minimax-cn",     "MiniMax (China)",             "MINIMAX_CN_API_KEY",        "Domestic direct API"),
-    ("alibaba",        "Alibaba Cloud (DashScope)",   "DASHSCOPE_API_KEY",         "Qwen + multi-provider"),
-    ("ollama-cloud",   "Ollama Cloud",                "OLLAMA_API_KEY",            "Cloud-hosted open models"),
-    ("arcee",          "Arcee AI",                    "ARCEEAI_API_KEY",           "Trinity models"),
-    ("kilocode",       "Kilo Code",                   "KILOCODE_API_KEY",          "Kilo Gateway API"),
-    ("opencode-zen",   "OpenCode Zen",                "OPENCODE_ZEN_API_KEY",      "35+ curated models, pay-as-you-go"),
-    ("opencode-go",    "OpenCode Go",                 "OPENCODE_GO_API_KEY",       "Open models, $10/month"),
-    ("bedrock",        "AWS Bedrock",                 None,                        "Claude, Nova, Llama — IAM/SDK"),
-    ("azure-foundry",  "Azure Foundry",               "AZURE_FOUNDRY_API_KEY",     "Your Azure AI deployment"),
-    ("ollama",         "本地 Ollama",                  None,                        "自托管本地模型"),
-    ("custom",         "自定义 OpenAI-compatible",     None,                        "任意兼容端点"),
+    ("openrouter", "OpenRouter", "OPENROUTER_API_KEY", "100+ models, pay-per-use"),
+    ("nous", "Nous Portal", None, "Nous Research subscription (OAuth)"),
+    ("ai-gateway", "Vercel AI Gateway", "AI_GATEWAY_API_KEY", "200+ models, $5 credit, no markup"),
+    ("anthropic", "Anthropic", "ANTHROPIC_API_KEY", "Claude models — API key"),
+    ("openai", "OpenAI", "OPENAI_API_KEY", "GPT-4o, o3, o4-mini"),
+    ("openai-codex", "OpenAI Codex", None, "Codex coding agent (OAuth)"),
+    ("xiaomi", "Xiaomi MiMo", "XIAOMI_API_KEY", "MiMo-V2.5 pro/omni/flash"),
+    ("nvidia", "NVIDIA NIM", "NVIDIA_API_KEY", "Nemotron models"),
+    ("qwen-oauth", "Qwen OAuth (Portal)", None, "Qwen OAuth — local CLI login"),
+    ("copilot", "GitHub Copilot", "GITHUB_TOKEN", "Uses gh auth token"),
+    ("copilot-acp", "GitHub Copilot ACP", None, "Subprocess copilot --acp --stdio"),
+    ("huggingface", "Hugging Face", "HF_TOKEN", "20+ open models via Inference Providers"),
+    ("gemini", "Google AI Studio", "GOOGLE_API_KEY", "Gemini models — native API"),
+    ("google-gemini-cli", "Google Gemini (OAuth)", None, "OAuth + Code Assist, free tier"),
+    ("deepseek", "DeepSeek", "DEEPSEEK_API_KEY", "V3, R1, coder — direct API"),
+    ("xai", "xAI", "XAI_API_KEY", "Grok models"),
+    ("zai", "Z.AI / GLM", "GLM_API_KEY", "Zhipu AI direct API"),
+    ("kimi-coding", "Kimi / Moonshot", "KIMI_API_KEY", "Kimi Coding Plan"),
+    ("kimi-coding-cn", "Kimi / Moonshot (China)", "KIMI_CN_API_KEY", "Moonshot CN direct API"),
+    ("stepfun", "StepFun Step Plan", "STEPFUN_API_KEY", "Agent/coding models"),
+    ("minimax", "MiniMax", "MINIMAX_API_KEY", "Global direct API"),
+    ("minimax-cn", "MiniMax (China)", "MINIMAX_CN_API_KEY", "Domestic direct API"),
+    ("alibaba", "Alibaba Cloud (DashScope)", "DASHSCOPE_API_KEY", "Qwen + multi-provider"),
+    ("ollama-cloud", "Ollama Cloud", "OLLAMA_API_KEY", "Cloud-hosted open models"),
+    ("arcee", "Arcee AI", "ARCEEAI_API_KEY", "Trinity models"),
+    ("kilocode", "Kilo Code", "KILOCODE_API_KEY", "Kilo Gateway API"),
+    ("opencode-zen", "OpenCode Zen", "OPENCODE_ZEN_API_KEY", "35+ curated models, pay-as-you-go"),
+    ("opencode-go", "OpenCode Go", "OPENCODE_GO_API_KEY", "Open models, $10/month"),
+    ("bedrock", "AWS Bedrock", None, "Claude, Nova, Llama — IAM/SDK"),
+    ("azure-foundry", "Azure Foundry", "AZURE_FOUNDRY_API_KEY", "Your Azure AI deployment"),
+    ("ollama", "本地 Ollama", None, "自托管本地模型"),
+    ("custom", "自定义 OpenAI-compatible", None, "任意兼容端点"),
 ]
 
 PROVIDER_DEFAULTS = {
-    "openrouter":    {"base_url": "https://openrouter.ai/api/v1",       "model": "openai/gpt-4o"},
-    "nous":          {"base_url": "https://inference-api.nousresearch.com/v1", "model": "hermes-3-llama-3.2-3b"},
-    "ai-gateway":    {"base_url": "https://ai-gateway.vercel.sh/v1",    "model": "gpt-4o"},
-    "anthropic":     {"base_url": "https://api.anthropic.com/v1",       "model": "claude-sonnet-4-20250514"},
-    "openai":        {"base_url": "https://api.openai.com/v1",          "model": "gpt-4o"},
-    "openai-codex":  {"base_url": "https://chatgpt.com/backend-api/codex", "model": "codex"},
-    "xiaomi":        {"base_url": "https://api.xiaomimimo.com/v1",      "model": "mimo-v2.5-pro"},
-    "nvidia":        {"base_url": "https://integrate.api.nvidia.com/v1","model": "nvidia/nemotron-4-340b-instruct"},
-    "qwen-oauth":    {"base_url": "https://portal.qwen.ai/v1",           "model": "qwen-max"},
-    "copilot":       {"base_url": "https://api.githubcopilot.com",       "model": "gpt-4o"},
-    "copilot-acp":   {"base_url": "acp://copilot",                       "model": "gpt-4o"},
-    "huggingface":   {"base_url": "https://router.huggingface.co/v1",   "model": "meta-llama/Llama-3.3-70B-Instruct"},
-    "gemini":        {"base_url": "https://generativelanguage.googleapis.com/v1beta", "model": "gemini-2.5-flash"},
-    "google-gemini-cli": {"base_url": "cloudcode-pa://google",           "model": "gemini-2.5-flash"},
-    "deepseek":      {"base_url": "https://api.deepseek.com/v1",         "model": "deepseek-chat"},
-    "xai":           {"base_url": "https://api.x.ai/v1",                 "model": "grok-3"},
-    "zai":           {"base_url": "https://api.z.ai/api/paas/v4",        "model": "glm-4"},
-    "kimi-coding":   {"base_url": "https://api.moonshot.ai/v1",          "model": "kimi-latest"},
-    "kimi-coding-cn":{"base_url": "https://api.moonshot.cn/v1",          "model": "kimi-latest"},
-    "stepfun":       {"base_url": "https://api.stepfun.ai/step_plan/v1", "model": "step-2-16k"},
-    "minimax":       {"base_url": "https://api.minimax.io/anthropic",   "model": "MiniMax-M1"},
-    "minimax-cn":    {"base_url": "https://api.minimaxi.com/anthropic",  "model": "MiniMax-M1"},
-    "alibaba":       {"base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", "model": "qwen-max"},
-    "ollama-cloud":  {"base_url": "https://ollama.com/v1",                "model": "llama3.3"},
-    "arcee":         {"base_url": "https://api.arcee.ai/api/v1",         "model": "arcee-trinity"},
-    "kilocode":      {"base_url": "https://api.kilo.ai/api/gateway",     "model": "gpt-4o"},
-    "opencode-zen":  {"base_url": "https://opencode.ai/zen/v1",          "model": "gpt-4o"},
-    "opencode-go":   {"base_url": "https://opencode.ai/zen/go/v1",       "model": "gpt-4o"},
-    "bedrock":       {"base_url": "https://bedrock-runtime.us-east-1.amazonaws.com", "model": "us.anthropic.claude-sonnet-4-20250514-v1:0"},
-    "azure-foundry": {"base_url": "",                                     "model": ""},
-    "ollama":        {"base_url": "http://localhost:11434/v1",            "model": "llama3"},
-    "custom":        {"base_url": "",                                     "model": ""},
+    "openrouter": {"base_url": "https://openrouter.ai/api/v1", "model": "openai/gpt-4o"},
+    "nous": {
+        "base_url": "https://inference-api.nousresearch.com/v1",
+        "model": "hermes-3-llama-3.2-3b",
+    },
+    "ai-gateway": {"base_url": "https://ai-gateway.vercel.sh/v1", "model": "gpt-4o"},
+    "anthropic": {"base_url": "https://api.anthropic.com/v1", "model": "claude-sonnet-4-20250514"},
+    "openai": {"base_url": "https://api.openai.com/v1", "model": "gpt-4o"},
+    "openai-codex": {"base_url": "https://chatgpt.com/backend-api/codex", "model": "codex"},
+    "xiaomi": {"base_url": "https://api.xiaomimimo.com/v1", "model": "mimo-v2.5-pro"},
+    "nvidia": {
+        "base_url": "https://integrate.api.nvidia.com/v1",
+        "model": "nvidia/nemotron-4-340b-instruct",
+    },
+    "qwen-oauth": {"base_url": "https://portal.qwen.ai/v1", "model": "qwen-max"},
+    "copilot": {"base_url": "https://api.githubcopilot.com", "model": "gpt-4o"},
+    "copilot-acp": {"base_url": "acp://copilot", "model": "gpt-4o"},
+    "huggingface": {
+        "base_url": "https://router.huggingface.co/v1",
+        "model": "meta-llama/Llama-3.3-70B-Instruct",
+    },
+    "gemini": {
+        "base_url": "https://generativelanguage.googleapis.com/v1beta",
+        "model": "gemini-2.5-flash",
+    },
+    "google-gemini-cli": {"base_url": "cloudcode-pa://google", "model": "gemini-2.5-flash"},
+    "deepseek": {"base_url": "https://api.deepseek.com/v1", "model": "deepseek-chat"},
+    "xai": {"base_url": "https://api.x.ai/v1", "model": "grok-3"},
+    "zai": {"base_url": "https://api.z.ai/api/paas/v4", "model": "glm-4"},
+    "kimi-coding": {"base_url": "https://api.moonshot.ai/v1", "model": "kimi-latest"},
+    "kimi-coding-cn": {"base_url": "https://api.moonshot.cn/v1", "model": "kimi-latest"},
+    "stepfun": {"base_url": "https://api.stepfun.ai/step_plan/v1", "model": "step-2-16k"},
+    "minimax": {"base_url": "https://api.minimax.io/anthropic", "model": "MiniMax-M1"},
+    "minimax-cn": {"base_url": "https://api.minimaxi.com/anthropic", "model": "MiniMax-M1"},
+    "alibaba": {
+        "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        "model": "qwen-max",
+    },
+    "ollama-cloud": {"base_url": "https://ollama.com/v1", "model": "llama3.3"},
+    "arcee": {"base_url": "https://api.arcee.ai/api/v1", "model": "arcee-trinity"},
+    "kilocode": {"base_url": "https://api.kilo.ai/api/gateway", "model": "gpt-4o"},
+    "opencode-zen": {"base_url": "https://opencode.ai/zen/v1", "model": "gpt-4o"},
+    "opencode-go": {"base_url": "https://opencode.ai/zen/go/v1", "model": "gpt-4o"},
+    "bedrock": {
+        "base_url": "https://bedrock-runtime.us-east-1.amazonaws.com",
+        "model": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+    },
+    "azure-foundry": {"base_url": "", "model": ""},
+    "ollama": {"base_url": "http://localhost:11434/v1", "model": "llama3"},
+    "custom": {"base_url": "", "model": ""},
 }
 
 CHANNELS = [
-    ("cli",              "CLI 命令行",               True,  None),
-    ("telegram",         "Telegram 机器人",           False, "python-telegram-bot"),
-    ("discord",          "Discord 机器人",            False, "discord.py"),
-    ("slack",            "Slack",                     False, "slack-bolt"),
-    ("signal",           "Signal",                    False, None),
-    ("email",            "Email (SMTP)",              False, None),
-    ("sms",              "SMS (Twilio)",              False, None),
-    ("matrix",           "Matrix",                    False, None),
-    ("mattermost",       "Mattermost",                False, None),
-    ("whatsapp",         "WhatsApp",                  False, None),
-    ("dingtalk",         "钉钉 (DingTalk)",           False, "dingtalk-stream"),
-    ("feishu",           "飞书 / Lark",               False, "lark-oapi"),
-    ("yuanbao",          "元宝 (Yuanbao)",            False, None),
-    ("wecom",            "企业微信 (WeCom)",           False, None),
-    ("wecom-callback",   "企微回调 (WeCom Callback)",  False, None),
-    ("weixin",           "微信 (WeChat)",              False, None),
-    ("bluebubbles",      "BlueBubbles (iMessage)",    False, None),
-    ("qqbot",            "QQ Bot",                    False, None),
-    ("webhook",          "HTTP Webhook",              False, "fastapi"),
+    ("cli", "CLI 命令行", True, None),
+    ("telegram", "Telegram 机器人", False, "python-telegram-bot"),
+    ("discord", "Discord 机器人", False, "discord.py"),
+    ("slack", "Slack", False, "slack-bolt"),
+    ("signal", "Signal", False, None),
+    ("email", "Email (SMTP)", False, None),
+    ("sms", "SMS (Twilio)", False, None),
+    ("matrix", "Matrix", False, None),
+    ("mattermost", "Mattermost", False, None),
+    ("whatsapp", "WhatsApp", False, None),
+    ("dingtalk", "钉钉 (DingTalk)", False, "dingtalk-stream"),
+    ("feishu", "飞书 / Lark", False, "lark-oapi"),
+    ("yuanbao", "元宝 (Yuanbao)", False, None),
+    ("wecom", "企业微信 (WeCom)", False, None),
+    ("wecom-callback", "企微回调 (WeCom Callback)", False, None),
+    ("weixin", "微信 (WeChat)", False, None),
+    ("bluebubbles", "BlueBubbles (iMessage)", False, None),
+    ("qqbot", "QQ Bot", False, None),
+    ("webhook", "HTTP Webhook", False, "fastapi"),
 ]
 
 TOOL_MODULES = [
-    ("memory",      "记忆系统",     "核心记忆管理",    "stable"),
-    ("knowledge",   "知识编译器",   "语义知识编译与检索", "stable"),
-    ("seed_editor", "种子编辑器",   "TTG 种子编辑与解码", "stable"),
-    ("chronicler",  "史诗编史官",   "烙印/追溯/附史",   "stable"),
-    ("audit",       "语义审核",     "格式无关内容审核",  "stable"),
-    ("skin",        "皮肤引擎",     "CLI 视觉主题",     "stable"),
-    ("backup",      "备份恢复",     "配置与记忆备份",   "stable"),
-    ("cron",        "定时任务",     "Cron 定时调度",    "beta"),
-    ("sandbox",     "代码沙箱",     "安全代码执行",     "beta"),
-    ("gateway",     "消息网关",     "多频道消息路由",   "beta"),
-    ("mcp",         "MCP 协议",     "Model Context Protocol", "experimental"),
+    ("memory", "记忆系统", "核心记忆管理", "stable"),
+    ("knowledge", "知识编译器", "语义知识编译与检索", "stable"),
+    ("seed_editor", "种子编辑器", "TTG 种子编辑与解码", "stable"),
+    ("chronicler", "史诗编史官", "烙印/追溯/附史", "stable"),
+    ("audit", "语义审核", "格式无关内容审核", "stable"),
+    ("skin", "皮肤引擎", "CLI 视觉主题", "stable"),
+    ("backup", "备份恢复", "配置与记忆备份", "stable"),
+    ("cron", "定时任务", "Cron 定时调度", "beta"),
+    ("sandbox", "代码沙箱", "安全代码执行", "beta"),
+    ("gateway", "消息网关", "多频道消息路由", "beta"),
+    ("mcp", "MCP 协议", "Model Context Protocol", "experimental"),
 ]
 
 
@@ -158,10 +178,10 @@ def _prompt_choice(question, choices, default=0):
     print(f"\n{question}")
     for i, label in enumerate(choices):
         marker = "●" if i == default else "○"
-        print(f"  {marker} {i+1}. {label}")
+        print(f"  {marker} {i + 1}. {label}")
     while True:
         try:
-            v = input(f"  选择 [1-{len(choices)}] ({default+1}): ").strip()
+            v = input(f"  选择 [1-{len(choices)}] ({default + 1}): ").strip()
         except (KeyboardInterrupt, EOFError):
             print()
             return default
@@ -183,7 +203,7 @@ def _prompt_checklist(question, items, pre_selected=None):
     print("  输入 'all' 全选，直接回车 = 跳过全部")
     for i, label in enumerate(items):
         mark = "✅" if i in pre else "⬜"
-        print(f"  {mark} {i+1}. {label}")
+        print(f"  {mark} {i + 1}. {label}")
     while True:
         try:
             v = input("  选择: ").strip().lower()
@@ -247,7 +267,7 @@ def _print_provider_table(providers, detected_env_vars):
         if left_env and left_env in detected_env_vars:
             left_key = f" {C.GREEN}✓{S.RESET_ALL}"
         left_str = f"{left_label}{left_key}"
-        left_line = f"  {C.CYAN}{i+1:>2}.{S.RESET_ALL} {left_str:<28}"
+        left_line = f"  {C.CYAN}{i + 1:>2}.{S.RESET_ALL} {left_str:<28}"
 
         right_idx = i + half
         if right_idx < len(providers):
@@ -256,7 +276,7 @@ def _print_provider_table(providers, detected_env_vars):
             if right_env and right_env in detected_env_vars:
                 right_key = f" {C.GREEN}✓{S.RESET_ALL}"
             right_str = f"{right_label}{right_key}"
-            right_line = f"{C.CYAN}{right_idx+1:>2}.{S.RESET_ALL} {right_str:<28}"
+            right_line = f"{C.CYAN}{right_idx + 1:>2}.{S.RESET_ALL} {right_str:<28}"
             print(f"{left_line}{right_line}")
         else:
             print(left_line)
@@ -345,7 +365,7 @@ def step1_provider(config):
 
     detected_env_vars = set()
     detected = []
-    for pid, label, env_var, desc in PROVIDERS:
+    for pid, label, env_var, _desc in PROVIDERS:
         if env_var and os.getenv(env_var):
             detected_env_vars.add(env_var)
             detected.append((pid, label, env_var))
@@ -356,7 +376,7 @@ def step1_provider(config):
             print(f"  {C.GREEN}✅{S.RESET_ALL} {label} ({env_var})")
 
     provider_labels = []
-    for pid, label, env_var, desc in PROVIDERS:
+    for pid, label, env_var, _desc in PROVIDERS:
         has_key = env_var and env_var in detected_env_vars
         marker = " ✓已设置" if has_key else ""
         provider_labels.append(f"{label}{marker}")
@@ -368,9 +388,13 @@ def step1_provider(config):
     config.set("model.provider", pid)
 
     auth_types = {
-        "nous": "OAuth", "openai-codex": "OAuth", "qwen-oauth": "OAuth",
-        "google-gemini-cli": "OAuth", "copilot-acp": "external_process",
-        "bedrock": "AWS SDK/IAM", "copilot": "gh auth token",
+        "nous": "OAuth",
+        "openai-codex": "OAuth",
+        "qwen-oauth": "OAuth",
+        "google-gemini-cli": "OAuth",
+        "copilot-acp": "external_process",
+        "bedrock": "AWS SDK/IAM",
+        "copilot": "gh auth token",
     }
 
     if pid == "ollama":
@@ -381,13 +405,14 @@ def step1_provider(config):
         _print_success(f"本地模型 {model or 'llama3'} 已配置")
         return
 
-    if pid in ("bedrock", "copilot-acp", "google-gemini-cli", "qwen-oauth",
-               "openai-codex", "nous"):
+    if pid in ("bedrock", "copilot-acp", "google-gemini-cli", "qwen-oauth", "openai-codex", "nous"):
         auth_note = auth_types.get(pid, "特殊认证")
         _print_info(f"{label} 使用 {auth_note} 认证方式。")
         if pid == "bedrock":
             region = _prompt("  AWS Region：", default="us-east-1")
-            config.set("api.base_url", f"https://bedrock-runtime.{region or 'us-east-1'}.amazonaws.com")
+            config.set(
+                "api.base_url", f"https://bedrock-runtime.{region or 'us-east-1'}.amazonaws.com"
+            )
         elif pid == "copilot-acp":
             _print_info("将使用本地 copilot --acp --stdio 子进程")
         else:
@@ -424,7 +449,7 @@ def step1_provider(config):
         base_url = _prompt("  Base URL (例如 https://api.openai.com/v1)：")
         if base_url:
             config.set("api.base_url", base_url)
-        api_key = _prompt(f"  API Key：", password=True)
+        api_key = _prompt("  API Key：", password=True)
         if api_key:
             config.set("api.key", api_key)
         probe = _fetch_custom_models(base_url or "", api_key or "")
@@ -503,7 +528,7 @@ def step2_channels(config):
 
     items = []
     pre_selected = [0]
-    for i, (cid, label, always_on, _dep) in enumerate(CHANNELS):
+    for _i, (cid, label, _always_on, _dep) in enumerate(CHANNELS):
         dep_str = ""
         if _dep and not _can_import(_dep):
             dep_str = f" {C.RED}(依赖缺失: pip install {_dep}){S.RESET_ALL}"
@@ -660,7 +685,9 @@ def step3_tools(config):
     items = []
     for _, label, desc, status in TOOL_MODULES:
         status_icon = {"stable": "🟢", "beta": "🟡", "experimental": "🔵"}.get(status, "⚪")
-        status_label = {"stable": "稳定", "beta": "测试", "experimental": "实验"}.get(status, status)
+        status_label = {"stable": "稳定", "beta": "测试", "experimental": "实验"}.get(
+            status, status
+        )
         items.append(f"{status_icon} {label:<12} [{status_label}] — {desc}")
 
     pre = list(range(len(TOOL_MODULES)))
@@ -682,9 +709,11 @@ def step4_confirm(config):
     provider = config.get("model.provider", "未选择")
     model_name = config.get("model.name", "未选择")
     key_set = bool(config.get("api.key", "")) or bool(
-        os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY") or
-        os.getenv("ANTHROPIC_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or
-        os.getenv("GOOGLE_API_KEY")
+        os.getenv("OPENROUTER_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+        or os.getenv("ANTHROPIC_API_KEY")
+        or os.getenv("DEEPSEEK_API_KEY")
+        or os.getenv("GOOGLE_API_KEY")
     )
 
     channels_cfg = config.get("channels", {})
@@ -700,7 +729,9 @@ def step4_confirm(config):
     print(f"  {C.YELLOW}│{S.RESET_ALL}  📡 提供者：   {provider}")
     print(f"  {C.YELLOW}│{S.RESET_ALL}  🧠 模型：     {model_name}")
     print(f"  {C.YELLOW}│{S.RESET_ALL}  🔑 Key：      {'已配置' if key_set else '⚠ 未配置'}")
-    print(f"  {C.YELLOW}│{S.RESET_ALL}  💬 频道：     {', '.join(enabled_channels) if enabled_channels else '仅 CLI'}")
+    print(
+        f"  {C.YELLOW}│{S.RESET_ALL}  💬 频道：     {', '.join(enabled_channels) if enabled_channels else '仅 CLI'}"
+    )
     print(f"  {C.YELLOW}│{S.RESET_ALL}  🛠️  工具：     {tools_count} 个模块")
     print(f"  {C.YELLOW}└{'─' * 45}┘{S.RESET_ALL}")
     print()
@@ -725,10 +756,10 @@ def step5_finish(config):
 
     _print_done()
     print()
-    print(f"  欢迎！Prometheus 已就绪。")
+    print("  欢迎！Prometheus 已就绪。")
     print()
     print(f"  📁 配置目录：    {prometheus_home}")
-    print(f"  🤖 个性/身份：  首次进入 'ptg chat' 时设置")
+    print("  🤖 个性/身份：  首次进入 'ptg chat' 时设置")
     print(f"  📝 用户画像：    {prometheus_home}/memories/USER.md")
     print(f"  📋 配置文件：    {prometheus_home}/config.yaml")
     print()
@@ -739,11 +770,11 @@ def step5_finish(config):
 
 
 def _create_user_md(config):
-    content = """# 用户画像
+    content = f"""# 用户画像
 
 ## 基本信息
 - 名字：探索者
-- 首次注册：{now}
+- 首次注册：{_now()}
 
 ## 沟通偏好
 - 风格：简洁专业
@@ -752,7 +783,7 @@ def _create_user_md(config):
 ## 自定义区
 <!-- 在此区域添加您的个人偏好 -->
 <!-- 首次进入 'ptg chat' 时将引导你完成个性化设置 -->
-""".format(now=_now())
+"""
     path = get_prometheus_home() / "memories" / "USER.md"
     if not path.exists():
         with open(path, "w", encoding="utf-8") as f:
@@ -787,17 +818,17 @@ def _create_soul_md(config):
 
 
 def _create_memory_md(config):
-    content = """# 会话记忆
+    content = f"""# 会话记忆
 
 > 此文件由系统自动维护
 
 ## 首次初始化
-- 时间：{now}
+- 时间：{_now()}
 - 方式：ptg setup 引导
 
 ## 记忆条目
 <!-- 会话记忆将在此下方累积 -->
-""".format(now=_now())
+"""
     path = get_prometheus_home() / "memories" / "MEMORY.md"
     if not path.exists():
         with open(path, "w", encoding="utf-8") as f:
@@ -807,6 +838,7 @@ def _create_memory_md(config):
 
 def _now():
     from datetime import datetime
+
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 from prometheus.acp_adapter.auth import ACPAuth
 from prometheus.acp_adapter.events import ACPEvents
@@ -28,11 +28,7 @@ class ACPEndpoint:
         self.events.emit("state_change", {"state": "starting", "host": host, "port": port})
 
         try:
-            self._server = await asyncio.start_server(
-                self._handle_client,
-                host,
-                port
-            )
+            self._server = await asyncio.start_server(self._handle_client, host, port)
             self.events.emit("state_change", {"state": "running", "host": host, "port": port})
 
             async with self._server:
@@ -50,8 +46,10 @@ class ACPEndpoint:
         self.events.emit("state_change", {"state": "stopped"})
         logger.info("ACP server stopped")
 
-    async def _handle_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        addr = writer.get_extra_info('peername')
+    async def _handle_client(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        addr = writer.get_extra_info("peername")
         logger.debug(f"Client connected: {addr}")
 
         try:
@@ -78,10 +76,7 @@ class ACPEndpoint:
             action = message.get("action")
 
             if action == "invoke_tool":
-                result = self.tools.invoke_tool(
-                    message.get("tool", ""),
-                    message.get("params", {})
-                )
+                result = self.tools.invoke_tool(message.get("tool", ""), message.get("params", {}))
                 return json.dumps(result).encode()
 
             elif action == "list_tools":
@@ -91,7 +86,7 @@ class ACPEndpoint:
                 allowed = self.permissions.check_permission(
                     message.get("agent_id", ""),
                     message.get("action", ""),
-                    message.get("resource", "")
+                    message.get("resource", ""),
                 )
                 return json.dumps({"allowed": allowed}).encode()
 
@@ -107,9 +102,7 @@ class ACPEndpoint:
         logger.info(f"Connecting to ACP server: {server_url}")
         self.events.emit("state_change", {"state": "connecting", "url": server_url})
 
-    async def send_message(self, message: Dict[str, Any]) -> Dict[str, Any]:
-        import json
-
+    async def send_message(self, message: dict[str, Any]) -> dict[str, Any]:
         if not self._server:
             return {"error": "Not connected to server"}
 

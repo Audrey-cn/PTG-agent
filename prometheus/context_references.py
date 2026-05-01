@@ -3,9 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional
 from urllib.request import Request, urlopen
-from urllib.error import URLError
 
 
 def resolve_context_references(text: str, cwd: str | None = None) -> str:
@@ -47,7 +45,7 @@ def resolve_context_references(text: str, cwd: str | None = None) -> str:
 
         return full
 
-    pattern = re.compile(r'@([a-zA-Z0-9_./:\-]+)')
+    pattern = re.compile(r"@([a-zA-Z0-9_./:\-]+)")
     return pattern.sub(_replace_ref, text)
 
 
@@ -72,7 +70,9 @@ def _resolve_folder(path: str, cwd: str) -> str:
     try:
         entries = []
         for root, dirs, files in os.walk(full):
-            dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", "node_modules", ".venv", "venv")]
+            dirs[:] = [
+                d for d in dirs if d not in (".git", "__pycache__", "node_modules", ".venv", "venv")
+            ]
             for f in sorted(files):
                 if f.endswith((".pyc", ".pyo", ".so", ".dll", ".exe")):
                     continue
@@ -85,7 +85,7 @@ def _resolve_folder(path: str, cwd: str) -> str:
             if len(entries) >= 100:
                 break
         header = f"[Folder: {path} ({len(entries)} files shown)]"
-        return f"{header}\n" + "\n".join(entries) + f"\n[End of folder]"
+        return f"{header}\n" + "\n".join(entries) + "\n[End of folder]"
     except Exception as e:
         return f"[Error reading {path}: {e}]"
 
@@ -94,7 +94,10 @@ def _resolve_git_diff(cwd: str) -> str:
     try:
         result = subprocess.run(
             ["git", "diff", "--stat"],
-            capture_output=True, text=True, timeout=10, cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=cwd,
         )
         stat = result.stdout.strip()
         if not stat:
@@ -102,7 +105,10 @@ def _resolve_git_diff(cwd: str) -> str:
 
         result_full = subprocess.run(
             ["git", "diff"],
-            capture_output=True, text=True, timeout=15, cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            cwd=cwd,
         )
         diff = result_full.stdout.strip()
         if len(diff) > 8000:
@@ -116,7 +122,10 @@ def _resolve_git_staged(cwd: str) -> str:
     try:
         result = subprocess.run(
             ["git", "diff", "--cached"],
-            capture_output=True, text=True, timeout=15, cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            cwd=cwd,
         )
         diff = result.stdout.strip()
         if not diff:
@@ -134,7 +143,10 @@ def _resolve_git_log(n_str: str, cwd: str) -> str:
         n = max(1, min(n, 20))
         result = subprocess.run(
             ["git", "log", f"-{n}", "--oneline", "--stat"],
-            capture_output=True, text=True, timeout=10, cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=cwd,
         )
         log = result.stdout.strip()
         if not log:
@@ -165,8 +177,9 @@ def _resolve_url(url: str) -> str:
 
 def _strip_html(html: str) -> str:
     import re
-    html = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    html = re.sub(r'<style[^>]*>.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
-    html = re.sub(r'<[^>]+>', ' ', html)
-    html = re.sub(r'\s+', ' ', html)
+
+    html = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"<[^>]+>", " ", html)
+    html = re.sub(r"\s+", " ", html)
     return html.strip()

@@ -1,0 +1,40 @@
+[importlinter]
+root_package = prometheus
+exclude_modules =
+    prometheus.plugins.disk-cleanup,
+    prometheus.plugins.example-dashboard,
+    prometheus.plugins.hermes-achievements,
+    prometheus.plugins.image_gen,
+    prometheus.plugins.strike-freedom-cockpit,
+    prometheus.plugins.observability,
+
+[importlinter:contract:1]
+name = 禁止内部循环依赖
+type = forbidden
+modules =
+    prometheus.agent
+    prometheus.cli
+    prometheus.gateway
+    prometheus.tools
+    prometheus.genes
+    prometheus.framework
+    prometheus.compiler
+    prometheus.self_evolution
+    prometheus.memory
+    prometheus.channels
+    prometheus.bootstrap
+
+[importlinter:contract:2]
+name = 工具层不应依赖Agent核心
+type = layers
+layers =
+    prometheus.agent
+    prometheus.tools
+
+[importlinter:contract:3]
+name = CLI不应依赖Gateway
+type = forbidden
+source_modules =
+    prometheus.cli
+forbidden_modules =
+    prometheus.gateway
