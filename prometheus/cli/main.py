@@ -1,12 +1,60 @@
 #!/usr/bin/env python3
 """╔══════════════════════════════════════════════════════════════╗."""
 
+import os
+import sys
+
+# ═══════════════════════════════════════════
+#   Profile 覆盖 — 必须在任何 prometheus import 之前
+# ═══════════════════════════════════════════
+
+
+def _apply_profile_override():
+    """Set PROMETHEUS_HOME from -p/--profile flag, before any imports.
+
+    Called at the VERY TOP of the CLI entry point, before any prometheus
+    module is imported.  Uses only stdlib to avoid circular dependencies.
+    """
+    profile_name = None
+    args = sys.argv[1:]
+    for i, arg in enumerate(args):
+        if arg in ("-p", "--profile"):
+            try:
+                profile_name = args[i + 1]
+            except IndexError:
+                pass
+            break
+        if arg.startswith("--profile="):
+            profile_name = arg.split("=", 1)[1]
+            break
+
+    if not profile_name:
+        return
+
+    if profile_name == "default":
+        return
+
+    import re
+
+    if not re.match(r"^[a-z0-9][a-z0-9_-]{0,63}$", profile_name):
+        return
+
+    home = os.environ.get(
+        "PROMETHEUS_HOME",
+        os.path.join(os.path.expanduser("~"), ".prometheus"),
+    )
+    profile_dir = os.path.join(home, "profiles", profile_name)
+    if os.path.isdir(profile_dir):
+        os.environ["PROMETHEUS_HOME"] = profile_dir
+
+
+_apply_profile_override()
+
+
 import contextlib
 import json
-import os
 import shutil
 import subprocess
-import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -935,6 +983,8 @@ def build_parser():
     )
     parser.add_argument("--version", "-V", action="version", version=f"ptg {__version__}")
     parser.add_argument("--verbose", "-v", action="store_true", help="详细输出")
+    parser.add_argument("--tui", action="store_true", help="启用 Rich TUI 聊天模式")
+    parser.add_argument("--profile", "-p", metavar="NAME", help="使用指定 Profile 实例")
 
     subparsers = parser.add_subparsers(dest="command", help="可用命令")
 
@@ -3243,6 +3293,12 @@ def main():
         return
 
     args = parser.parse_args()
+
+    if args.tui:
+        from prometheus.tui_chat import run_tui_chat
+
+        run_tui_chat(model=getattr(args, "model", "default"))
+        return
 
     # 命令别名映射
     command_aliases = {

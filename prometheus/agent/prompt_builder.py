@@ -8,6 +8,7 @@ import re
 import threading
 from collections import OrderedDict
 from pathlib import Path
+from typing import Dict, List, Tuple
 
 from prometheus.agent.skill_utils import (
     extract_skill_conditions,

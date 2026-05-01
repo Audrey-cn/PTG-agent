@@ -53,7 +53,10 @@ def _skin_branding(key: str, fallback: str) -> str:
 
 import contextlib
 
-from prometheus.cli import __release_date__ as RELEASE_DATE
+try:
+    from prometheus.cli import __release_date__ as RELEASE_DATE
+except ImportError:
+    RELEASE_DATE = ""
 from prometheus.cli import __version__ as VERSION
 
 PROMETHEUS_AGENT_LOGO = """[bold #FFD700]██████╗ ██████╗  ██████╗ ███╗   ███╗███████╗████████╗██╗  ██╗███████╗██╗   ██╗███████╗[/]
