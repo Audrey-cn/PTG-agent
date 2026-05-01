@@ -80,11 +80,13 @@ def _offer_launch_chat():
     print()
     if wizard_yes_no("🚀 是否立即进入 Chat 模式？", True):
         chat_args = type('Args', (), {})()
+        chat_args.system_prompt = None
         chat_args.model = None
         chat_args.message = None
         chat_args.stream = True
         chat_args.provider = None
         chat_args.list = False
+        chat_args.max_iterations = 50
         cmd_chat(chat_args)
     else:
         print()
@@ -1207,7 +1209,7 @@ def cmd_chat(args):
     model_cfg = config_dict.get('model', {})
     api_cfg = config_dict.get('api', {})
 
-    model = args.model or model_cfg.get('name', '') or 'gpt-4o'
+    model = getattr(args, 'model', None) or model_cfg.get('name', '') or 'gpt-4o'
     base_url = api_cfg.get('base_url', 'https://api.openai.com/v1')
     api_key = api_cfg.get('key', '') or os.getenv('OPENAI_API_KEY', '')
     provider = model_cfg.get('provider', '')
@@ -1226,7 +1228,7 @@ def cmd_chat(args):
         print("   支持的 Key: OPENAI_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY")
         return
 
-    system_prompt = args.system_prompt or (
+    system_prompt = getattr(args, 'system_prompt', None) or (
         "You are Prometheus, the epic chronicler agent. "
         "You manage genetic seeds, maintain the chronicle, and assist with creative and technical tasks. "
         "Use tools when appropriate. Be concise and precise."
@@ -1242,11 +1244,11 @@ def cmd_chat(args):
         api_key=api_key,
         base_url=base_url,
         model=model,
-        max_iterations=args.max_iterations,
+        max_iterations=getattr(args, 'max_iterations', 50),
     )
 
-    if args.message:
-        initial = ' '.join(args.message)
+    if getattr(args, 'message', None):
+        initial = ' '.join(getattr(args, 'message', []))
         print(f"\n>>> {initial}\n")
         result = agent.run_conversation(initial)
         print(f"\n{result['text']}\n")
@@ -1477,7 +1479,6 @@ def main():
         'rs': 'restore',
         're': 'resume',
         'r': 'repl',
-        'c': 'chat',
         'gw': 'gateway',
         'b': 'bench',
     }

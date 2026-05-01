@@ -1,6 +1,9 @@
 import os
 import sys
+import json
 import getpass
+import urllib.request
+import urllib.error
 
 from prometheus.config import Config, DEFAULT_CONFIG, get_prometheus_home
 
@@ -259,6 +262,64 @@ def _print_provider_table(providers, detected_env_vars):
             print(left_line)
 
 
+def _fetch_custom_models(base_url, api_key, timeout=8.0):
+    if not base_url:
+        return None
+    normalized = base_url.strip().rstrip("/")
+    candidates = [(normalized, False)]
+    if normalized.endswith("/v1"):
+        alt = normalized[:-3].rstrip("/")
+    else:
+        alt = normalized + "/v1"
+    if alt and alt != normalized:
+        candidates.append((alt, True))
+    headers = {"Accept": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    for candidate_base, is_fallback in candidates:
+        url = f"{candidate_base.rstrip('/')}/models"
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode())
+                models = [m.get("id", "") for m in data.get("data", [])]
+                if models:
+                    return {
+                        "models": models,
+                        "resolved_base_url": candidate_base.rstrip("/"),
+                        "fallback": is_fallback,
+                    }
+        except Exception:
+            continue
+    return None
+
+
+def step0_language(config):
+    _print_header("Step 0 · 语言 / Language")
+
+    print()
+    print("  ● 1. 中文 (Chinese)")
+    print("  ○ 2. English")
+    print()
+    while True:
+        try:
+            v = input("  选择 / Select [1-2] (1): ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print()
+            v = ""
+        if not v:
+            v = "1"
+        if v == "1":
+            config.set("system.language", "zh")
+            _print_success("界面语言设置为 中文")
+            return
+        elif v == "2":
+            config.set("system.language", "en")
+            _print_success("Interface language set to English")
+            return
+        print("  请输入 1 或 2 / Please enter 1 or 2")
+
+
 def run_setup():
     print()
     print(f" {C.YELLOW}{'═' * 59}{S.RESET_ALL}")
@@ -268,6 +329,7 @@ def run_setup():
 
     config = Config()
 
+    step0_language(config)
     step1_provider(config)
     step2_channels(config)
     step3_tools(config)
@@ -292,9 +354,6 @@ def step1_provider(config):
         _print_info("检测到以下环境变量 Key：")
         for pid, label, env_var in detected:
             print(f"  {C.GREEN}✅{S.RESET_ALL} {label} ({env_var})")
-
-    _print_info("支持的模型提供者：")
-    _print_provider_table(PROVIDERS, detected_env_vars)
 
     provider_labels = []
     for pid, label, env_var, desc in PROVIDERS:
@@ -368,6 +427,42 @@ def step1_provider(config):
         api_key = _prompt(f"  API Key：", password=True)
         if api_key:
             config.set("api.key", api_key)
+        probe = _fetch_custom_models(base_url or "", api_key or "")
+        if probe and probe.get("models"):
+            _models = probe["models"]
+            _print_success(f"从端点探测到 {len(_models)} 个模型")
+            if probe.get("fallback"):
+                _print_info(f"端点路径已修正为 {probe['resolved_base_url']}")
+                config.set("api.base_url", probe["resolved_base_url"])
+            print()
+            for i, m in enumerate(_models[:20], 1):
+                print(f"  {i:>2}. {m}")
+            if len(_models) > 20:
+                print(f"  ... 还有 {len(_models) - 20} 个模型未显示")
+            pick = _prompt(f"  选择模型 [1-{min(len(_models), 20)}] 或直接输入名称：")
+            if pick.isdigit() and 1 <= int(pick) <= min(len(_models), 20):
+                config.set("model.name", _models[int(pick) - 1])
+            elif pick:
+                config.set("model.name", pick)
+            else:
+                config.set("model.name", _models[0])
+        else:
+            _print_info("无法探测端点模型列表，将手动设置")
+            default_model = "gpt-4o"
+            model = _prompt("  默认模型：", default=default_model)
+            config.set("model.name", model or default_model)
+        max_tokens = _prompt("  Max Tokens：", default="4096")
+        try:
+            config.set("model.max_tokens", int(max_tokens or 4096))
+        except ValueError:
+            config.set("model.max_tokens", 4096)
+        temp_val = _prompt("  Temperature (0.0-2.0)：", default="0.7")
+        try:
+            config.set("model.temperature", float(temp_val or 0.7))
+        except ValueError:
+            config.set("model.temperature", 0.7)
+        _print_success(f"{label} 已配置")
+        return
     elif env_var:
         api_key = _prompt(f"  {label} API Key ({env_var})：", password=True)
         if api_key:
