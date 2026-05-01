@@ -25,14 +25,18 @@
 import os
 import sys
 import json
+import shutil
 import time
 import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
 
 __version__ = "0.8.0"
 __codename__ = "Prometheus"
 
 # 确保 tools/ 子目录在搜索路径中
 _PROMETHEUS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_PROJECT_ROOT = os.path.dirname(_PROMETHEUS_DIR)
 _TOOLS_DIR = os.path.join(_PROMETHEUS_DIR, "tools")
 if _PROMETHEUS_DIR not in sys.path:
     sys.path.insert(0, _PROMETHEUS_DIR)
@@ -537,38 +541,304 @@ def cmd_dict(args):
 #   Update 自我更新
 # ═══════════════════════════════════════════
 
-def cmd_update(args):
-    """检查更新。"""
-    print(f"\n🔥 Prometheus v{__version__}\n")
-    print("  当前版本:", __version__)
-    print("  代码名称:", __codename__)
+def _stash_local_changes_if_needed(git_cmd, cwd):
+    result = subprocess.run(
+        git_cmd + ["status", "--porcelain"],
+        cwd=cwd, capture_output=True, text=True
+    )
+    if not result.stdout.strip():
+        return None
 
-    # 检查 git 状态
-    git_dir = os.path.join(_PROMETHEUS_DIR, ".git")
-    if os.path.isdir(git_dir):
-        try:
-            result = subprocess.run(
-                ["git", "log", "--oneline", "-1"],
-                cwd=_PROMETHEUS_DIR, capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0:
-                print(f"  最新提交: {result.stdout.strip()}")
-            result = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=_PROMETHEUS_DIR, capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0:
-                changes = len(result.stdout.strip().split('\n')) if result.stdout.strip() else 0
-                if changes > 0:
-                    print(f"  ⚠️  {changes} 个未提交的更改")
-                else:
-                    print(f"  ✅ 工作区干净")
-        except Exception:
-            print("  ⚠️  无法检查 git 状态")
+    unmerged = subprocess.run(
+        git_cmd + ["ls-files", "--unmerged"],
+        cwd=cwd, capture_output=True, text=True
+    )
+    if unmerged.stdout.strip():
+        print("→ 清除上次冲突遗留的未合并索引条目...")
+        subprocess.run(git_cmd + ["reset"], cwd=cwd, capture_output=True)
+
+    stash_name = datetime.now(timezone.utc).strftime(
+        "ptg-update-autostash-%Y%m%d-%H%M%S"
+    )
+    print("→ 检测到本地改动 — 更新前自动 stash...")
+    subprocess.run(
+        git_cmd + ["stash", "push", "--include-untracked", "-m", stash_name],
+        cwd=cwd, check=True
+    )
+    stash_ref = subprocess.run(
+        git_cmd + ["rev-parse", "--verify", "refs/stash"],
+        cwd=cwd, capture_output=True, text=True, check=True
+    ).stdout.strip()
+    return stash_ref
+
+
+def _resolve_stash_selector(git_cmd, cwd, stash_ref):
+    stash_list = subprocess.run(
+        git_cmd + ["stash", "list", "--format=%gd %H"],
+        cwd=cwd, capture_output=True, text=True, check=True
+    )
+    for line in stash_list.stdout.splitlines():
+        selector, _, commit = line.partition(" ")
+        if commit.strip() == stash_ref:
+            return selector.strip()
+    return None
+
+
+def _print_stash_cleanup_guidance(stash_ref, stash_selector=None):
+    print("  请先检查 `git status`，避免意外重复应用。")
+    print("  查看 stash 列表: git stash list --format='%gd %H %s'")
+    if stash_selector:
+        print(f"  删除: git stash drop {stash_selector}")
     else:
-        print("  ⚠️  非 git 安装")
+        print(f"  找到 commit {stash_ref} 对应的 selector，然后: git stash drop stash@{{N}}")
+
+
+def _restore_stashed_changes(git_cmd, cwd, stash_ref):
+    print()
+    print("⚠ 检测到更新前自动 stash 了本地改动。")
+    print("  恢复它们会将你的本地自定义叠加到更新后的代码上。")
+    try:
+        response = input("是否恢复本地改动？[Y/n] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        response = ""
+    if response not in ("", "y", "yes"):
+        print("跳过恢复本地改动。")
+        print(f"你的改动已保存在 git stash 中，可用 `git stash apply {stash_ref}` 手动恢复。")
+        return False
+
+    print("→ 恢复本地改动...")
+    restore = subprocess.run(
+        git_cmd + ["stash", "apply", stash_ref],
+        cwd=cwd, capture_output=True, text=True
+    )
+
+    unmerged = subprocess.run(
+        git_cmd + ["diff", "--name-only", "--diff-filter=U"],
+        cwd=cwd, capture_output=True, text=True
+    )
+    has_conflicts = bool(unmerged.stdout.strip())
+
+    if restore.returncode != 0 or has_conflicts:
+        print("✗ 恢复本地改动时产生冲突。")
+        if restore.stdout.strip():
+            print(restore.stdout.strip())
+        if restore.stderr.strip():
+            print(restore.stderr.strip())
+        conflicted_files = unmerged.stdout.strip()
+        if conflicted_files:
+            print("\n冲突文件:")
+            for f in conflicted_files.splitlines():
+                print(f"  • {f}")
+        print("\n你的 stash 条目已保留，数据未丢失。")
+        print(f"  Stash ref: {stash_ref}")
+        subprocess.run(
+            git_cmd + ["reset", "--hard", "HEAD"],
+            cwd=cwd, capture_output=True
+        )
+        print("工作区已重置为干净状态。")
+        print(f"稍后手动恢复: git stash apply {stash_ref}")
+        return False
+
+    stash_selector = _resolve_stash_selector(git_cmd, cwd, stash_ref)
+    if stash_selector is None:
+        print("⚠ 已恢复本地改动，但找不到对应的 stash 条目。")
+        _print_stash_cleanup_guidance(stash_ref)
+    else:
+        drop = subprocess.run(
+            git_cmd + ["stash", "drop", stash_selector],
+            cwd=cwd, capture_output=True, text=True
+        )
+        if drop.returncode != 0:
+            print("⚠ 已恢复本地改动，但无法删除 stash 条目。")
+            _print_stash_cleanup_guidance(stash_ref, stash_selector)
+
+    print("✓ 本地改动已恢复到更新后的代码上。")
+    return True
+
+
+def _clear_bytecode_cache(root):
+    removed = 0
+    for dirpath, dirnames, _ in os.walk(root):
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in ("venv", ".venv", "node_modules", ".git", ".worktrees")
+        ]
+        if os.path.basename(dirpath) == "__pycache__":
+            try:
+                shutil.rmtree(dirpath)
+                removed += 1
+            except OSError:
+                pass
+            dirnames.clear()
+    return removed
+
+
+def _cmd_update_check():
+    git_dir = os.path.join(_PROJECT_ROOT, ".git")
+    if not os.path.isdir(git_dir):
+        print("✗ 非 git 仓库，无法检查更新。")
+        sys.exit(1)
+
+    git_cmd = ["git"]
+    if sys.platform == "win32":
+        git_cmd = ["git", "-c", "windows.appendAtomically=false"]
+
+    print("→ 从 origin 拉取更新信息...")
+    fetch = subprocess.run(
+        git_cmd + ["fetch", "origin"],
+        cwd=_PROJECT_ROOT, capture_output=True, text=True
+    )
+    if fetch.returncode != 0:
+        stderr = fetch.stderr.strip()
+        if "Could not resolve host" in stderr or "unable to access" in stderr:
+            print("✗ 网络错误 — 无法连接远程仓库。")
+        else:
+            print("✗ 拉取远程信息失败。")
+        if stderr:
+            print(f"  {stderr.splitlines()[0]}")
+        sys.exit(1)
+
+    result = subprocess.run(
+        git_cmd + ["rev-list", "HEAD..origin/main", "--count"],
+        cwd=_PROJECT_ROOT, capture_output=True, text=True, check=True
+    )
+    commit_count = int(result.stdout.strip())
+
+    if commit_count == 0:
+        print("✓ 已是最新版本！")
+    else:
+        print(f"✓ 发现 {commit_count} 个新提交，可运行 'ptg update' 安装更新。")
+    print()
+
+
+def _cmd_update_impl(args):
+    git_dir = os.path.join(_PROJECT_ROOT, ".git")
+    if not os.path.isdir(git_dir):
+        print("✗ 非 git 安装。请重新安装：")
+        print("  pip install -e .")
+        sys.exit(1)
+
+    git_cmd = ["git"]
+    if sys.platform == "win32":
+        git_cmd = ["git", "-c", "windows.appendAtomically=false"]
+        subprocess.run(
+            git_cmd + ["config", "windows.appendAtomically", "false"],
+            cwd=_PROJECT_ROOT, check=False, capture_output=True
+        )
+
+    print("🔥 Prometheus 自我更新\n")
+    print("→ 拉取远程更新...")
+    fetch = subprocess.run(
+        git_cmd + ["fetch", "origin"],
+        cwd=_PROJECT_ROOT, capture_output=True, text=True
+    )
+    if fetch.returncode != 0:
+        stderr = fetch.stderr.strip()
+        if "Could not resolve host" in stderr or "unable to access" in stderr:
+            print("✗ 网络错误 — 无法连接远程仓库。")
+        elif "Authentication failed" in stderr:
+            print("✗ 认证失败 — 请检查 git credentials 或 SSH key。")
+        else:
+            print("✗ 拉取远程更新失败。")
+        if stderr:
+            print(f"  {stderr.splitlines()[0]}")
+        sys.exit(1)
+
+    result = subprocess.run(
+        git_cmd + ["rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=_PROJECT_ROOT, capture_output=True, text=True, check=True
+    )
+    current_branch = result.stdout.strip()
+    branch = "main"
+
+    if current_branch != "main":
+        label = "detached HEAD" if current_branch == "HEAD" else f"分支 '{current_branch}'"
+        print(f"  ⚠ 当前位于 {label} — 切换到 main 进行更新...")
+        auto_stash_ref = _stash_local_changes_if_needed(git_cmd, _PROJECT_ROOT)
+        subprocess.run(
+            git_cmd + ["checkout", "main"],
+            cwd=_PROJECT_ROOT, capture_output=True, text=True, check=True
+        )
+    else:
+        auto_stash_ref = _stash_local_changes_if_needed(git_cmd, _PROJECT_ROOT)
+
+    result = subprocess.run(
+        git_cmd + ["rev-list", f"HEAD..origin/{branch}", "--count"],
+        cwd=_PROJECT_ROOT, capture_output=True, text=True, check=True
+    )
+    commit_count = int(result.stdout.strip())
+
+    if commit_count == 0:
+        if auto_stash_ref is not None:
+            _restore_stashed_changes(git_cmd, _PROJECT_ROOT, auto_stash_ref)
+        if current_branch not in ("main", "HEAD"):
+            subprocess.run(
+                git_cmd + ["checkout", current_branch],
+                cwd=_PROJECT_ROOT, capture_output=True, text=True, check=False
+            )
+        print("✓ 已是最新版本！")
+        return
+
+    print(f"→ 发现 {commit_count} 个新提交")
+
+    print("→ 拉取更新...")
+    update_succeeded = False
+    try:
+        pull = subprocess.run(
+            git_cmd + ["pull", "--ff-only", "origin", branch],
+            cwd=_PROJECT_ROOT, capture_output=True, text=True
+        )
+        if pull.returncode != 0:
+            print("  ⚠ 无法快进合并（历史分叉），重置以匹配远程...")
+            reset = subprocess.run(
+                git_cmd + ["reset", "--hard", f"origin/{branch}"],
+                cwd=_PROJECT_ROOT, capture_output=True, text=True
+            )
+            if reset.returncode != 0:
+                print(f"✗ 重置失败。")
+                if reset.stderr.strip():
+                    print(f"  {reset.stderr.strip()}")
+                sys.exit(1)
+        update_succeeded = True
+    finally:
+        if auto_stash_ref is not None:
+            if not update_succeeded:
+                print(f"  ℹ️ 本地改动已保存在 stash (ref: {auto_stash_ref})")
+                print("  手动恢复: git stash apply")
+            else:
+                _restore_stashed_changes(git_cmd, _PROJECT_ROOT, auto_stash_ref)
+
+    removed = _clear_bytecode_cache(_PROJECT_ROOT)
+    if removed:
+        print(f"  ✓ 已清除 {removed} 个过期的 __pycache__ 目录")
+
+    print("→ 更新 Python 依赖...")
+    pip_cmd = [sys.executable, "-m", "pip"]
+    try:
+        subprocess.run(
+            pip_cmd + ["install", "-e", ".", "--quiet"],
+            cwd=_PROJECT_ROOT, check=True
+        )
+    except subprocess.CalledProcessError:
+        print("  ⚠ 依赖安装失败 — 请手动运行: pip install -e .")
 
     print()
+    print("✓ 更新完成！")
+
+    if current_branch not in ("main", "HEAD"):
+        subprocess.run(
+            git_cmd + ["checkout", current_branch],
+            cwd=_PROJECT_ROOT, capture_output=True, text=True, check=False
+        )
+
+
+def cmd_update(args):
+    """自我更新 — 从远程仓库拉取最新代码并重装依赖。"""
+    if getattr(args, "check", False):
+        _cmd_update_check()
+        return
+
+    _cmd_update_impl(args)
 
 
 # ═══════════════════════════════════════════
@@ -705,8 +975,10 @@ def build_parser():
     dict_p_alias.add_argument('seed_path', nargs='?')
 
     # update (u)
-    subparsers.add_parser('update', help='检查更新')
-    subparsers.add_parser('u', help='(别名) update - 检查更新')
+    update_parser = subparsers.add_parser('update', help='自我更新 — 拉取最新代码并重装依赖')
+    update_parser.add_argument('--check', action='store_true', help='仅检查是否有新版本')
+    u_parser = subparsers.add_parser('u', help='(别名) update - 自我更新')
+    u_parser.add_argument('--check', action='store_true', help='仅检查是否有新版本')
 
     # skill (sk) - 技能管理
     skill_p = subparsers.add_parser('skill', help='技能管理')
