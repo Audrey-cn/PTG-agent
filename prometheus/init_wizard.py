@@ -1,241 +1,719 @@
-#!/usr/bin/env python3
-"""
-Prometheus 初始化系统
-参考 Hermes 的交互式引导体验
-"""
-
 import os
 import sys
-from pathlib import Path
-from typing import Optional, Dict, Any
+import getpass
 
-# 添加父目录到路径
-sys.path.insert(0, str(Path(__file__).parent.parent))
+from prometheus.config import Config, DEFAULT_CONFIG, get_prometheus_home
 
-from prometheus.memory_system import MemorySystem, get_prometheus_home, get_memories_dir
-from prometheus.config import Config
+__version__ = "0.8.0"
+
+try:
+    from colorama import Fore, Style, init
+    init()
+    C = Fore
+    S = Style
+except ImportError:
+    class _NoColor:
+        def __getattr__(self, name):
+            return ""
+    C = _NoColor()
+    S = _NoColor()
+
+PROVIDERS = [
+    ("openrouter",     "OpenRouter",                  "OPENROUTER_API_KEY",        "100+ models, pay-per-use"),
+    ("nous",           "Nous Portal",                 None,                        "Nous Research subscription (OAuth)"),
+    ("ai-gateway",     "Vercel AI Gateway",           "AI_GATEWAY_API_KEY",        "200+ models, $5 credit, no markup"),
+    ("anthropic",      "Anthropic",                   "ANTHROPIC_API_KEY",         "Claude models — API key"),
+    ("openai",         "OpenAI",                      "OPENAI_API_KEY",            "GPT-4o, o3, o4-mini"),
+    ("openai-codex",   "OpenAI Codex",                None,                        "Codex coding agent (OAuth)"),
+    ("xiaomi",         "Xiaomi MiMo",                 "XIAOMI_API_KEY",            "MiMo-V2.5 pro/omni/flash"),
+    ("nvidia",         "NVIDIA NIM",                  "NVIDIA_API_KEY",            "Nemotron models"),
+    ("qwen-oauth",     "Qwen OAuth (Portal)",         None,                        "Qwen OAuth — local CLI login"),
+    ("copilot",        "GitHub Copilot",              "GITHUB_TOKEN",              "Uses gh auth token"),
+    ("copilot-acp",    "GitHub Copilot ACP",          None,                        "Subprocess copilot --acp --stdio"),
+    ("huggingface",    "Hugging Face",                "HF_TOKEN",                  "20+ open models via Inference Providers"),
+    ("gemini",         "Google AI Studio",            "GOOGLE_API_KEY",            "Gemini models — native API"),
+    ("google-gemini-cli", "Google Gemini (OAuth)",    None,                        "OAuth + Code Assist, free tier"),
+    ("deepseek",       "DeepSeek",                    "DEEPSEEK_API_KEY",          "V3, R1, coder — direct API"),
+    ("xai",            "xAI",                         "XAI_API_KEY",               "Grok models"),
+    ("zai",            "Z.AI / GLM",                  "GLM_API_KEY",               "Zhipu AI direct API"),
+    ("kimi-coding",    "Kimi / Moonshot",             "KIMI_API_KEY",              "Kimi Coding Plan"),
+    ("kimi-coding-cn", "Kimi / Moonshot (China)",     "KIMI_CN_API_KEY",           "Moonshot CN direct API"),
+    ("stepfun",        "StepFun Step Plan",           "STEPFUN_API_KEY",           "Agent/coding models"),
+    ("minimax",        "MiniMax",                     "MINIMAX_API_KEY",           "Global direct API"),
+    ("minimax-cn",     "MiniMax (China)",             "MINIMAX_CN_API_KEY",        "Domestic direct API"),
+    ("alibaba",        "Alibaba Cloud (DashScope)",   "DASHSCOPE_API_KEY",         "Qwen + multi-provider"),
+    ("ollama-cloud",   "Ollama Cloud",                "OLLAMA_API_KEY",            "Cloud-hosted open models"),
+    ("arcee",          "Arcee AI",                    "ARCEEAI_API_KEY",           "Trinity models"),
+    ("kilocode",       "Kilo Code",                   "KILOCODE_API_KEY",          "Kilo Gateway API"),
+    ("opencode-zen",   "OpenCode Zen",                "OPENCODE_ZEN_API_KEY",      "35+ curated models, pay-as-you-go"),
+    ("opencode-go",    "OpenCode Go",                 "OPENCODE_GO_API_KEY",       "Open models, $10/month"),
+    ("bedrock",        "AWS Bedrock",                 None,                        "Claude, Nova, Llama — IAM/SDK"),
+    ("azure-foundry",  "Azure Foundry",               "AZURE_FOUNDRY_API_KEY",     "Your Azure AI deployment"),
+    ("ollama",         "本地 Ollama",                  None,                        "自托管本地模型"),
+    ("custom",         "自定义 OpenAI-compatible",     None,                        "任意兼容端点"),
+]
+
+PROVIDER_DEFAULTS = {
+    "openrouter":    {"base_url": "https://openrouter.ai/api/v1",       "model": "openai/gpt-4o"},
+    "nous":          {"base_url": "https://inference-api.nousresearch.com/v1", "model": "hermes-3-llama-3.2-3b"},
+    "ai-gateway":    {"base_url": "https://ai-gateway.vercel.sh/v1",    "model": "gpt-4o"},
+    "anthropic":     {"base_url": "https://api.anthropic.com/v1",       "model": "claude-sonnet-4-20250514"},
+    "openai":        {"base_url": "https://api.openai.com/v1",          "model": "gpt-4o"},
+    "openai-codex":  {"base_url": "https://chatgpt.com/backend-api/codex", "model": "codex"},
+    "xiaomi":        {"base_url": "https://api.xiaomimimo.com/v1",      "model": "mimo-v2.5-pro"},
+    "nvidia":        {"base_url": "https://integrate.api.nvidia.com/v1","model": "nvidia/nemotron-4-340b-instruct"},
+    "qwen-oauth":    {"base_url": "https://portal.qwen.ai/v1",           "model": "qwen-max"},
+    "copilot":       {"base_url": "https://api.githubcopilot.com",       "model": "gpt-4o"},
+    "copilot-acp":   {"base_url": "acp://copilot",                       "model": "gpt-4o"},
+    "huggingface":   {"base_url": "https://router.huggingface.co/v1",   "model": "meta-llama/Llama-3.3-70B-Instruct"},
+    "gemini":        {"base_url": "https://generativelanguage.googleapis.com/v1beta", "model": "gemini-2.5-flash"},
+    "google-gemini-cli": {"base_url": "cloudcode-pa://google",           "model": "gemini-2.5-flash"},
+    "deepseek":      {"base_url": "https://api.deepseek.com/v1",         "model": "deepseek-chat"},
+    "xai":           {"base_url": "https://api.x.ai/v1",                 "model": "grok-3"},
+    "zai":           {"base_url": "https://api.z.ai/api/paas/v4",        "model": "glm-4"},
+    "kimi-coding":   {"base_url": "https://api.moonshot.ai/v1",          "model": "kimi-latest"},
+    "kimi-coding-cn":{"base_url": "https://api.moonshot.cn/v1",          "model": "kimi-latest"},
+    "stepfun":       {"base_url": "https://api.stepfun.ai/step_plan/v1", "model": "step-2-16k"},
+    "minimax":       {"base_url": "https://api.minimax.io/anthropic",   "model": "MiniMax-M1"},
+    "minimax-cn":    {"base_url": "https://api.minimaxi.com/anthropic",  "model": "MiniMax-M1"},
+    "alibaba":       {"base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", "model": "qwen-max"},
+    "ollama-cloud":  {"base_url": "https://ollama.com/v1",                "model": "llama3.3"},
+    "arcee":         {"base_url": "https://api.arcee.ai/api/v1",         "model": "arcee-trinity"},
+    "kilocode":      {"base_url": "https://api.kilo.ai/api/gateway",     "model": "gpt-4o"},
+    "opencode-zen":  {"base_url": "https://opencode.ai/zen/v1",          "model": "gpt-4o"},
+    "opencode-go":   {"base_url": "https://opencode.ai/zen/go/v1",       "model": "gpt-4o"},
+    "bedrock":       {"base_url": "https://bedrock-runtime.us-east-1.amazonaws.com", "model": "us.anthropic.claude-sonnet-4-20250514-v1:0"},
+    "azure-foundry": {"base_url": "",                                     "model": ""},
+    "ollama":        {"base_url": "http://localhost:11434/v1",            "model": "llama3"},
+    "custom":        {"base_url": "",                                     "model": ""},
+}
+
+CHANNELS = [
+    ("cli",              "CLI 命令行",               True,  None),
+    ("telegram",         "Telegram 机器人",           False, "python-telegram-bot"),
+    ("discord",          "Discord 机器人",            False, "discord.py"),
+    ("slack",            "Slack",                     False, "slack-bolt"),
+    ("signal",           "Signal",                    False, None),
+    ("email",            "Email (SMTP)",              False, None),
+    ("sms",              "SMS (Twilio)",              False, None),
+    ("matrix",           "Matrix",                    False, None),
+    ("mattermost",       "Mattermost",                False, None),
+    ("whatsapp",         "WhatsApp",                  False, None),
+    ("dingtalk",         "钉钉 (DingTalk)",           False, "dingtalk-stream"),
+    ("feishu",           "飞书 / Lark",               False, "lark-oapi"),
+    ("yuanbao",          "元宝 (Yuanbao)",            False, None),
+    ("wecom",            "企业微信 (WeCom)",           False, None),
+    ("wecom-callback",   "企微回调 (WeCom Callback)",  False, None),
+    ("weixin",           "微信 (WeChat)",              False, None),
+    ("bluebubbles",      "BlueBubbles (iMessage)",    False, None),
+    ("qqbot",            "QQ Bot",                    False, None),
+    ("webhook",          "HTTP Webhook",              False, "fastapi"),
+]
+
+TOOL_MODULES = [
+    ("memory",      "记忆系统",     "核心记忆管理",    "stable"),
+    ("knowledge",   "知识编译器",   "语义知识编译与检索", "stable"),
+    ("seed_editor", "种子编辑器",   "TTG 种子编辑与解码", "stable"),
+    ("chronicler",  "史诗编史官",   "烙印/追溯/附史",   "stable"),
+    ("audit",       "语义审核",     "格式无关内容审核",  "stable"),
+    ("skin",        "皮肤引擎",     "CLI 视觉主题",     "stable"),
+    ("backup",      "备份恢复",     "配置与记忆备份",   "stable"),
+    ("cron",        "定时任务",     "Cron 定时调度",    "beta"),
+    ("sandbox",     "代码沙箱",     "安全代码执行",     "beta"),
+    ("gateway",     "消息网关",     "多频道消息路由",   "beta"),
+    ("mcp",         "MCP 协议",     "Model Context Protocol", "experimental"),
+]
 
 
-def print_banner():
-    """打印欢迎横幅"""
-    banner = r"""
-  ____                            _                 
- |  _ \ _ __ ___  _ __ ___  _   _| |__   ___  ___  
- | |_) | '__/ _ \| '_ ` _ \| | | | '_ \ / _ \/ __| 
- |  __/| | | (_) | | | | | | |_| | |_) |  __/\__ \ 
- |_|   |_|  \___/|_| |_| |_|\__,_|_.__/ \___||___/ 
-                                                  
-    """
-    print(banner)
-    print("=" * 65)
-    print("🔥  史诗编史官 — 让智慧生长")
-    print("=" * 65)
-    print()
-
-
-def get_input(prompt: str, default: Optional[str] = None) -> str:
-    """获取用户输入，支持默认值"""
-    if default:
-        prompt = f"{prompt} [{default}] "
-    else:
-        prompt = f"{prompt} "
-    
+def _prompt(text, default="", password=False):
+    prompt_fn = getpass.getpass if password else input
     try:
-        value = input(prompt).strip()
-        return value or default or ""
-    except (EOFError, KeyboardInterrupt):
-        print("\n\n操作已取消。")
-        sys.exit(0)
+        return prompt_fn(text).strip()
+    except (KeyboardInterrupt, EOFError):
+        print()
+        return ""
 
 
-def get_choice(prompt: str, options: list, default: int = 1) -> int:
-    """获取用户选择"""
+def _prompt_yes_no(question, default=True):
+    default_str = "Y/n" if default else "y/N"
     while True:
         try:
-            for i, option in enumerate(options, 1):
-                print(f"  {i}. {option}")
-            choice = get_input(f"\n{prompt}", str(default))
-            choice_idx = int(choice) - 1
-            if 0 <= choice_idx < len(options):
-                return choice_idx
-            print(f"请输入 1-{len(options)} 之间的数字")
+            v = input(f"{question} [{default_str}]: ").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            print()
+            return default
+        if not v:
+            return default
+        if v in ("y", "yes"):
+            return True
+        if v in ("n", "no"):
+            return False
+        print("请输入 'y' 或 'n'")
+
+
+def _prompt_choice(question, choices, default=0):
+    print(f"\n{question}")
+    for i, label in enumerate(choices):
+        marker = "●" if i == default else "○"
+        print(f"  {marker} {i+1}. {label}")
+    while True:
+        try:
+            v = input(f"  选择 [1-{len(choices)}] ({default+1}): ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print()
+            return default
+        if not v:
+            return default
+        try:
+            idx = int(v) - 1
+            if 0 <= idx < len(choices):
+                return idx
         except ValueError:
-            print("请输入有效的数字")
+            pass
+        print(f"请输入 1-{len(choices)} 之间的数字")
 
 
-def create_config():
-    """创建配置文件"""
-    config_path = get_prometheus_home() / "config.yaml"
-    
-    if config_path.exists():
+def _prompt_checklist(question, items, pre_selected=None):
+    pre = set(pre_selected or [])
+    print(f"\n{question}")
+    print("  输入编号选择，多个编号用逗号分隔 (如: 1,3,5)")
+    print("  输入 'all' 全选，直接回车 = 跳过全部")
+    for i, label in enumerate(items):
+        mark = "✅" if i in pre else "⬜"
+        print(f"  {mark} {i+1}. {label}")
+    while True:
+        try:
+            v = input("  选择: ").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            print()
+            return list(pre)
+        if not v:
+            return list(pre)
+        if v == "all":
+            return list(range(len(items)))
+        try:
+            indices = [int(x.strip()) - 1 for x in v.split(",")]
+            valid = [i for i in indices if 0 <= i < len(items)]
+            if valid:
+                return valid
+        except ValueError:
+            pass
+        print("请输入有效的编号 (如 1,3,5) 或 'all'")
+
+
+def _can_import(module_name):
+    try:
+        __import__(module_name)
+        return True
+    except ImportError:
         return False
-    
-    default_config = """# Prometheus 配置文件
-# 由初始化系统自动生成，可根据需要修改
-
-skin: default
-
-memory:
-  compression_threshold: 5000
-  proposal_threshold: 3
-  cooldown_hours: 24
-
-skills:
-  auto_discovery: true
-  dangerous_mode: false
-"""
-    
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(default_config, encoding="utf-8")
-    return True
 
 
-def create_initial_skills():
-    """创建初始技能目录结构"""
-    skills_dir = get_prometheus_home() / "skills"
-    skills_dir.mkdir(parents=True, exist_ok=True)
-    
-    # 创建 README
-    readme_path = skills_dir / "README.md"
-    if not readme_path.exists():
-        readme_path.write_text("""# Prometheus 技能库
+def _print_header(title):
+    width = 59
+    print()
+    print(f" {C.CYAN}{'─' * width}{S.RESET_ALL}")
+    print(f" {C.CYAN}{title}{S.RESET_ALL}")
+    print(f" {C.CYAN}{'─' * width}{S.RESET_ALL}")
 
-这里存储您的自定义技能。
 
-## 目录结构
+def _print_success(msg):
+    print(f" {C.GREEN}✓{S.RESET_ALL} {msg}")
 
-```
-skills/
-├── category1/
-│   └── skill_name/
-│       └── SKILL.md
-└── category2/
-    └── another_skill/
-        └── SKILL.md
-```
 
-## SKILL.md 格式
+def _print_warn(msg):
+    print(f" {C.YELLOW}⚠{S.RESET_ALL} {msg}")
 
-```markdown
----
-name: 技能名称
-description: 技能描述
-tags: [tag1, tag2]
-version: "1.0"
-author: 作者
----
 
-# 技能说明
+def _print_info(msg):
+    print(f" {C.CYAN}▶{S.RESET_ALL} {msg}")
 
-这里是技能的详细说明和使用指南。
-```
-""", encoding="utf-8")
+
+def _print_done():
+    print()
+    print(f" {C.GREEN}{'═' * 59}{S.RESET_ALL}")
+    print(f" {C.GREEN}  ✓ 初始化完成 — Prometheus 已就绪{S.RESET_ALL}")
+    print(f" {C.GREEN}{'═' * 59}{S.RESET_ALL}")
+
+
+def _print_provider_table(providers, detected_env_vars):
+    half = (len(providers) + 1) // 2
+    for i in range(half):
+        left_pid, left_label, left_env, left_desc = providers[i]
+        left_key = ""
+        if left_env and left_env in detected_env_vars:
+            left_key = f" {C.GREEN}✓{S.RESET_ALL}"
+        left_str = f"{left_label}{left_key}"
+        left_line = f"  {C.CYAN}{i+1:>2}.{S.RESET_ALL} {left_str:<28}"
+
+        right_idx = i + half
+        if right_idx < len(providers):
+            right_pid, right_label, right_env, right_desc = providers[right_idx]
+            right_key = ""
+            if right_env and right_env in detected_env_vars:
+                right_key = f" {C.GREEN}✓{S.RESET_ALL}"
+            right_str = f"{right_label}{right_key}"
+            right_line = f"{C.CYAN}{right_idx+1:>2}.{S.RESET_ALL} {right_str:<28}"
+            print(f"{left_line}{right_line}")
+        else:
+            print(left_line)
 
 
 def run_setup():
-    """运行交互式初始化"""
-    print_banner()
-    
-    # 检查是否已经初始化
-    memory = MemorySystem()
-    if not memory.is_first_run():
-        print("✅  Prometheus 已经初始化过了！")
-        print(f"\n配置目录：{get_prometheus_home()}")
-        print("如需重新初始化，请先删除该目录。")
-        return False
-    
-    print("让我们一起开始您的 Prometheus 之旅吧！\n")
-    
-    # 步骤 1: 用户信息
-    print("---\n📝  步骤 1: 创建您的身份\n")
-    username = get_input("您的名字是？", "探索者")
-    
-    # 沟通风格
-    print("\n请选择您偏好的沟通风格：")
-    style_options = [
-        "简洁专业 — 直接给出结果，减少冗余",
-        "友好详细 — 详细解释，友好互动",
-        "技术导向 — 注重技术细节和精确性"
-    ]
-    style_choice = get_choice("您的选择是？", style_options, 1)
-    styles = ["简洁专业", "友好详细", "技术导向"]
-    communication_style = styles[style_choice]
-    
-    # 工作偏好
-    print("\n请选择您的工作偏好：")
-    work_options = [
-        "效率优先 — 快速完成，注重结果",
-        "质量优先 — 精益求精，注重细节",
-        "学习优先 — 探索学习，注重成长"
-    ]
-    work_choice = get_choice("您的选择是？", work_options, 1)
-    work_preferences = ["效率优先", "质量优先", "学习优先"][work_choice]
-    
-    # 步骤 2: AI 个性
-    print("\n---\n🤖  步骤 2: 定义 AI 个性\n")
-    personality_options = [
-        "友好、专业、简洁 — 平衡型助手",
-        "严谨、详细、学术 — 专家型助手",
-        "轻松、幽默、创意 — 创意型助手"
-    ]
-    personality_choice = get_choice("您希望的 AI 风格是？", personality_options, 1)
-    personalities = [
-        "友好、专业、简洁",
-        "严谨、详细、学术",
-        "轻松、幽默、创意"
-    ]
-    personality = personalities[personality_choice]
-    
-    # 步骤 3: 确认
-    print("\n---\n✅  步骤 3: 确认设置\n")
-    print("请确认以下信息：")
-    print(f"  👤  名字：{username}")
-    print(f"  💬  沟通风格：{communication_style}")
-    print(f"  ⚡  工作偏好：{work_preferences}")
-    print(f"  🤖  AI 个性：{personality}")
-    
-    confirm = get_input("\n确认创建？[Y/n]", "Y").lower()
-    if confirm not in ["y", "yes", ""]:
-        print("\n设置已取消。")
-        return False
-    
-    # 执行创建
-    print("\n正在创建...")
-    
-    # 创建记忆文件
-    memory.create_user_profile(username, communication_style, work_preferences)
-    memory.create_soul(personality)
-    memory.create_memory()
-    
-    # 创建配置文件
-    if create_config():
-        print("  ✅  配置文件已创建")
-    
-    # 创建技能目录
-    create_initial_skills()
-    print("  ✅  技能目录已初始化")
-    
-    # 完成
-    print("\n" + "=" * 65)
-    print("🎉  初始化完成！")
-    print("=" * 65)
-    print(f"\n欢迎，{username}！")
-    print("\n您的 Prometheus 环境已就绪：")
-    print(f"  📁  配置目录：{get_prometheus_home()}")
-    print(f"  📝  用户画像：{get_prometheus_home() / 'memories' / 'USER.md'}")
-    print(f"  🤖  AI 个性：{get_prometheus_home() / 'SOUL.md'}")
-    print("\n您可以随时编辑这些文件来自定义您的体验。")
-    print("\n现在，让我们开始吧！🚀")
     print()
-    
+    print(f" {C.YELLOW}{'═' * 59}{S.RESET_ALL}")
+    print(f" {C.YELLOW}🔥 Prometheus · 史诗编史官 — 初始化向导{S.RESET_ALL}")
+    print(f" {C.YELLOW}   Teach-To-Grow v{__version__}{S.RESET_ALL}")
+    print(f" {C.YELLOW}{'═' * 59}{S.RESET_ALL}")
+
+    config = Config()
+
+    step1_provider(config)
+    step2_channels(config)
+    step3_tools(config)
+    if not step4_confirm(config):
+        return False
+    step5_finish(config)
+
     return True
 
 
-if __name__ == "__main__":
+def step1_provider(config):
+    _print_header("Step 1 · 模型提供者")
+
+    detected_env_vars = set()
+    detected = []
+    for pid, label, env_var, desc in PROVIDERS:
+        if env_var and os.getenv(env_var):
+            detected_env_vars.add(env_var)
+            detected.append((pid, label, env_var))
+
+    if detected:
+        _print_info("检测到以下环境变量 Key：")
+        for pid, label, env_var in detected:
+            print(f"  {C.GREEN}✅{S.RESET_ALL} {label} ({env_var})")
+
+    _print_info("支持的模型提供者：")
+    _print_provider_table(PROVIDERS, detected_env_vars)
+
+    provider_labels = []
+    for pid, label, env_var, desc in PROVIDERS:
+        has_key = env_var and env_var in detected_env_vars
+        marker = " ✓已设置" if has_key else ""
+        provider_labels.append(f"{label}{marker}")
+
+    choice = _prompt_choice("  选择模型提供者：", provider_labels, 0)
+    pid, label, env_var, desc = PROVIDERS[choice]
+
+    defaults = PROVIDER_DEFAULTS.get(pid, {})
+    config.set("model.provider", pid)
+
+    auth_types = {
+        "nous": "OAuth", "openai-codex": "OAuth", "qwen-oauth": "OAuth",
+        "google-gemini-cli": "OAuth", "copilot-acp": "external_process",
+        "bedrock": "AWS SDK/IAM", "copilot": "gh auth token",
+    }
+
+    if pid == "ollama":
+        base_url = _prompt("  Ollama 地址：", default="http://localhost:11434/v1")
+        config.set("api.base_url", base_url or "http://localhost:11434/v1")
+        model = _prompt("  模型名称：", default="llama3")
+        config.set("model.name", model or "llama3")
+        _print_success(f"本地模型 {model or 'llama3'} 已配置")
+        return
+
+    if pid in ("bedrock", "copilot-acp", "google-gemini-cli", "qwen-oauth",
+               "openai-codex", "nous"):
+        auth_note = auth_types.get(pid, "特殊认证")
+        _print_info(f"{label} 使用 {auth_note} 认证方式。")
+        if pid == "bedrock":
+            region = _prompt("  AWS Region：", default="us-east-1")
+            config.set("api.base_url", f"https://bedrock-runtime.{region or 'us-east-1'}.amazonaws.com")
+        elif pid == "copilot-acp":
+            _print_info("将使用本地 copilot --acp --stdio 子进程")
+        else:
+            config.set("api.base_url", defaults.get("base_url", ""))
+
+        model = _prompt("  默认模型：", default=defaults.get("model", ""))
+        config.set("model.name", model or defaults.get("model", ""))
+        _print_success(f"{label} 已配置")
+        return
+
+    if env_var and env_var in detected_env_vars:
+        use_env = _prompt_yes_no(f"  使用环境变量 {env_var}？", True)
+        if use_env:
+            config.set("api.key", "")
+            config.set("api.base_url", defaults.get("base_url", ""))
+            default_model = defaults.get("model", "")
+            model = _prompt("  默认模型：", default=default_model)
+            config.set("model.name", model or default_model)
+
+            custom_model_choice = _prompt_yes_no("  是否额外指定自定义模型？", False)
+            if custom_model_choice:
+                custom_model = _prompt("  自定义模型名称：")
+                if custom_model:
+                    config.set("model.name", custom_model)
+
+            if pid == "custom":
+                custom_url = _prompt("  Base URL：", default=defaults.get("base_url", ""))
+                if custom_url:
+                    config.set("api.base_url", custom_url)
+            _print_success(f"{label} 已配置 (使用环境变量)")
+            return
+
+    if pid == "custom":
+        base_url = _prompt("  Base URL (例如 https://api.openai.com/v1)：")
+        if base_url:
+            config.set("api.base_url", base_url)
+        api_key = _prompt(f"  API Key：", password=True)
+        if api_key:
+            config.set("api.key", api_key)
+    elif env_var:
+        api_key = _prompt(f"  {label} API Key ({env_var})：", password=True)
+        if api_key:
+            config.set("api.key", api_key)
+        config.set("api.base_url", defaults.get("base_url", ""))
+    else:
+        config.set("api.base_url", defaults.get("base_url", ""))
+
+    default_model = defaults.get("model", "gpt-4o")
+    model = _prompt("  默认模型：", default=default_model)
+    config.set("model.name", model or default_model)
+
+    custom_model_choice = _prompt_yes_no("  是否额外指定自定义模型？", False)
+    if custom_model_choice:
+        custom_model = _prompt("  自定义模型名称：")
+        if custom_model:
+            config.set("model.name", custom_model)
+
+    max_tokens = _prompt("  Max Tokens：", default="4096")
     try:
-        run_setup()
-    except Exception as e:
-        print(f"\n❌  初始化出错：{e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+        config.set("model.max_tokens", int(max_tokens or 4096))
+    except ValueError:
+        config.set("model.max_tokens", 4096)
+
+    temp_val = _prompt("  Temperature (0.0-2.0)：", default="0.7")
+    try:
+        config.set("model.temperature", float(temp_val or 0.7))
+    except ValueError:
+        config.set("model.temperature", 0.7)
+
+    _print_success(f"{label} 已配置")
+
+
+def step2_channels(config):
+    _print_header("Step 2 · 消息频道")
+
+    _print_info("选择要启用的消息频道，可多选：")
+
+    items = []
+    pre_selected = [0]
+    for i, (cid, label, always_on, _dep) in enumerate(CHANNELS):
+        dep_str = ""
+        if _dep and not _can_import(_dep):
+            dep_str = f" {C.RED}(依赖缺失: pip install {_dep}){S.RESET_ALL}"
+        items.append(f"{label}{dep_str}")
+
+    selected = _prompt_checklist("选择频道：", items, pre_selected)
+
+    channels_config = {}
+    for idx in selected:
+        cid, label, always_on, dep = CHANNELS[idx]
+        if dep and not _can_import(dep):
+            _print_warn(f"{label} 依赖未安装，将跳过。可稍后补装：pip install {dep}")
+            continue
+
+        channels_config[cid] = {"enabled": True}
+
+        if cid == "cli":
+            pass
+        elif cid == "telegram":
+            token = _prompt("  Telegram Bot Token：", password=True)
+            if token:
+                channels_config["telegram"]["token"] = token
+                home = _prompt("  Home Channel ID (可选)：")
+                if home:
+                    channels_config["telegram"]["home_channel"] = home
+            else:
+                _print_warn("未输入 Token，Telegram 频道将禁用")
+                channels_config["telegram"]["enabled"] = False
+        elif cid == "discord":
+            token = _prompt("  Discord Bot Token：", password=True)
+            if token:
+                channels_config["discord"]["token"] = token
+            else:
+                channels_config["discord"]["enabled"] = False
+        elif cid == "slack":
+            token = _prompt("  Slack Bot Token (xoxb-...)：", password=True)
+            if token:
+                channels_config["slack"]["token"] = token
+            app_token = _prompt("  Slack App Token (xapp-...)：", password=True)
+            if app_token:
+                channels_config["slack"]["app_token"] = app_token
+        elif cid == "signal":
+            url = _prompt("  Signal HTTP URL：")
+            if url:
+                channels_config["signal"]["url"] = url
+            else:
+                channels_config["signal"]["enabled"] = False
+        elif cid == "email":
+            addr = _prompt("  Email Address：")
+            smtp = _prompt("  SMTP Server：", default="smtp.gmail.com")
+            if addr:
+                channels_config["email"]["address"] = addr
+                channels_config["email"]["smtp_server"] = smtp or "smtp.gmail.com"
+            else:
+                channels_config["email"]["enabled"] = False
+        elif cid == "sms":
+            sid = _prompt("  Twilio Account SID：")
+            token = _prompt("  Twilio Auth Token：", password=True)
+            if sid and token:
+                channels_config["sms"]["sid"] = sid
+                channels_config["sms"]["token"] = token
+            else:
+                channels_config["sms"]["enabled"] = False
+        elif cid == "matrix":
+            token = _prompt("  Matrix Access Token：", password=True)
+            if token:
+                channels_config["matrix"]["token"] = token
+            else:
+                channels_config["matrix"]["enabled"] = False
+        elif cid == "mattermost":
+            token = _prompt("  Mattermost Token：", password=True)
+            if token:
+                channels_config["mattermost"]["token"] = token
+            else:
+                channels_config["mattermost"]["enabled"] = False
+        elif cid == "whatsapp":
+            channels_config["whatsapp"]["enabled"] = True
+            _print_info("WhatsApp 已启用（需额外配置）")
+        elif cid == "dingtalk":
+            client_id = _prompt("  钉钉 Client ID：")
+            client_secret = _prompt("  钉钉 Client Secret：", password=True)
+            if client_id and client_secret:
+                channels_config["dingtalk"]["client_id"] = client_id
+                channels_config["dingtalk"]["client_secret"] = client_secret
+            else:
+                channels_config["dingtalk"]["enabled"] = False
+        elif cid == "feishu":
+            app_id = _prompt("  飞书 App ID：")
+            app_secret = _prompt("  飞书 App Secret：", password=True)
+            if app_id and app_secret:
+                channels_config["feishu"]["app_id"] = app_id
+                channels_config["feishu"]["app_secret"] = app_secret
+            else:
+                channels_config["feishu"]["enabled"] = False
+        elif cid == "yuanbao":
+            app_id = _prompt("  元宝 App ID：")
+            app_secret = _prompt("  元宝 App Secret：", password=True)
+            if app_id and app_secret:
+                channels_config["yuanbao"]["app_id"] = app_id
+                channels_config["yuanbao"]["app_secret"] = app_secret
+            else:
+                channels_config["yuanbao"]["enabled"] = False
+        elif cid == "wecom":
+            bot_id = _prompt("  企业微信 Bot ID：")
+            if bot_id:
+                channels_config["wecom"]["bot_id"] = bot_id
+            else:
+                channels_config["wecom"]["enabled"] = False
+        elif cid == "wecom-callback":
+            corp_id = _prompt("  企业微信 Corp ID：")
+            corp_secret = _prompt("  企业微信 Corp Secret：", password=True)
+            if corp_id and corp_secret:
+                channels_config["wecom-callback"]["corp_id"] = corp_id
+                channels_config["wecom-callback"]["corp_secret"] = corp_secret
+            else:
+                channels_config["wecom-callback"]["enabled"] = False
+        elif cid == "weixin":
+            account_id = _prompt("  微信 Account ID：")
+            if account_id:
+                channels_config["weixin"]["account_id"] = account_id
+            else:
+                channels_config["weixin"]["enabled"] = False
+        elif cid == "bluebubbles":
+            url = _prompt("  BlueBubbles Server URL：")
+            if url:
+                channels_config["bluebubbles"]["server_url"] = url
+            else:
+                channels_config["bluebubbles"]["enabled"] = False
+        elif cid == "qqbot":
+            app_id = _prompt("  QQ App ID：")
+            if app_id:
+                channels_config["qqbot"]["app_id"] = app_id
+            else:
+                channels_config["qqbot"]["enabled"] = False
+        elif cid == "webhook":
+            url = _prompt("  Webhook URL (为空则自动使用 /webhook)：")
+            if url:
+                channels_config["webhook"]["url"] = url
+            secret = _prompt("  Webhook Secret (可选)：", password=True)
+            if secret:
+                channels_config["webhook"]["secret"] = secret
+
+    config.set("channels", channels_config)
+
+    enabled_count = sum(1 for c in channels_config.values() if c.get("enabled"))
+    _print_success(f"频道配置完成 ({enabled_count} 个已启用)")
+
+
+def step3_tools(config):
+    _print_header("Step 3 · 工具模块")
+
+    _print_info("选择要预启用的工具模块，可多选：")
+
+    items = []
+    for _, label, desc, status in TOOL_MODULES:
+        status_icon = {"stable": "🟢", "beta": "🟡", "experimental": "🔵"}.get(status, "⚪")
+        status_label = {"stable": "稳定", "beta": "测试", "experimental": "实验"}.get(status, status)
+        items.append(f"{status_icon} {label:<12} [{status_label}] — {desc}")
+
+    pre = list(range(len(TOOL_MODULES)))
+
+    selected = _prompt_checklist("选择模块：", items, pre)
+
+    enabled_tools = [TOOL_MODULES[i][0] for i in selected]
+    config.set("toolsets", enabled_tools)
+
+    if "prometheus-cli" not in enabled_tools:
+        config.set("toolsets", list(enabled_tools) + ["prometheus-cli"])
+
+    _print_success(f"工具模块配置完成 ({len(selected)} 个已启用)")
+
+
+def step4_confirm(config):
+    _print_header("Step 4 · 确认配置")
+
+    provider = config.get("model.provider", "未选择")
+    model_name = config.get("model.name", "未选择")
+    key_set = bool(config.get("api.key", "")) or bool(
+        os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY") or
+        os.getenv("ANTHROPIC_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or
+        os.getenv("GOOGLE_API_KEY")
+    )
+
+    channels_cfg = config.get("channels", {})
+    enabled_channels = [k for k, v in channels_cfg.items() if v.get("enabled")]
+
+    tools_list = config.get("toolsets", [])
+    tools_count = len(tools_list)
+
+    print()
+    print(f"  {C.YELLOW}┌{'─' * 45}┐{S.RESET_ALL}")
+    print(f"  {C.YELLOW}│{'':<18}配置汇总{'':>18}│{S.RESET_ALL}")
+    print(f"  {C.YELLOW}├{'─' * 45}┤{S.RESET_ALL}")
+    print(f"  {C.YELLOW}│{S.RESET_ALL}  📡 提供者：   {provider}")
+    print(f"  {C.YELLOW}│{S.RESET_ALL}  🧠 模型：     {model_name}")
+    print(f"  {C.YELLOW}│{S.RESET_ALL}  🔑 Key：      {'已配置' if key_set else '⚠ 未配置'}")
+    print(f"  {C.YELLOW}│{S.RESET_ALL}  💬 频道：     {', '.join(enabled_channels) if enabled_channels else '仅 CLI'}")
+    print(f"  {C.YELLOW}│{S.RESET_ALL}  🛠️  工具：     {tools_count} 个模块")
+    print(f"  {C.YELLOW}└{'─' * 45}┘{S.RESET_ALL}")
+    print()
+
+    if not _prompt_yes_no("确认创建？", True):
+        print("  已取消。")
+        return False
+    return True
+
+
+def step5_finish(config):
+    prometheus_home = get_prometheus_home()
+    os.makedirs(prometheus_home, exist_ok=True)
+    os.makedirs(prometheus_home / "memories", exist_ok=True)
+    os.makedirs(prometheus_home / "skills", exist_ok=True)
+
+    config.save()
+
+    _create_user_md(config)
+    _create_soul_md(config)
+    _create_memory_md(config)
+
+    _print_done()
+    print()
+    print(f"  欢迎！Prometheus 已就绪。")
+    print()
+    print(f"  📁 配置目录：    {prometheus_home}")
+    print(f"  🤖 个性/身份：  首次进入 'ptg chat' 时设置")
+    print(f"  📝 用户画像：    {prometheus_home}/memories/USER.md")
+    print(f"  📋 配置文件：    {prometheus_home}/config.yaml")
+    print()
+    print(f"  {C.CYAN}你可以随时编辑这些文件来自定义体验。{S.RESET_ALL}")
+    print()
+
+    return True
+
+
+def _create_user_md(config):
+    content = """# 用户画像
+
+## 基本信息
+- 名字：探索者
+- 首次注册：{now}
+
+## 沟通偏好
+- 风格：简洁专业
+- 工作偏好：效率优先
+
+## 自定义区
+<!-- 在此区域添加您的个人偏好 -->
+<!-- 首次进入 'ptg chat' 时将引导你完成个性化设置 -->
+""".format(now=_now())
+    path = get_prometheus_home() / "memories" / "USER.md"
+    if not path.exists():
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        _print_success("用户画像已创建")
+
+
+def _create_soul_md(config):
+    content = """# AI 个性定义
+
+## 风格
+友好、专业、简洁
+
+## 行为准则
+1. 保持严谨简洁的沟通风格
+2. 不确定时主动询问，不猜测
+3. 控制权放用户，AI 不自动修改
+4. 遵循三查三定原则：查技能/查知识库/查工具；定边界/定分工/定里程碑
+
+## 编码规范
+1. 优先编辑现有文件，不创建新文件
+2. 不主动创建文档
+3. 遵循现有代码风格
+
+<!-- 首次进入 'ptg chat' 时将引导你完成个性化设置 -->
+"""
+    path = get_prometheus_home() / "SOUL.md"
+    if not path.exists():
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        _print_success("AI 个性已创建")
+
+
+def _create_memory_md(config):
+    content = """# 会话记忆
+
+> 此文件由系统自动维护
+
+## 首次初始化
+- 时间：{now}
+- 方式：ptg setup 引导
+
+## 记忆条目
+<!-- 会话记忆将在此下方累积 -->
+""".format(now=_now())
+    path = get_prometheus_home() / "memories" / "MEMORY.md"
+    if not path.exists():
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        _print_success("记忆系统已初始化")
+
+
+def _now():
+    from datetime import datetime
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+if __name__ == "__main__":
+    run_setup()

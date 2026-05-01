@@ -66,7 +66,17 @@ exploration and investigations.
 
 
 DEFAULT_CONFIG = {
-    "model": "",
+    "model": {
+        "provider": "",
+        "name": "",
+        "base_url": "",
+        "max_tokens": 4096,
+        "temperature": 0.7,
+    },
+    "api": {
+        "base_url": "https://api.openai.com/v1",
+        "key": "",
+    },
     "providers": {},
     "toolsets": ["prometheus-cli"],
     "agent": {
@@ -232,6 +242,10 @@ class PrometheusConfig:
                 config[k] = {}
             config = config[k]
         config[keys[-1]] = value
+
+    def to_dict(self):
+        """Return the raw config dictionary."""
+        return dict(self._config)
 
     @property
     def skin(self):

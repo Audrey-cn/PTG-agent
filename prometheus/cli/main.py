@@ -61,69 +61,31 @@ def cmd_setup(args):
     """交互式初始化引导。"""
     try:
         from prometheus.init_wizard import run_setup
-        run_setup()
+        completed = run_setup()
+        if completed:
+            _offer_launch_chat()
     except ImportError:
-        # 降级到旧版本 setup
         print(BANNER)
         print("📋 Prometheus Setup 引导\n")
+        print("⚠️  无法加载 init_wizard 模块，请检查安装。")
+        return
 
-        from config import Config as PrometheusConfig
-        cfg = PrometheusConfig()
 
-        # Step 1: 检查目录
-        print("━━━ Step 1/4: 目录检查 ━━━")
-        dirs_to_check = {
-            "种子仓库": os.path.expanduser("~/.hermes/seed-vault"),
-            "数据目录": os.path.join(_PROMETHEUS_DIR, "data"),
-            "快照目录": os.path.join(_PROMETHEUS_DIR, "snapshots"),
-            "Wiki 知识库": os.path.expanduser("~/.hermes/local-wiki/wiki"),
-        }
-        for name, path in dirs_to_check.items():
-            exists = os.path.isdir(path)
-            icon = "✅" if exists else "⚠️ "
-            status = "已存在" if exists else "将创建"
-            if not exists:
-                os.makedirs(path, exist_ok=True)
-            print(f"  {icon} {name}: {path} ({status})")
-
-        # Step 2: 检查依赖
-        print("\n━━━ Step 2/4: 依赖检查 ━━━")
-        deps = {}
-        try:
-            import numpy
-            deps["numpy"] = f"✅ {numpy.__version__}"
-        except ImportError:
-            deps["numpy"] = "❌ 未安装 (pip install numpy)"
-        try:
-            import yaml
-            deps["pyyaml"] = f"✅ {yaml.__version__}"
-        except ImportError:
-            deps["pyyaml"] = "⚠️  未安装 (pip install pyyaml)"
-        try:
-            import sqlite3
-            deps["sqlite3"] = f"✅ 内置"
-        except ImportError:
-            deps["sqlite3"] = "❌ 不可用"
-        for name, status in deps.items():
-            print(f"  {status} — {name}")
-
-        # Step 3: Wiki 连接
-        print("\n━━━ Step 3/4: Wiki 连接 ━━━")
-        from knowledge import WikiConnector
-        wc = WikiConnector()
-        if wc.is_connected:
-            print(f"  ✅ Wiki 已连接 ({wc.page_count} 页)")
-        else:
-            print(f"  ⚠️  Wiki 未连接，将使用本地知识库 fallback")
-
-        # Step 4: 种子仓库
-        print("\n━━━ Step 4/4: 种子仓库 ━━━")
-        from knowledge import SeedIndex
-        si = SeedIndex()
-        ss = si.stats()
-        print(f"  🌱 发现 {ss['total_seeds']} 个种子 · {ss['total_genes']} 个基因")
-
-        print(f"\n✅ Setup 完成！使用 'ptg status' 查看系统状态。")
+def _offer_launch_chat():
+    from prometheus.init_wizard import _prompt_yes_no as wizard_yes_no
+    print()
+    if wizard_yes_no("🚀 是否立即进入 Chat 模式？", True):
+        chat_args = type('Args', (), {})()
+        chat_args.model = None
+        chat_args.message = None
+        chat_args.stream = True
+        chat_args.provider = None
+        chat_args.list = False
+        cmd_chat(chat_args)
+    else:
+        print()
+        print("  随时运行 'ptg chat' 开始对话。")
+        print()
 
 
 # ═══════════════════════════════════════════
@@ -827,18 +789,170 @@ def cmd_repl(args):
     repl_main()
 
 
+def _check_first_run(config):
+    user_name = config.get("user.name", "")
+    if user_name:
+        return False
+    from prometheus.config import get_prometheus_home
+    prometheus_home = get_prometheus_home()
+    user_md = prometheus_home / "memories" / "USER.md"
+    if not user_md.exists():
+        return True
+    try:
+        with open(user_md, "r", encoding="utf-8") as f:
+            content = f.read()
+        if "名字：探索者" in content:
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _free_input(prompt_text):
+    print(prompt_text)
+    print("(请用一段话自由描述，输入完成后按回车）")
+    lines = []
+    while True:
+        try:
+            line = input(">>> ").rstrip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if line == "" and lines:
+            break
+        if line:
+            lines.append(line)
+    return "\n".join(lines) if lines else ""
+
+
+def _run_chat_onboarding(config):
+    from prometheus.config import get_prometheus_home
+    from datetime import datetime
+
+    print("✨ 欢迎来到 Prometheus！检测到你是首次进入 Chat 模式。\n")
+    print("在开始对话之前，让我先了解你。请用自然语言自由描述即可。\n")
+
+    answers = {}
+
+    print("首先，你的名字（或代号）是？")
+    while True:
+        try:
+            name = input(">>> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            name = "探索者"
+            break
+        if name:
+            break
+        print("名字不能为空，请重新输入：")
+    answers["name"] = name
+
+    print(f"\n{name}，请描述你希望的沟通风格。")
+    answers["communication_style"] = _free_input(
+        "比如：简洁直接、代码优先？还是温和耐心、解释详尽？或者你习惯中英夹杂、频繁打断？都可以说。"
+    )
+
+    print(f"\n请描述你的工作偏好。")
+    answers["work_preference"] = _free_input(
+        "比如：追求快速交付不求完美？还是每一行都要经过审慎测试？或者你偏好边写边学、深入理解每个细节？"
+    )
+
+    print(f"\n你希望我以什么样的风格与你互动？")
+    answers["ai_personality"] = _free_input(
+        "比如：严厉的代码审查者？温柔耐心的导师？一个平等的技术搭档？或者创意爆棚的自由探索者？"
+    )
+
+    config.set("user.name", answers["name"])
+    config.set("user.communication_style", answers["communication_style"])
+    config.set("user.work_preference", answers["work_preference"])
+    config.set("user.ai_personality", answers["ai_personality"])
+    config.save()
+
+    _update_onboarding_files(answers)
+
+    print(f"\n✨ 个性化设置完成，{name}！现在开始对话吧。\n")
+
+    return config
+
+
+def _update_onboarding_files(answers):
+    from prometheus.config import get_prometheus_home
+    from datetime import datetime
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    prometheus_home = get_prometheus_home()
+
+    user_content = f"""# 用户画像
+
+## 基本信息
+- 名字：{answers['name']}
+- 首次注册：{now}
+
+## 沟通风格
+{answers['communication_style']}
+
+## 工作偏好
+{answers['work_preference']}
+
+## 自定义区
+<!-- 在此区域添加您的个人偏好 -->
+"""
+    user_path = prometheus_home / "memories" / "USER.md"
+    with open(user_path, "w", encoding="utf-8") as f:
+        f.write(user_content)
+
+    soul_content = f"""# AI 个性定义
+
+## 用户期望的互动风格
+{answers['ai_personality']}
+
+## 行为准则
+1. 保持严谨简洁的沟通风格
+2. 不确定时主动询问，不猜测
+3. 控制权放用户，AI 不自动修改
+4. 遵循三查三定原则：查技能/查知识库/查工具；定边界/定分工/定里程碑
+
+## 编码规范
+1. 优先编辑现有文件，不创建新文件
+2. 不主动创建文档
+3. 遵循现有代码风格
+"""
+    soul_path = prometheus_home / "SOUL.md"
+    with open(soul_path, "w", encoding="utf-8") as f:
+        f.write(soul_content)
+
+
 def cmd_chat(args):
     """启动 AI Agent 对话模式。"""
     print("\U0001f525 Prometheus Chat · v" + __version__ + "\n")
 
     from prometheus.config import Config as PrometheusConfig
-    cfg = PrometheusConfig()
-    model_cfg = cfg.to_dict().get('model', {})
-    api_cfg = cfg.to_dict().get('api', {})
+    cfg = PrometheusConfig.load()
 
-    model = args.model or model_cfg.get('name', 'gpt-4o')
+    if _check_first_run(cfg):
+        cfg = _run_chat_onboarding(cfg)
+
+    config_dict = cfg.to_dict()
+    model_cfg = config_dict.get('model', {})
+    api_cfg = config_dict.get('api', {})
+
+    model = args.model or model_cfg.get('name', '') or 'gpt-4o'
     base_url = api_cfg.get('base_url', 'https://api.openai.com/v1')
-    api_key = api_cfg.get('key', os.getenv('OPENAI_API_KEY', ''))
+    api_key = api_cfg.get('key', '') or os.getenv('OPENAI_API_KEY', '')
+    provider = model_cfg.get('provider', '')
+
+    if provider == 'anthropic':
+        api_key = api_key or os.getenv('ANTHROPIC_API_KEY', '')
+    elif provider == 'openrouter':
+        api_key = api_key or os.getenv('OPENROUTER_API_KEY', '')
+        base_url = api_cfg.get('base_url', '') or 'https://openrouter.ai/api/v1'
+    elif provider == 'deepseek':
+        api_key = api_key or os.getenv('DEEPSEEK_API_KEY', '')
+        base_url = api_cfg.get('base_url', '') or 'https://api.deepseek.com/v1'
+
+    if not api_key:
+        print("⚠️  未配置 API Key。请运行 'ptg setup' 或设置环境变量。")
+        print("   支持的 Key: OPENAI_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY")
+        return
 
     system_prompt = args.system_prompt or (
         "You are Prometheus, the epic chronicler agent. "

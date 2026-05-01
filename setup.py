@@ -32,6 +32,7 @@ setup(
         "jinja2>=3.1.5,<4",
         "pydantic>=2.12.5,<3",
         "prompt_toolkit>=3.0.52,<4",
+        "lark-oapi>=1.5.3,<2",
     ],
     extras_require={
         "dev": ["debugpy>=1.8.0,<2", "pytest>=9.0.2,<10", "pytest-asyncio>=1.3.0,<2", "ruff"],
@@ -42,7 +43,6 @@ setup(
         "messaging": ["python-telegram-bot[webhooks]>=22.6,<23", "discord.py[voice]>=2.7.1,<3", "aiohttp>=3.13.3,<4", "slack-bolt>=1.18.0,<2", "slack-sdk>=3.27.0,<4"],
         "cron": ["croniter>=6.0.0,<7"],
         "dingtalk": ["dingtalk-stream>=0.20,<1", "alibabacloud-dingtalk>=2.0.0"],
-        "feishu": ["lark-oapi>=1.5.3,<2"],
         "termux": [
             "python-telegram-bot[webhooks]>=22.6,<23",
             "croniter>=6.0.0,<7",
@@ -56,7 +56,6 @@ setup(
             "prometheus-ptg[messaging]",
             "prometheus-ptg[cron]",
             "prometheus-ptg[dingtalk]",
-            "prometheus-ptg[feishu]",
         ],
     },
     entry_points={
