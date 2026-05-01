@@ -1672,6 +1672,13 @@ def cmd_chat(args):
     elif provider == "deepseek":
         api_key = api_key or os.getenv("DEEPSEEK_API_KEY", "")
         base_url = api_cfg.get("base_url", "") or "https://api.deepseek.com/v1"
+    elif provider == "ollama":
+        # Local Ollama doesn't require API key
+        api_key = api_key or "ollama"
+        base_url = api_cfg.get("base_url", "") or "http://localhost:11434/v1"
+    elif provider == "custom":
+        # Custom OpenAI-compatible endpoint may not need a key
+        api_key = api_key or "placeholder"
 
     if not api_key:
         print("⚠️  未配置 API Key。请运行 'ptg setup' 或设置环境变量。")

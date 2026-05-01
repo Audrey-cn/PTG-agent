@@ -107,7 +107,7 @@ PROVIDER_DEFAULTS = {
         "model": "us.anthropic.claude-sonnet-4-20250514-v1:0",
     },
     "azure-foundry": {"base_url": "", "model": ""},
-    "ollama": {"base_url": "http://localhost:11434/v1", "model": "llama3"},
+    "ollama": {"base_url": "http://localhost:11434/v1", "model": "qwen2.5-coder:32b"},
     "custom": {"base_url": "", "model": ""},
 }
 
@@ -179,9 +179,10 @@ def _prompt_choice(question, choices, default=0):
     for i, label in enumerate(choices):
         marker = "●" if i == default else "○"
         print(f"  {marker} {i + 1}. {label}")
+    print()
     while True:
         try:
-            v = input(f"  选择 [1-{len(choices)}] ({default + 1}): ").strip()
+            v = input(f"  选择 [1-{len(choices)}] (直接回车={default + 1}): ").strip()
         except (KeyboardInterrupt, EOFError):
             print()
             return default
@@ -193,17 +194,18 @@ def _prompt_choice(question, choices, default=0):
                 return idx
         except ValueError:
             pass
-        print(f"请输入 1-{len(choices)} 之间的数字")
+        print(f"  请输入 1-{len(choices)} 之间的数字")
 
 
 def _prompt_checklist(question, items, pre_selected=None):
     pre = set(pre_selected or [])
     print(f"\n{question}")
-    print("  输入编号选择，多个编号用逗号分隔 (如: 1,3,5)")
-    print("  输入 'all' 全选，直接回车 = 跳过全部")
+    print("  输入编号选择，多个用逗号分隔 (如: 1,3,5)")
+    print("  输入 'all' 全选，直接回车保持默认\n")
     for i, label in enumerate(items):
         mark = "✅" if i in pre else "⬜"
         print(f"  {mark} {i + 1}. {label}")
+    print()
     while True:
         try:
             v = input("  选择: ").strip().lower()
@@ -221,7 +223,17 @@ def _prompt_checklist(question, items, pre_selected=None):
                 return valid
         except ValueError:
             pass
-        print("请输入有效的编号 (如 1,3,5) 或 'all'")
+        print("  请输入有效的编号 (如 1,3,5) 或 'all'")
+
+
+def _fetch_ollama_models(timeout=3.0):
+    try:
+        req = urllib.request.Request("http://localhost:11434/api/tags")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode())
+            return [m.get("name", "") for m in data.get("models", [])]
+    except Exception:
+        return []
 
 
 def _can_import(module_name):
@@ -398,11 +410,22 @@ def step1_provider(config):
     }
 
     if pid == "ollama":
-        base_url = _prompt("  Ollama 地址：", default="http://localhost:11434/v1")
-        config.set("api.base_url", base_url or "http://localhost:11434/v1")
-        model = _prompt("  模型名称：", default="llama3")
-        config.set("model.name", model or "llama3")
-        _print_success(f"本地模型 {model or 'llama3'} 已配置")
+        _print_info("正在检测本地 Ollama 服务...")
+        local_models = _fetch_ollama_models()
+        if local_models:
+            _print_success(f"检测到 {len(local_models)} 个本地模型")
+            print(f"  可用模型: {', '.join(local_models[:5])}")
+            if len(local_models) > 5:
+                print(f"  ... 还有 {len(local_models) - 5} 个模型")
+            choice = _prompt_choice("  选择模型：", local_models, 0)
+            selected_model = local_models[choice]
+        else:
+            _print_warn("未检测到本地模型，请手动输入")
+            selected_model = _prompt("  模型名称：", default="llama3")
+
+        config.set("api.base_url", "http://localhost:11434/v1")
+        config.set("model.name", selected_model)
+        _print_success(f"本地模型 {selected_model} 已配置")
         return
 
     if pid in ("bedrock", "copilot-acp", "google-gemini-cli", "qwen-oauth", "openai-codex", "nous"):
@@ -534,7 +557,7 @@ def step2_channels(config):
             dep_str = f" {C.RED}(依赖缺失: pip install {_dep}){S.RESET_ALL}"
         items.append(f"{label}{dep_str}")
 
-    selected = _prompt_checklist("选择频道：", items, pre_selected)
+    selected = _prompt_checklist("选择频道（直接回车保持默认）：", items, pre_selected)
 
     channels_config = {}
     for idx in selected:
@@ -692,7 +715,7 @@ def step3_tools(config):
 
     pre = list(range(len(TOOL_MODULES)))
 
-    selected = _prompt_checklist("选择模块：", items, pre)
+    selected = _prompt_checklist("选择模块（直接回车保持默认）：", items, pre)
 
     enabled_tools = [TOOL_MODULES[i][0] for i in selected]
     config.set("toolsets", enabled_tools)

@@ -250,7 +250,7 @@ class ContextCompressor:
 
     def build_compression_context(
         self, messages: list, include_stats: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """构建压缩上下文信息"""
         result = {
             "message_count": len(messages),
