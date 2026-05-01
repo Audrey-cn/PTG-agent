@@ -1,0 +1,12 @@
+services:
+  ptg:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8765:8765"
+    volumes:
+      - ~/.prometheus:/root/.prometheus
+    environment:
+      - PTG_HOME=/root/.prometheus
+    restart: unless-stopped

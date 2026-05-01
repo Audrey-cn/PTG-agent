@@ -1,0 +1,110 @@
+from __future__ import annotations
+
+import http.server
+import logging
+import threading
+import urllib.parse
+import webbrowser
+from typing import Any, Dict, Optional
+
+logger = logging.getLogger("prometheus.vercel_auth")
+
+HTTPX_AVAILABLE = False
+try:
+    import httpx
+    HTTPX_AVAILABLE = True
+except ImportError:
+    pass
+
+
+class _VercelCallbackHandler(http.server.BaseHTTPRequestHandler):
+    auth_code: Optional[str] = None
+
+    def do_GET(self) -> None:
+        parsed = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed.query)
+
+        if "code" in params:
+            _VercelCallbackHandler.auth_code = params["code"][0]
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(b"<h1>Vercel authorization successful! You can close this tab.</h1>")
+        else:
+            self.send_response(400)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(b"<h1>Vercel authorization failed.</h1>")
+
+    def log_message(self, format: str, *args: Any) -> None:
+        pass
+
+
+class VercelAuth:
+    AUTH_URL = "https://vercel.com/oauth/authorize"
+    TOKEN_URL = "https://api.vercel.com/v2/oauth/access_token"
+
+    def __init__(
+        self,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
+        redirect_port: int = 8090,
+    ) -> None:
+        self._client_id = client_id
+        self._client_secret = client_secret
+        self._redirect_port = redirect_port
+        self._redirect_uri = f"http://localhost:{redirect_port}"
+
+    def start_flow(
+        self,
+        client_id: Optional[str] = None,
+    ) -> str:
+        cid = client_id or self._client_id
+        if cid is None:
+            raise ValueError("client_id is required")
+
+        self._client_id = cid
+
+        params = {
+            "client_id": cid,
+            "redirect_uri": self._redirect_uri,
+            "response_type": "code",
+        }
+
+        auth_url = f"{self.AUTH_URL}?{urllib.parse.urlencode(params)}"
+        webbrowser.open(auth_url)
+        return auth_url
+
+    def complete_flow(self, code: Optional[str] = None) -> Dict[str, Any]:
+        if code is None:
+            code = self._wait_for_callback()
+            if code is None:
+                raise RuntimeError("Failed to receive authorization code from Vercel callback")
+
+        if not HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required for VercelAuth token exchange")
+
+        payload = {
+            "code": code,
+            "client_id": self._client_id,
+            "client_secret": self._client_secret,
+            "redirect_uri": self._redirect_uri,
+            "grant_type": "authorization_code",
+        }
+
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.post(self.TOKEN_URL, data=payload)
+            resp.raise_for_status()
+            return resp.json()
+
+    def _wait_for_callback(self, timeout: int = 120) -> Optional[str]:
+        _VercelCallbackHandler.auth_code = None
+        server = http.server.HTTPServer(("localhost", self._redirect_port), _VercelCallbackHandler)
+        server.timeout = timeout
+
+        thread = threading.Thread(target=server.handle_request, daemon=True)
+        thread.start()
+        thread.join(timeout=timeout)
+        server.server_close()
+
+        return _VercelCallbackHandler.auth_code

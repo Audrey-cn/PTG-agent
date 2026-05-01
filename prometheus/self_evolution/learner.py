@@ -86,15 +86,8 @@ class Learner:
         # 确保文件存在
         if not self.rules_file.exists():
             with open(self.rules_file, "w", encoding="utf-8") as f:
-                f.write("# Learned Rules
+                f.write("# Learned Rules\n\nThis file contains rules learned from user corrections and verified patterns.\n\n---")
 
-This file contains rules learned from user corrections and verified patterns.
-
----
-
-")
-        
-        # 追加规则
         with open(self.rules_file, "a", encoding="utf-8") as f:
             f.write(rule_content)
         

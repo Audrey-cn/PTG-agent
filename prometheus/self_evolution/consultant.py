@@ -17,9 +17,7 @@ class Consultant:
     def get_rules(self) -> str:
         """获取已学习的规则"""
         if not self.rules_file.exists():
-            return "# Learned Rules
-
-No rules learned yet. Start coding and learning!"
+            return "# Learned Rules\n\nNo rules learned yet. Start coding and learning!"
         
         with open(self.rules_file, "r", encoding="utf-8") as f:
             return f.read()
