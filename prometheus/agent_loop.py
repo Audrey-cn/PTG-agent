@@ -157,6 +157,22 @@ class AgentResponse:
     usage: dict = field(default_factory=dict)
     session_id: str = ""
 
+    def get(self, key: str, default=None):
+        """Backward-compatible dict-like access."""
+        mapping = {
+            "text": self.content,
+            "content": self.content,
+            "reasoning": self.reasoning,
+            "tool_calls": self.tool_calls,
+            "tool_calls_made": len(self.tool_calls),
+            "finish_reason": self.finish_reason,
+            "usage": self.usage,
+            "session_id": self.session_id,
+            "cost": self.usage.get("cost") if self.usage else None,
+            "iterations": self.usage.get("iterations") if self.usage else None,
+        }
+        return mapping.get(key, default)
+
 
 class TransportFactory:
     """Transport 工厂 - 支持多种 Provider"""
@@ -587,14 +603,16 @@ You are helpful, precise, and follow the user's instructions carefully."""
         system_message: str = None,
         conversation_history: list = None,
         task_id: str = None,
+        history: list = None,
     ) -> AgentResponse:
         """
         完整接口 - 返回包含完整响应的 dict
 
-        Returns:
-            AgentResponse: 包含 content, reasoning, tool_calls, finish_reason 等
+        Args:
+            history: alias for conversation_history (for backward compatibility)
         """
-        messages = self._build_messages(user_message, conversation_history)
+        effective_history = conversation_history or history
+        messages = self._build_messages(user_message, effective_history)
 
         if system_message:
             messages.insert(1, {"role": "system", "content": system_message})

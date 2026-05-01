@@ -394,16 +394,20 @@ def get_env_value(name: str, default=None):
     return os.environ.get(name, default)
 
 
-def load_config():
-    """Load Prometheus configuration."""
-    config_path = get_config_path()
-    if config_path.exists():
-        try:
-            with open(config_path, encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            logger.warning("Failed to load config: %s", e)
-    return {}
+def load_config() -> dict:
+    """Load Prometheus configuration.
+    
+    Deprecated: Use PrometheusConfig.load() instead.
+    This function is kept for backward compatibility.
+    
+    Returns:
+        Configuration dictionary with all values.
+    """
+    logger.debug(
+        "load_config() is deprecated. Use PrometheusConfig.load() instead."
+    )
+    config = PrometheusConfig.load()
+    return config.to_dict()
 
 
 def cfg_get(config: dict, path: str, default=None):
@@ -418,14 +422,28 @@ def cfg_get(config: dict, path: str, default=None):
     return value
 
 
-def save_config(config: dict):
-    """Save configuration to file."""
-    config_path = get_config_path()
-    try:
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(config, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.error("Failed to save config: %s", e)
+def save_config(config: dict) -> None:
+    """Save configuration to file.
+    
+    Deprecated: Use PrometheusConfig class instead.
+    This function is kept for backward compatibility.
+    
+    Args:
+        config: Configuration dictionary to save.
+    """
+    logger.debug(
+        "save_config() is deprecated. Use PrometheusConfig.save() instead."
+    )
+    if isinstance(config, dict):
+        if "_config_version" not in config:
+            merged_config = DEFAULT_CONFIG.copy()
+            merged_config.update(config)
+            config = merged_config
+        
+        cfg = PrometheusConfig(config_dict=config)
+        cfg.save()
+    else:
+        logger.error("save_config() expects a dict, got %s", type(config))
 
 
 def save_env_value(key: str, value: str):
@@ -555,6 +573,42 @@ def is_managed() -> bool:
 def read_raw_config() -> dict:
     """Read raw config without validation."""
     return load_config()
+
+
+def migrate_json_to_yaml() -> bool:
+    """Migrate existing JSON config to YAML format.
+    
+    Returns:
+        True if migration was successful or not needed, False if migration failed.
+    """
+    config_path = get_config_path()
+    if not config_path.exists():
+        return True
+    
+    try:
+        with open(config_path, encoding="utf-8") as f:
+            content = f.read()
+        
+        try:
+            config = json.loads(content)
+        except json.JSONDecodeError:
+            return True
+        
+        backup_path = config_path.with_suffix('.json.backup')
+        if not backup_path.exists():
+            config_path.rename(backup_path)
+            logger.info("Backed up JSON config to %s", backup_path)
+        
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        
+        _secure_file(config_path)
+        logger.info("Successfully migrated config from JSON to YAML")
+        return True
+        
+    except Exception as e:
+        logger.error("Failed to migrate config: %s", e)
+        return False
 
 
 def _sanitize_env_lines(lines: list) -> list:

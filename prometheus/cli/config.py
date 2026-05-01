@@ -2,6 +2,7 @@
 
 from prometheus.config import (
     DEFAULT_CONFIG,
+    PrometheusConfig,
     _sanitize_env_lines,
     cfg_get,
     check_config_version,
@@ -15,6 +16,7 @@ from prometheus.config import (
     get_prometheus_home,
     load_config,
     migrate_config,
+    migrate_json_to_yaml,
     read_raw_config,
     recommended_update_command,
     remove_env_value,
@@ -24,6 +26,7 @@ from prometheus.config import (
 )
 
 __all__ = [
+    "PrometheusConfig",
     "cfg_get",
     "DEFAULT_CONFIG",
     "get_prometheus_home",
@@ -44,4 +47,5 @@ __all__ = [
     "get_managed_update_command",
     "read_raw_config",
     "_sanitize_env_lines",
+    "migrate_json_to_yaml",
 ]
