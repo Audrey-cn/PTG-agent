@@ -1245,6 +1245,7 @@ def cmd_chat(args):
         base_url=base_url,
         model=model,
         max_iterations=getattr(args, 'max_iterations', 50),
+        provider=provider,
     )
 
     if getattr(args, 'message', None):
@@ -1255,8 +1256,12 @@ def cmd_chat(args):
         print(f"({result.get('iterations', '?')} 次迭代, {result.get('tool_calls_made', '?')} 次工具调用)")
         return
 
-    print("  输入消息开始对话，输入 /quit 退出，/clear 清除上下文\n")
-    history = []
+    from prometheus.slash_commands import ChatSession, SlashCommandDispatcher
+    session = ChatSession(agent, config_dict)
+    dispatcher = SlashCommandDispatcher(session)
+
+    print("  输入消息开始对话，/help 查看命令，/quit 退出\n")
+
     while True:
         try:
             user_input = input("\n>>> ").strip()
@@ -1266,19 +1271,34 @@ def cmd_chat(args):
 
         if not user_input:
             continue
-        if user_input.lower() in ('/quit', '/exit', '/q'):
-            print("再见！🔥")
-            break
-        if user_input.lower() == '/clear':
-            history = []
-            print("上下文已清除")
-            continue
+
+        if user_input.startswith("/"):
+            is_cmd, exit_signal = dispatcher.dispatch(user_input)
+            if exit_signal == "EXIT":
+                print("再见！🔥")
+                break
+            if is_cmd:
+                continue
 
         try:
-            result = agent.run_conversation(user_input, history=history)
-            print(f"\n{result['text']}\n")
-            history.append({"role": "user", "content": user_input})
-            history.append({"role": "assistant", "content": result['text']})
+            from prometheus.context_references import resolve_context_references
+            resolved_input = resolve_context_references(user_input)
+        except Exception:
+            resolved_input = user_input
+
+        try:
+            from prometheus.context_compressor import should_compress, auto_compress
+            if should_compress(session.history):
+                session.history = auto_compress(session.history)
+        except Exception:
+            pass
+
+        try:
+            result = agent.run_conversation(resolved_input, history=session.history)
+            text = result.get("text", "")
+            print(f"\n{text}\n")
+            session.add_exchange(user_input, text, result.get("cost"))
+            session.tool_calls_count += result.get("tool_calls_made", 0)
         except Exception as e:
             print(f"\n错误: {e}\n")
 

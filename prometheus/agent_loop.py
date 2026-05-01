@@ -112,6 +112,7 @@ class AIAgent:
         tools_config: Optional[dict] = None,
         callback=None,
         agent_config: Optional[dict] = None,
+        provider: str = "",
     ):
         self.system_prompt = system_prompt
         self.model = model
@@ -120,16 +121,20 @@ class AIAgent:
         self.temperature = temperature
         self.callback = callback
         self.agent_config = agent_config or {}
+        self.provider = provider
 
-        self._client = OpenAI(
-            api_key=api_key,
-            base_url=base_url,
-            timeout=300,
-            max_retries=2,
-        )
-
+        self._transport = self._create_transport(api_key, base_url, provider)
         self._budget = IterationBudget(max_iterations)
         self._tools_config = tools_config or {}
+
+    def _create_transport(self, api_key: str, base_url: str, provider: str):
+        try:
+            from prometheus.transports import create_transport
+            return create_transport(provider, api_key=api_key, base_url=base_url)
+        except Exception:
+            from openai import OpenAI
+            self._client = OpenAI(api_key=api_key, base_url=base_url, timeout=300, max_retries=2)
+            return None
 
     def _get_tool_definitions(self) -> list:
         tools = []
@@ -191,74 +196,123 @@ class AIAgent:
         while self._budget.consume():
             iteration += 1
             try:
-                kwargs = {
-                    "model": self.model,
-                    "messages": messages,
-                    "max_tokens": self.max_tokens,
-                    "temperature": self.temperature,
-                }
-                if tool_defs:
-                    kwargs["tools"] = tool_defs
+                if self._transport is not None:
+                    result = self._transport.create_completion(
+                        model=self.model,
+                        messages=messages,
+                        max_tokens=self.max_tokens,
+                        temperature=self.temperature,
+                        tools=tool_defs if tool_defs else None,
+                    )
+                    content = result.get("content", "")
+                    tool_calls_data = result.get("tool_calls")
+                    usage = result.get("usage", {})
 
-                response = self._client.chat.completions.create(**kwargs)
+                    if tool_calls_data:
+                        messages.append({
+                            "role": "assistant",
+                            "content": content,
+                            "tool_calls": tool_calls_data,
+                        })
+                        for tc in tool_calls_data:
+                            tool_name = tc["function"]["name"]
+                            try:
+                                tool_args = json.loads(tc["function"]["arguments"])
+                            except json.JSONDecodeError:
+                                tool_args = {}
 
-                choice = response.choices[0]
-                msg = choice.message
+                            if self.callback:
+                                self.callback("tool_start", {"tool": tool_name, "args": tool_args})
 
-                if msg.tool_calls:
-                    messages.append({
-                        "role": "assistant",
-                        "content": msg.content,
-                        "tool_calls": [
-                            {
-                                "id": tc.id,
-                                "type": "function",
-                                "function": {
-                                    "name": tc.function.name,
-                                    "arguments": tc.function.arguments,
-                                },
-                            }
-                            for tc in msg.tool_calls
-                        ],
-                    })
-
-                    for tc in msg.tool_calls:
-                        tool_name = tc.function.name
-                        try:
-                            tool_args = json.loads(tc.function.arguments)
-                        except json.JSONDecodeError:
-                            tool_args = {}
-
-                        if self.callback:
-                            self.callback("tool_start", {
-                                "tool": tool_name,
-                                "args": tool_args,
+                            tool_result = self._execute_tool(tool_name, tool_args)
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tc["id"],
+                                "content": tool_result,
                             })
 
-                        tool_result = self._execute_tool(tool_name, tool_args)
+                            if self.callback:
+                                self.callback("tool_end", {"tool": tool_name, "result": tool_result})
+                    else:
+                        cost = {
+                            "in_tokens": usage.get("prompt_tokens", 0),
+                            "out_tokens": usage.get("completion_tokens", 0),
+                        }
+                        return {
+                            "text": content,
+                            "iterations": iteration,
+                            "tool_calls_made": iteration - 1,
+                            "cost": cost,
+                        }
+                else:
+                    kwargs = {
+                        "model": self.model,
+                        "messages": messages,
+                        "max_tokens": self.max_tokens,
+                        "temperature": self.temperature,
+                    }
+                    if tool_defs:
+                        kwargs["tools"] = tool_defs
+
+                    response = self._client.chat.completions.create(**kwargs)
+
+                    choice = response.choices[0]
+                    msg = choice.message
+
+                    if msg.tool_calls:
                         messages.append({
-                            "role": "tool",
-                            "tool_call_id": tc.id,
-                            "content": tool_result,
+                            "role": "assistant",
+                            "content": msg.content,
+                            "tool_calls": [
+                                {
+                                    "id": tc.id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": tc.function.name,
+                                        "arguments": tc.function.arguments,
+                                    },
+                                }
+                                for tc in msg.tool_calls
+                            ],
                         })
 
-                        if self.callback:
-                            self.callback("tool_end", {
-                                "tool": tool_name,
-                                "result": tool_result,
+                        for tc in msg.tool_calls:
+                            tool_name = tc.function.name
+                            try:
+                                tool_args = json.loads(tc.function.arguments)
+                            except json.JSONDecodeError:
+                                tool_args = {}
+
+                            if self.callback:
+                                self.callback("tool_start", {
+                                    "tool": tool_name,
+                                    "args": tool_args,
+                                })
+
+                            tool_result = self._execute_tool(tool_name, tool_args)
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tc.id,
+                                "content": tool_result,
                             })
-                else:
-                    text = msg.content or ""
-                    cost = {
-                        "in_tokens": response.usage.prompt_tokens if response.usage else 0,
-                        "out_tokens": response.usage.completion_tokens if response.usage else 0,
-                    }
-                    return {
-                        "text": text,
-                        "iterations": iteration,
-                        "tool_calls_made": iteration - 1,
-                        "cost": cost,
-                    }
+
+                            if self.callback:
+                                self.callback("tool_end", {
+                                    "tool": tool_name,
+                                    "result": tool_result,
+                                })
+                    else:
+                        text = msg.content or ""
+                        cost = {
+                            "in_tokens": response.usage.prompt_tokens if response.usage else 0,
+                            "out_tokens": response.usage.completion_tokens if response.usage else 0,
+                        }
+                        return {
+                            "text": text,
+                            "iterations": iteration,
+                            "tool_calls_made": iteration - 1,
+                            "cost": cost,
+                        }
 
             except Exception as e:
                 logger.error("Agent iteration %d failed: %s", iteration, e)
