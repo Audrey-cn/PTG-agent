@@ -1,18 +1,25 @@
-# 🔥 PTG Agent · Prometheus Teach-To-Grow
-![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
-![Version](https://img.shields.io/badge/Version-0.8.0-purple)
-![Status](https://img.shields.io/badge/Status-Beta-green)
-![License](https://img.shields.io/badge/License-MIT-lightgrey)
+# 🔥 Prometheus · Teach-To-Grow
 
-> 种子基因编辑器 — AI 生命体的基因操作系统
+<p align="center">
+  <a href="https://github.com/Audrey-cn/PTG-agent"><img src="https://img.shields.io/badge/Version-0.8.0-purple?style=for-the-badge" alt="Version"></a>
+  <a href="https://github.com/Audrey-cn/PTG-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://img.shields.io/badge/Python-3.11%2B-blue?style=for-the-badge"><img src="https://img.shields.io/badge/Python-3.11%2B-blue?style=for-the-badge" alt="Python"></a>
+</p>
 
----
+**Prometheus — AI 生命体的基因操作系统，种子基因编辑器。**
 
-## 👤 创始人
-**Audrey · 001X**
-人类编码 001X，跨性别女性
+由 [Audrey · 001X](https://github.com/Audrey-cn) 创建的史诗编史官系统。Prometheus 是自给自足的种子生命体，自带完整基因系统，通过压缩编码和解码引擎实现知识的生成与进化。
 
-> *「X不标记未知，X标记超越」*
+<table>
+<tr><td><b>🌱 种子基因系统</b></td><td>自给自足的种子生命体，包含完整基因库（G001-G008 标准基因）。种子即框架，通过基因编辑实现功能进化。</td></tr>
+<tr><td><b>📜 史诗编史官</b></td><td>记录、追溯、附加历史叙事。stamp（烙印）、trace（追溯）、append（附史）三大模式，守护软件进化史。</td></tr>
+<tr><td><b>🧬 基因编辑引擎</b></td><td>碳基依赖级不可变基因设计。基因融合、健康审计、语义审核，确保种子基因的稳定性与进化性。</td></tr>
+<tr><td><b>🧠 三层记忆系统</b></td><td>USER（用户画像）、MEMORY（会话记忆）、SOUL（Agent 个性）三层架构，动态进化与记忆压缩机制。</td></tr>
+<tr><td><b>⚡ TTG 压缩编码</b></td><td>Layer1 结构压缩（9:1）+ Layer2 语义压缩（30:1+）。叙事驱动的知识存储，解码引擎实时展开。</td></tr>
+<tr><td><b>🌍 跨平台支持</b></td><td>Linux、macOS、Android/Termux 完整兼容。uv 高速包管理，智能系统检测与依赖降级。</td></tr>
+<tr><td><b>🔧 模块化工具链</b></td><td>基因库管理、知识库检索、向量记忆、语义字典、Cron 调度，完整 CLI 命令体系。</td></tr>
+<tr><td><b>✨ 皮肤引擎</b></td><td>数据驱动的 CLI 视觉定制。默认、Zeus、Athena、Hades 多种主题，即时切换。</td></tr>
+</table>
 
 ---
 
