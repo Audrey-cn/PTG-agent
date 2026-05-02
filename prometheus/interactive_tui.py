@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Interactive TUI improvements for Prometheus."""
 
 import readline

@@ -49,7 +49,7 @@ from environments.tool_call_parsers.deepseek_v3_parser import (
 )
 from environments.tool_call_parsers.glm45_parser import Glm45ToolCallParser  # noqa: E402, F401
 from environments.tool_call_parsers.glm47_parser import Glm47ToolCallParser  # noqa: E402, F401
-from environments.tool_call_parsers.hermes_parser import HermesToolCallParser  # noqa: E402, F401
+from environments.tool_call_parsers.prometheus_parser import PrometheusToolCallParser  # noqa: E402, F401
 from environments.tool_call_parsers.kimi_k2_parser import KimiK2ToolCallParser  # noqa: E402, F401
 from environments.tool_call_parsers.llama_parser import LlamaToolCallParser  # noqa: E402, F401
 from environments.tool_call_parsers.longcat_parser import LongcatToolCallParser  # noqa: E402, F401

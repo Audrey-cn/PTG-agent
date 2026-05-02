@@ -15,15 +15,10 @@ from prometheus.agent.credential_pool import (
     get_custom_provider_pool_key,
     load_pool,
 )
-from prometheus.cli import auth as auth_mod
 from prometheus.cli.auth import (
-    DEFAULT_CODEX_BASE_URL,
-    DEFAULT_QWEN_BASE_URL,
     PROVIDER_REGISTRY,
     AuthError,
-    _agent_key_is_usable,
     format_auth_error,
-    has_usable_secret,
     resolve_api_key_provider_credentials,
     resolve_codex_runtime_credentials,
     resolve_external_process_provider_credentials,
@@ -32,9 +27,25 @@ from prometheus.cli.auth import (
     resolve_provider,
     resolve_qwen_runtime_credentials,
 )
-from prometheus.cli.config import get_compatible_custom_providers, load_config
-from prometheus.constants_core import OPENROUTER_BASE_URL
+from prometheus.config import PrometheusConfig, get_compatible_custom_providers
+from prometheus.constants_core import (
+    DEFAULT_CODEX_BASE_URL,
+    DEFAULT_QWEN_BASE_URL,
+    OPENROUTER_BASE_URL,
+)
 from prometheus.utils import base_url_host_matches, base_url_hostname
+
+
+def __has_usable_secret(value) -> bool:
+    """Check if a secret/API key value is usable.
+
+    Args:
+        value: The secret value to check.
+
+    Returns:
+        True if the value is a non-empty string.
+    """
+    return isinstance(value, str) and bool(value.strip())
 
 
 def _normalize_custom_provider_name(value: str) -> str:
@@ -114,7 +125,7 @@ def _auto_detect_local_model(base_url: str) -> str:
 
 
 def _get_model_config() -> dict[str, Any]:
-    config = load_config()
+    config = PrometheusConfig.load().to_dict()
     model_cfg = config.get("model")
     if isinstance(model_cfg, dict):
         cfg = dict(model_cfg)
@@ -347,7 +358,7 @@ def _get_named_custom_provider(requested_provider: str) -> dict[str, Any] | None
         else:
             return None
 
-    config = load_config()
+    config = PrometheusConfig.load().to_dict()
 
     providers = config.get("providers")
     if isinstance(providers, dict):
@@ -455,7 +466,7 @@ def _resolve_named_custom_runtime(
         ]
         api_key = (
             next(
-                (c for c in api_key_candidates if has_usable_secret(c)),
+                (c for c in api_key_candidates if _has_usable_secret(c)),
                 "",
             )
             or "no-key-required"
@@ -494,7 +505,7 @@ def _resolve_named_custom_runtime(
         os.getenv("OPENROUTER_API_KEY", "").strip(),
     ]
     api_key = next(
-        (candidate for candidate in api_key_candidates if has_usable_secret(candidate)), ""
+        (candidate for candidate in api_key_candidates if _has_usable_secret(candidate)), ""
     )
 
     result = {
@@ -570,7 +581,7 @@ def _resolve_openrouter_runtime(
         (
             str(candidate or "").strip()
             for candidate in api_key_candidates
-            if has_usable_secret(candidate)
+            if _has_usable_secret(candidate)
         ),
         "",
     )
@@ -1004,7 +1015,7 @@ def resolve_runtime_provider(
     if provider == "minimax-oauth":
         pconfig = PROVIDER_REGISTRY.get(provider)
         if pconfig and pconfig.auth_type == "oauth_minimax":
-            from prometheus.cli.auth import resolve_minimax_oauth_runtime_credentials
+            from prometheus.config import resolve_minimax_oauth_runtime_credentials
 
             creds = resolve_minimax_oauth_runtime_credentials()
             return {
@@ -1121,7 +1132,7 @@ def resolve_runtime_provider(
                 "Or run 'aws configure' to set up credentials.",
                 code="no_aws_credentials",
             )
-        _bedrock_cfg = load_config().get("bedrock", {})
+        _bedrock_cfg = PrometheusConfig.load().get("bedrock", {})
         region = (_bedrock_cfg.get("region") or "").strip() or resolve_bedrock_region()
         auth_source = resolve_aws_auth_env_var() or "aws-sdk-default-chain"
         _gr = _bedrock_cfg.get("guardrail", {})

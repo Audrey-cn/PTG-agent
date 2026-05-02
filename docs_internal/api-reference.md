@@ -36,14 +36,14 @@ from prometheus import PrometheusAPI
 api = PrometheusAPI()
 
 # 查看种子
-result = api.view("~/.hermes/seed-vault/my_seed.ttg")
+result = api.view("~/.prometheus/seed-vault/my_seed.ttg")
 
 # 列出基因
-genes = api.genes("~/.hermes/seed-vault/my_seed.ttg")
+genes = api.genes("~/.prometheus/seed-vault/my_seed.ttg")
 
 # 锻造变异体
 manifest = api.forge(
-    parent_seed="~/.hermes/seed-vault/my_seed.ttg",
+    parent_seed="~/.prometheus/seed-vault/my_seed.ttg",
     genes=["G100-writer", "G101-vision"],
     combinations="power_set",
     max_variants=20
@@ -189,7 +189,7 @@ class PrometheusAPI:
 
 #### `vault() -> list`
 
-扫描 `~/.hermes` 下所有 `.ttg` 种子文件。
+扫描 `~/.prometheus` 下所有 `.ttg` 种子文件。
 
 **返回值:**
 ```python
@@ -360,7 +360,7 @@ G008-auditor · 安全审计器：完整健康度审计。
 
 **返回值:** `str` — 快照 ID（格式: `{seed_name}-{YYYYMMDD-HHMMSS}`）
 
-快照存储在 `~/.hermes/tools/prometheus/snapshots/` 目录下，包含 `.ttg` 文件和 `.json` 元数据。
+快照存储在 `~/.prometheus/tools/prometheus/snapshots/` 目录下，包含 `.ttg` 文件和 `.json` 元数据。
 
 ---
 
@@ -397,7 +397,7 @@ G008-auditor · 安全审计器：完整健康度审计。
 | `combinations` | `str` | `"power_set"` | 组合策略：`"power_set"` / `"all"` / `"single"` |
 | `ordering` | `bool` | `False` | 是否排列基因顺序 |
 | `max_variants` | `int` | `50` | 最大变异体数量 |
-| `output_dir` | `str` | `None` | 输出目录（默认 `~/.hermes/gene-lab/`） |
+| `output_dir` | `str` | `None` | 输出目录（默认 `~/.prometheus/gene-lab/`） |
 | `batch_name` | `str` | `None` | 批次名称 |
 
 **返回值:** 由 `geneforge.forge()` 返回的 manifest dict，包含变异体信息。
@@ -853,7 +853,7 @@ yaml_blocks = re.findall(r'```yaml\s*\\n(.*?)```', content, re.DOTALL)
 
 ### GeneLibrary（gene_analyzer.py）
 
-基因片段仓库。管理基因目录（`~/.hermes/tools/prometheus/genes/gene_catalog.json`）。
+基因片段仓库。管理基因目录（`~/.prometheus/tools/prometheus/genes/gene_catalog.json`）。
 
 **核心方法:**
 - `list_standard()` — 列出标准基因
@@ -931,9 +931,9 @@ yaml_blocks = re.findall(r'```yaml\s*\\n(.*?)```', content, re.DOTALL)
 G006-gardener · 自管理者。生态感知引擎，扫描搜索路径发现种子，分析谱系关系。
 
 **搜索路径:**
-- `~/.hermes/skills/` — Hermes 技能目录
-- `~/.hermes/seed-vault/` — 种子仓库
-- `~/.hermes/tools/prometheus/` — 框架自身
+- `~/.prometheus/skills/` — Prometheus 技能目录
+- `~/.prometheus/seed-vault/` — 种子仓库
+- `~/.prometheus/tools/prometheus/` — 框架自身
 
 ---
 

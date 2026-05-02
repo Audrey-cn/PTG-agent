@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Centralized logging setup for Prometheus Agent."""
 
 import contextlib

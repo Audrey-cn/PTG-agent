@@ -51,7 +51,7 @@ class ProfileManager:
         self._load_active_profile()
 
     def _get_prometheus_home_for_profile(self, profile_name: str) -> Path:
-        """Get the HERMES_HOME equivalent for a profile."""
+        """Get the PROMETHEUS_HOME equivalent for a profile."""
         return self._profiles_dir / profile_name
 
     def _load_active_profile(self) -> None:

@@ -16,16 +16,16 @@ PROMETHEUS_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(PROMETHEUS_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# 默认 Wiki 路径（Hermes 环境）
+# 默认 Wiki 路径（Prometheus 环境）
 DEFAULT_WIKI_PATHS = [
-    os.path.expanduser("~/.hermes/local-wiki/wiki"),
-    os.path.expanduser("~/.hermes/knowledge"),
+    os.path.expanduser("~/.prometheus/local-wiki/wiki"),
+    os.path.expanduser("~/.prometheus/knowledge"),
 ]
 
 # 种子搜索路径
 DEFAULT_SEED_PATHS = [
-    os.path.expanduser("~/.hermes/seed-vault"),
-    os.path.expanduser("~/.hermes/tools/prometheus/seeds"),
+    os.path.expanduser("~/.prometheus/seed-vault"),
+    os.path.expanduser("~/.prometheus/tools/prometheus/seeds"),
 ]
 
 # 本地 fallback 知识库路径
@@ -57,7 +57,7 @@ class WikiPage:
 
 
 class WikiConnector:
-    """连接 Hermes Wiki，提供知识检索能力。
+    """连接 Prometheus Wiki，提供知识检索能力。
 
     功能：
       - 扫描 Wiki 目录，解析 Markdown + YAML frontmatter
@@ -69,7 +69,7 @@ class WikiConnector:
     def __init__(self, wiki_paths: list[str] = None):
         """
         Args:
-            wiki_paths: Wiki 目录列表，None 则使用默认 Hermes 路径
+            wiki_paths: Wiki 目录列表，None 则使用默认 Prometheus 路径
         """
         self.wiki_paths = wiki_paths or DEFAULT_WIKI_PATHS
         self._pages: dict[str, WikiPage] = {}
@@ -625,7 +625,7 @@ class SeedIndex:
 class LocalKnowledge:
     """本地知识库 —— Wiki 不可用时的 fallback。
 
-    当 Prometheus 作为独立 Agent 运行且无法连接 Hermes Wiki 时，
+    当 Prometheus 作为独立 Agent 运行且无法连接 Prometheus Wiki 时，
     自动创建并使用本地知识库。
 
     存储格式：
@@ -734,7 +734,7 @@ class KnowledgeManager:
 
     优先级：
       1. 种子结构索引（Prometheus 自建）
-      2. Hermes Wiki（通过 WikiConnector）
+      2. Prometheus Wiki（通过 WikiConnector）
       3. 本地知识库（LocalKnowledge fallback）
 
     使用方式：

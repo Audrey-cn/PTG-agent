@@ -1,5 +1,7 @@
 """Unified tool configuration for Prometheus Agent."""
 
+from __future__ import annotations
+
 import json as _json
 import logging
 import os
@@ -612,7 +614,7 @@ def _run_post_setup(post_setup_key: str):
             )
             if result.returncode == 0:
                 _print_success("    Chromium installed")
-                import tools.browser_tool as _bt
+                import prometheus.tools.browser_tool as _bt
 
                 _bt._cached_chromium_installed = None
             else:

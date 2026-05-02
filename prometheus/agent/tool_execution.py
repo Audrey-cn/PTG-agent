@@ -163,7 +163,7 @@ class ParallelToolExecutor:
 
     Propagates approval/sudo callbacks to worker threads for ACP sessions
     running concurrently in a ThreadPoolExecutor. This mirrors the pattern
-    in Hermes's run_agent.py to avoid GHSA-qg5c-hvr5-hjgr (approval
+    in Prometheus's run_agent.py to avoid GHSA-qg5c-hvr5-hjgr (approval
     callback leakage between concurrent ACP sessions).
     """
 

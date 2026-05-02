@@ -11,8 +11,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 PROMETHEUS_HOME = os.path.dirname(os.path.abspath(__file__))
-SEED_VAULT = os.path.expanduser("~/.hermes/seed-vault")
-NURSERY_DIR = os.path.expanduser("~/.hermes/nursery")
+SEED_VAULT = os.path.expanduser("~/.prometheus/seed-vault")
+NURSERY_DIR = os.path.expanduser("~/.prometheus/nursery")
 os.makedirs(SEED_VAULT, exist_ok=True)
 os.makedirs(NURSERY_DIR, exist_ok=True)
 
@@ -566,8 +566,8 @@ def print_help():
     python nursery.py plant <种子路径> --name <盆名>
 
 示例:
-    python nursery.py sieve ~/.hermes/gene-lab/batch-001/
-    python nursery.py plant ~/.hermes/seed-vault/my-seed.ttg
+    python nursery.py sieve ~/.prometheus/gene-lab/batch-001/
+    python nursery.py plant ~/.prometheus/seed-vault/my-seed.ttg
 """)
 
 

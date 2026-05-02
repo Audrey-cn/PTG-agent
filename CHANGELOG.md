@@ -44,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Python 3.10+ match/case syntax (converted to if/elif for 3.9 compatibility)
 - Invalid f-string syntax in session_export.py
 - String literal newlines in trajectory.py
-- All old import paths (hermes_*, prometheus_cli, from tools., from utils import)
+- All old import paths (prometheus_*, prometheus_cli, from tools., from utils import)
 - Dead code removal in 8 files
 - Managed mode is_managed() check
 

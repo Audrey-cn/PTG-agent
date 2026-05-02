@@ -65,9 +65,9 @@ def _validate_explicit_toolsets(toolsets: object = None) -> Tuple[List[str] | No
     mcp_disabled: Set[str] = set()
     if unresolved:
         try:
-            from prometheus.cli.config import load_config
+            from prometheus.config import PrometheusConfig
 
-            cfg = load_config()
+            cfg = PrometheusConfig.load()
             mcp_servers = cfg.get("mcp_servers") if isinstance(cfg.get("mcp_servers"), dict) else {}
             for name, server_cfg in mcp_servers.items():
                 if not isinstance(server_cfg, dict):
@@ -166,10 +166,10 @@ def _run_agent(
 ) -> str:
     """Build an AIAgent exactly like a normal CLI chat turn would."""
     from prometheus.agent import AIAgent
-    from prometheus.cli.config import load_config
     from prometheus.cli.model_switch import switch_model
+    from prometheus.config import PrometheusConfig
 
-    cfg = load_config()
+    cfg = PrometheusConfig.load()
 
     model_cfg = cfg.get("model") or {}
     if isinstance(model_cfg, str):

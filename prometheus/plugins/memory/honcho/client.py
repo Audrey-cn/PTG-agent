@@ -523,9 +523,9 @@ def get_honcho_client(config: HonchoClientConfig | None = None) -> Honcho:
     resolved_timeout = config.timeout
     if not resolved_base_url or resolved_timeout is None:
         try:
-            from prometheus.cli.config import load_config
+            from prometheus.config import PrometheusConfig
 
-            prometheus_cfg = load_config()
+            prometheus_cfg = PrometheusConfig.load()
             honcho_cfg = prometheus_cfg.get("honcho", {})
             if isinstance(honcho_cfg, dict):
                 if not resolved_base_url:

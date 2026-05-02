@@ -181,7 +181,7 @@ def _get_available_providers() -> list:
 
 def cmd_setup_provider(provider_name: str) -> None:
     """Run memory setup for a specific provider, skipping the picker."""
-    from prometheus.cli.config import load_config, save_config
+    from prometheus.config import PrometheusConfig, save_config
 
     providers = _get_available_providers()
     match = None
@@ -199,7 +199,7 @@ def cmd_setup_provider(provider_name: str) -> None:
 
     _install_dependencies(name)
 
-    config = load_config()
+    config = PrometheusConfig.load().to_dict()
     if not isinstance(config.get("memory"), dict):
         config["memory"] = {}
 
@@ -216,7 +216,7 @@ def cmd_setup_provider(provider_name: str) -> None:
 
 def cmd_setup(args) -> None:
     """Interactive memory provider setup wizard."""
-    from prometheus.cli.config import load_config, save_config
+    from prometheus.config import PrometheusConfig, save_config
 
     providers = _get_available_providers()
 
@@ -233,7 +233,7 @@ def cmd_setup(args) -> None:
     builtin_idx = len(items) - 1
     selected = _curses_select("Memory provider setup", items, default=builtin_idx)
 
-    config = load_config()
+    config = PrometheusConfig.load().to_dict()
     if not isinstance(config.get("memory"), dict):
         config["memory"] = {}
 
@@ -369,9 +369,9 @@ def _write_env_vars(env_path: Path, env_writes: dict) -> None:
 
 def cmd_status(args) -> None:
     """Show current memory provider config."""
-    from prometheus.cli.config import load_config
+    from prometheus.config import PrometheusConfig
 
-    config = load_config()
+    config = PrometheusConfig.load()
     mem_config = config.get("memory", {})
     provider_name = mem_config.get("provider", "")
 

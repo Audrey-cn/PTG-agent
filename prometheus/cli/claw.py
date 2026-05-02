@@ -1,5 +1,7 @@
 """prometheus claw — OpenClaw migration commands."""
 
+from __future__ import annotations
+
 import importlib.util
 import logging
 import subprocess
@@ -7,7 +9,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from prometheus.cli.config import get_config_path, get_prometheus_home, load_config, save_config
 from prometheus.cli.setup import (
     Colors,
     color,
@@ -17,6 +18,7 @@ from prometheus.cli.setup import (
     print_success,
     prompt_yes_no,
 )
+from prometheus.config import get_config_path, get_prometheus_home, save_config
 from prometheus.constants_core import get_optional_skills_dir
 
 logger = logging.getLogger(__name__)
@@ -43,13 +45,13 @@ _OPENCLAW_SCRIPT_INSTALLED = (
 _OPENCLAW_DIR_NAMES = (".openclaw", ".clawdbot", ".moltbot")
 
 
-def _detect_openclaw_processes() -> List[str]:
+def _detect_openclaw_processes() -> list[str]:
     """Detect running OpenClaw processes and services.
 
     Returns a list of human-readable descriptions of what was found.
     An empty list means nothing was detected.
     """
-    found: List[str] = []
+    found: list[str] = []
 
     if sys.platform != "win32":
         try:
@@ -318,7 +320,7 @@ def _cmd_migrate(args):
     )
     print(
         color(
-            "│          ⚕ Prometheus — OpenClaw Migration                 │",
+            "│          🔥 Prometheus — OpenClaw Migration                 │",
             Colors.MAGENTA,
         )
     )
@@ -514,7 +516,7 @@ def _cmd_cleanup(args):
     )
     print(
         color(
-            "│          ⚕ Prometheus — OpenClaw Cleanup                   │",
+            "│          🔥 Prometheus — OpenClaw Cleanup                   │",
             Colors.MAGENTA,
         )
     )

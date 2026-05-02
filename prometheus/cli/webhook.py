@@ -48,9 +48,9 @@ def _save_subscriptions(subs: dict[str, dict]) -> None:
 def _get_webhook_config() -> dict:
     """Load webhook platform config. Returns {} if not configured."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config()
+        cfg = PrometheusConfig.load()
         return cfg_get(cfg, "platforms", "webhook", default={})
     except Exception:
         return {}

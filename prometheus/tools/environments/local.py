@@ -38,10 +38,15 @@ class LocalEnvironment(ExecutionEnvironment):
     ) -> ExecutionResult:
         """Execute a command locally."""
         import os
+        import shlex
 
         start_time = time.time()
 
-        cmd = [command] + (args or [])
+        if args:
+            cmd = [command] + list(args)
+        else:
+            cmd = shlex.split(command)
+        
         full_cmd = " ".join(cmd)
 
         logger.debug(f"Executing locally: {full_cmd}")

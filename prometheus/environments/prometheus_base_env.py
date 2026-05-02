@@ -118,10 +118,10 @@ class PrometheusAgentEnvConfig(BaseEnvConfig):
     )
 
     tool_call_parser: str = Field(
-        default="hermes",
+        default="prometheus",
         description="Tool call parser name for Phase 2 (VLLM server type). "
         "Ignored in Phase 1 (OpenAI server type where VLLM parses natively). "
-        "Options: hermes, mistral, llama3_json, qwen, deepseek_v3, etc.",
+        "Options: prometheus, mistral, llama3_json, qwen, deepseek_v3, etc.",
     )
 
     default_result_size_chars: int = Field(

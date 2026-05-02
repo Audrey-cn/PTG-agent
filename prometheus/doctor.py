@@ -358,7 +358,7 @@ class PrometheusDoctor:
             return IssueType.WARNING, "主数据库不存在 (首次使用时自动创建)"
 
     def _check_seed_vault(self):
-        vault = Path.home() / ".hermes" / "seed-vault"
+        vault = Path.home() / ".prometheus" / "seed-vault"
         if not vault.exists():
             return IssueType.WARNING, "种子仓库不存在"
         ttg_files = [f for f in vault.iterdir() if f.suffix == ".ttg"]
@@ -439,7 +439,7 @@ class PrometheusDoctor:
         return IssueType.INFO, f"Honcho已启用 (模式: {client._config.mode})"
 
     def _check_gateway_status(self):
-        from prometheus.gateway_daemon import is_gateway_running
+        from prometheus.gateway.status import is_gateway_running
 
         if is_gateway_running():
             return IssueType.INFO, "网关服务运行中"

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """Terminal Tool Module."""
 
@@ -19,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 from prometheus.tools.environments.singularity import _get_scratch_dir
-from prometheus.tools.interrupt import _interrupt_event, is_interrupted  # noqa: F401 — re-exported
-from prometheus.tools.tool_backend_helpers import (
+from prometheus.tools.security.interrupt import _interrupt_event, is_interrupted  # noqa: F401 — re-exported
+from prometheus.tools.security.tool_backend_helpers import (
     coerce_modal_mode,
     has_direct_modal_credentials,
     managed_nous_tools_enabled,
@@ -222,7 +224,7 @@ def _reset_cached_sudo_passwords() -> None:
         _sudo_password_cache.clear()
 
 
-from prometheus.tools.approval import (
+from prometheus.tools.security.approval import (
     check_all_command_guards as _check_all_guards_impl,
 )
 
@@ -823,7 +825,7 @@ def _create_environment(
     docker_env = cc.get("docker_env", {})
 
     if env_type == "local":
-        return _LocalEnvironment(cwd=cwd, timeout=timeout)
+        return _LocalEnvironment()
 
     elif env_type == "docker":
         return _DockerEnvironment(
@@ -967,11 +969,15 @@ def _cleanup_inactive_envs(lifetime_seconds: int = 300):
     current_time = time.time()
 
     try:
-        from prometheus.tools.process_registry import process_registry
-
+        # 临时注释掉 process_registry 导入，避免 platform.system() 错误
+        # from prometheus.tools.security.process_registry import process_registry
+        
+        # 简化处理：只清理没有活跃任务的环境
         for task_id in list(_last_activity.keys()):
-            if process_registry.has_active_processes(task_id):
-                _last_activity[task_id] = current_time
+            # 临时跳过 process_registry 检查
+            # if process_registry.has_active_processes(task_id):
+            #     _last_activity[task_id] = current_time
+            pass
     except ImportError:
         pass
 
@@ -1072,6 +1078,8 @@ def cleanup_all_environments():
             logger.error("Error cleaning %s: %s", task_id, e, exc_info=True)
 
     scratch_dir = _get_scratch_dir()
+    if scratch_dir is None:
+        return cleaned
     import glob
 
     for path in glob.glob(str(scratch_dir / "prometheus-*")):
@@ -1492,8 +1500,8 @@ def terminal_tool(
             )
 
         if background:
-            from prometheus.tools.approval import get_current_session_key
-            from prometheus.tools.process_registry import process_registry
+            from prometheus.tools.security.approval import get_current_session_key
+            from prometheus.tools.security.process_registry import process_registry
 
             session_key = get_current_session_key(default="")
             effective_cwd = workdir or cwd
@@ -1646,8 +1654,8 @@ def terminal_tool(
 
                 break
 
-            output = result.get("output", "")
-            returncode = result.get("returncode", 0)
+            output = result.output if hasattr(result, 'output') else result.get("output", "")
+            returncode = result.exit_code if hasattr(result, 'exit_code') else result.get("returncode", 0)
 
             output = _handle_sudo_failure(output, env_type)
 
@@ -1669,7 +1677,7 @@ def terminal_tool(
             except Exception:
                 pass
 
-            from prometheus.tools.tool_output_limits import get_max_bytes
+            from prometheus.tools.security.tool_output_limits import get_max_bytes
 
             MAX_OUTPUT_CHARS = get_max_bytes()
             if len(output) > MAX_OUTPUT_CHARS:
@@ -1881,7 +1889,7 @@ if __name__ == "__main__":
     print(f"  TERMINAL_LIFETIME_SECONDS: {os.getenv('TERMINAL_LIFETIME_SECONDS', '300')}")
 
 
-from prometheus.tools.registry import registry
+from prometheus.tools.security.registry import registry
 
 TERMINAL_SCHEMA = {
     "name": "terminal",

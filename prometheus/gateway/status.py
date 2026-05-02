@@ -9,7 +9,7 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Tuple
 
 from prometheus.config import get_prometheus_home
 

@@ -4,7 +4,29 @@ import json
 import os
 from typing import Any
 
-CANONICAL_PROVIDERS: Dict[str, Dict[str, Any]] = {
+try:
+    from importlib.metadata import version
+
+    _PROMETHEUS_VERSION = version("prometheus")
+except Exception:
+    _PROMETHEUS_VERSION = "0.8.0"
+
+_PROMETHEUS_USER_AGENT = f"prometheus-cli/{_PROMETHEUS_VERSION}"
+
+
+def provider_label(provider_name: str) -> str:
+    """Return the display label for a provider name.
+
+    Args:
+        provider_name: Provider key (e.g. 'openai', 'anthropic').
+
+    Returns:
+        Human-readable label (e.g. 'OpenAI', 'Anthropic').
+    """
+    return CANONICAL_PROVIDERS.get(provider_name, {}).get("label", provider_name)
+
+
+CANONICAL_PROVIDERS: dict[str, dict[str, Any]] = {
     "openai": {
         "label": "OpenAI",
         "env_var": "OPENAI_API_KEY",
@@ -84,8 +106,8 @@ CANONICAL_PROVIDERS: Dict[str, Dict[str, Any]] = {
         "label": "Nous Portal",
         "env_var": "NOUS_API_KEY",
         "base_url": "https://api.nousportal.com/v1",
-        "default_model": "nous-hermes-2",
-        "models": ["nous-hermes-2", "nous-capybara"],
+        "default_model": "nous-prometheus-2",
+        "models": ["nous-prometheus-2", "nous-capybara"],
     },
     "nvidia_nim": {
         "label": "NVIDIA NIM",
@@ -277,7 +299,7 @@ def _print_model_help() -> None:
     print("    ptg model providers                 列出提供者\n")
 
 
-def cmd_model_list(provider: Optional[str] = None) -> None:
+def cmd_model_list(provider: str | None = None) -> None:
     from prometheus.model_catalog import list_models as catalog_list
 
     print("\n🤖 模型列表\n")
@@ -325,7 +347,7 @@ def cmd_model_switch(model_name: str) -> None:
         print(f"   提供者: {provider}\n")
 
 
-def cmd_model_probe(base_url: str, api_key: Optional[str] = None) -> None:
+def cmd_model_probe(base_url: str, api_key: str | None = None) -> None:
     import urllib.error
     import urllib.request
 

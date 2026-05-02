@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 from typing import TYPE_CHECKING
 
 from prometheus.constants_core import get_prometheus_home
-from prometheus.tools.tool_backend_helpers import managed_nous_tools_enabled
+from prometheus.tools.security.tool_backend_helpers import managed_nous_tools_enabled
 
 if TYPE_CHECKING:
     from collections.abc import Callable

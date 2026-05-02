@@ -11,10 +11,10 @@ import re
 import yaml
 
 from prometheus.config import get_prometheus_home
-from prometheus.tools.registry import registry, tool_error, tool_result
+from prometheus.tools.security.registry import registry, tool_error, tool_result
 from prometheus.tools.skill_loader import SkillLoader, SkillParser
 
-# 安全扫描的危险模式（参考 Hermes）
+# 安全扫描的危险模式（参考 Prometheus）
 DANGEROUS_PATTERNS = [
     r"\bos\.(system|popen|exec|spawn|fork)",
     r"\bsubprocess\.",
@@ -79,7 +79,7 @@ def create_skill(args):
         "name": name,
         "description": description or "暂无描述",
         "version": "1.0.0",
-        "metadata": {"hermes": {"tags": tags, "related_skills": []}},
+        "metadata": {"prometheus": {"tags": tags, "related_skills": []}},
     }
 
     # 写入文件

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # Import from cron module (will be available when properly installed)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from cron.jobs import (
+from prometheus.cron.jobs import (
     create_job,
     get_job,
     list_jobs,
@@ -137,9 +137,9 @@ def _resolve_model_override(model_obj: dict[str, Any] | None) -> tuple:
     if model_name and not provider_name:
         # Pin to the current main provider so the job is stable
         try:
-            from prometheus.cli.config import load_config
+            from prometheus.config import PrometheusConfig
 
-            cfg = load_config()
+            cfg = PrometheusConfig.load()
             model_cfg = cfg.get("model", {})
             if isinstance(model_cfg, dict):
                 provider_name = model_cfg.get("provider") or None
@@ -206,7 +206,7 @@ def _validate_cron_script_path(script: str | None) -> str | None:
         )
 
     # Validate containment after resolution
-    from prometheus.tools.path_security import validate_within_dir
+    from prometheus.tools.security.path_security import validate_within_dir
 
     scripts_dir = get_prometheus_home() / "scripts"
     scripts_dir.mkdir(parents=True, exist_ok=True)
@@ -298,7 +298,7 @@ def cronjob(
 
             # Validate context_from references existing jobs
             if context_from:
-                from cron.jobs import get_job as _get_job
+                from prometheus.cron.jobs import get_job as _get_job
 
                 refs = [context_from] if isinstance(context_from, str) else context_from
                 for ref_id in refs:
@@ -427,7 +427,7 @@ def cronjob(
                 else:
                     refs = [str(j).strip() for j in context_from if str(j).strip()]
                 if refs:
-                    from cron.jobs import get_job as _get_job
+                    from prometheus.cron.jobs import get_job as _get_job
 
                     for ref_id in refs:
                         if not _get_job(ref_id):
@@ -582,7 +582,7 @@ def check_cronjob_requirements() -> bool:
 
 
 # --- Registry ---
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 registry.register(
     name="cronjob",

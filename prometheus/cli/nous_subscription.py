@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from prometheus.cli.auth import get_nous_auth_status
-from prometheus.config import get_env_value, load_config
+from prometheus.config import PrometheusConfig, get_env_value
 from prometheus.tools.managed_tool_gateway import is_managed_tool_gateway_ready
 from prometheus.tools.tool_backend_helpers import (
     fal_key_is_configured,
@@ -229,7 +229,7 @@ def get_nous_subscription_features(
     config: dict[str, object] | None = None,
 ) -> NousSubscriptionFeatures:
     if config is None:
-        config = load_config() or {}
+        config = PrometheusConfig.load().to_dict() or {}
     config = dict(config)
     model_cfg = _model_config_dict(config)
     provider_is_nous = str(model_cfg.get("provider") or "").strip().lower() == "nous"
@@ -609,7 +609,7 @@ def get_gateway_eligible_tools(
         return [], [], []
 
     if config is None:
-        config = load_config() or {}
+        config = PrometheusConfig.load().to_dict() or {}
 
     # Quick provider check without the heavy get_nous_subscription_features call
     model_cfg = config.get("model")
@@ -791,7 +791,7 @@ def prompt_enable_tool_gateway(config: dict[str, object]) -> set[str]:
 
     changed = apply_gateway_defaults(config, to_apply)
     if changed:
-        from prometheus.cli.config import save_config
+        from prometheus.config import save_config
 
         save_config(config)
         # Only report the tools that actually switched (not already-managed ones)

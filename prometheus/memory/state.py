@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """╔══════════════════════════════════════════════════════════════╗."""
 
@@ -10,7 +12,7 @@ from enum import Enum
 
 from storage import StateStore
 
-STATE_DIR = os.path.expanduser("~/.hermes/tools/prometheus/state")
+STATE_DIR = os.path.expanduser("~/.prometheus/tools/prometheus/state")
 os.makedirs(STATE_DIR, exist_ok=True)
 
 

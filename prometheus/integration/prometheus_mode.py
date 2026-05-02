@@ -73,7 +73,7 @@ class PrometheusMode:
     def get_mode_indicator(self) -> str:
         """获取模式指示器用于 UI"""
         if not self.is_active:
-            return "Hermes"
+            return "Prometheus"
 
         if self._seed_path:
             return "🔥 Prometheus (seed)"
@@ -83,7 +83,7 @@ class PrometheusMode:
     def get_info(self) -> ModeInfo:
         """获取模式信息"""
         return ModeInfo(
-            mode="prometheus" if self.is_active else "hermes",
+            mode="prometheus" if self.is_active else "prometheus",
             active=self.is_active,
             seed_path=self._seed_path,
         )

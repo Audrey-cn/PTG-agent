@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Backup and import commands for prometheus CLI."""
 
 import contextlib

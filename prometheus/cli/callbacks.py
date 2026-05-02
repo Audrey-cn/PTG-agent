@@ -82,7 +82,7 @@ def approval_callback(
 ) -> str:
     """Prompt for dangerous command approval through the TUI.
 
-    Mirrors Hermes's approval_callback interface for compatibility.
+    Mirrors Prometheus's approval_callback interface for compatibility.
 
     Shows a selection UI with choices: once / session / always / deny.
     When the command is longer than 70 characters, a "view" option is

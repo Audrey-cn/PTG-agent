@@ -82,9 +82,9 @@ _SIZES = {
 def _load_openai_config() -> dict[str, Any]:
     """Read ``image_gen`` from config.yaml (returns {} on any failure)."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config()
+        cfg = PrometheusConfig.load()
         section = cfg.get("image_gen") if isinstance(cfg, dict) else None
         return section if isinstance(section, dict) else {}
     except Exception as exc:

@@ -4,6 +4,7 @@
 import json
 import os
 import re
+from pathlib import Path
 
 
 class GeneLibrary:
@@ -19,8 +20,19 @@ class GeneLibrary:
     """
 
     def __init__(self):
-        self.catalog_path = os.path.expanduser("~/.hermes/tools/prometheus/genes/gene_catalog.json")
+        self.catalog_path = self._find_catalog_path()
         self.catalog = self._load_catalog()
+
+    def _find_catalog_path(self) -> str:
+        user_path = os.path.expanduser("~/.prometheus/tools/prometheus/genes/gene_catalog.json")
+        if os.path.exists(user_path):
+            return user_path
+        
+        project_path = Path(__file__).parent / "gene_catalog.json"
+        if project_path.exists():
+            return str(project_path)
+        
+        return user_path
 
     def _load_catalog(self) -> dict:
         if os.path.exists(self.catalog_path):

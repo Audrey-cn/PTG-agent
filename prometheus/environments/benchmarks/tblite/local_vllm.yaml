@@ -22,7 +22,7 @@ env:
   terminal_timeout: 180
   terminal_lifetime: 7200
   tool_pool_size: 64
-  tool_call_parser: hermes
+  tool_call_parser: prometheus
 
 server:
   type: vllm

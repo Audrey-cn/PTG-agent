@@ -19,7 +19,7 @@
 
 | 框架 | 特点 |
 |------|------|
-| Hermes | MD 格式记忆，JSON 配置，人可读 |
+| Prometheus | MD 格式记忆，JSON 配置，人可读 |
 | 小龙虾 | memory/user/agent.md，定时 BAK 备份 |
 | OpenClaude | 扁平 MD 文件，Git 友好 |
 

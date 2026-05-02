@@ -11,13 +11,13 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any
 
-from storage import StateStore
+from prometheus.storage import StateStore
 
 # ═══════════════════════════════════════════
 #   配置
 # ═══════════════════════════════════════════
 
-CORRECTION_DIR = os.path.expanduser("~/.hermes/tools/prometheus/correction")
+CORRECTION_DIR = os.path.expanduser("~/.prometheus/tools/prometheus/correction")
 os.makedirs(CORRECTION_DIR, exist_ok=True)
 
 

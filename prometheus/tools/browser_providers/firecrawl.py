@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Firecrawl web scraping provider."""
 
 import contextlib

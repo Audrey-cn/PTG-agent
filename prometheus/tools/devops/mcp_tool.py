@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """MCP (Model Context Protocol) Client Support."""
 
@@ -949,7 +951,7 @@ class MCPServerTask:
         After the initial ``await`` (list_tools), all mutations are synchronous
         — atomic from the event loop's perspective.
         """
-        from prometheus.tools.registry import registry
+        from prometheus.tools.security.registry import registry
 
         async with self._refresh_lock:
             # Capture old tool names for change diff
@@ -1378,7 +1380,7 @@ class MCPServerTask:
 
     async def shutdown(self):
         """Signal the Task to exit and wait for clean resource teardown."""
-        from prometheus.tools.registry import registry
+        from prometheus.tools.security.registry import registry
 
         self._shutdown_event.set()
         # Defensive: if _wait_for_lifecycle_event is blocking, we need ANY
@@ -1865,7 +1867,7 @@ def _run_on_mcp_loop(coro, timeout: float = 30):
     Poll in short intervals so the calling agent thread can honor user
     interrupts while the MCP work is still running on the background loop.
     """
-    from prometheus.tools.interrupt import is_interrupted
+    from prometheus.tools.security.interrupt import is_interrupted
 
     with _lock:
         loop = _mcp_loop
@@ -1931,9 +1933,9 @@ def _load_mcp_config() -> dict[str, dict]:
     ``os.environ`` (which includes ``~/.prometheus/.env`` loaded at startup).
     """
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        config = load_config()
+        config = PrometheusConfig.load()
         servers = config.get("mcp_servers")
         if not servers or not isinstance(servers, dict):
             return {}
@@ -2185,7 +2187,7 @@ def _make_read_resource_handler(server_name: str, tool_timeout: float):
     """Return a sync handler that reads a resource by URI from an MCP server."""
 
     def _handler(args: dict, **kwargs) -> str:
-        from prometheus.tools.registry import tool_error
+        from prometheus.tools.security.registry import tool_error
 
         with _lock:
             server = _servers.get(server_name)
@@ -2326,7 +2328,7 @@ def _make_get_prompt_handler(server_name: str, tool_timeout: float):
     """Return a sync handler that gets a prompt by name from an MCP server."""
 
     def _handler(args: dict, **kwargs) -> str:
-        from prometheus.tools.registry import tool_error
+        from prometheus.tools.security.registry import tool_error
 
         with _lock:
             server = _servers.get(server_name)
@@ -2469,7 +2471,7 @@ def _normalize_mcp_input_schema(schema: dict | None) -> dict:
         coercion can still map a model-emitted ``"null"`` string to Python
         ``None`` for this optional field.
         """
-        from prometheus.tools.schema_sanitizer import strip_nullable_unions
+        from prometheus.tools.security.schema_sanitizer import strip_nullable_unions
 
         return strip_nullable_unions(node, keep_nullable_hint=True)
 
@@ -2725,7 +2727,7 @@ def _register_server_tools(name: str, server: MCPServerTask, config: dict) -> li
     Returns:
         List of registered prefixed tool names.
     """
-    from prometheus.tools.registry import registry
+    from prometheus.tools.security.registry import registry
 
     registered_names: list[str] = []
     toolset_name = f"mcp-{name}"

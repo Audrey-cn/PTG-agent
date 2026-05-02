@@ -53,6 +53,7 @@ __all__ = [
     "ToolHooks",
     "PrometheusOrchestrator",
     "registry",
+    "PrometheusConfig",
     "load_config",
     "save_config",
     "is_managed",
@@ -65,11 +66,16 @@ def __getattr__(name):
     if name == "get_state":
         from prometheus._state import get_state
         return get_state
-    if name in ("load_config", "save_config", "is_managed"):
-        from prometheus.config import load_config, save_config, is_managed
-        return {"load_config": load_config, "save_config": save_config, "is_managed": is_managed}[name]
+    if name in ("PrometheusConfig", "load_config", "save_config", "is_managed"):
+        from prometheus.config import PrometheusConfig, is_managed, load_config, save_config
+        return {"PrometheusConfig": PrometheusConfig, "load_config": load_config, "save_config": save_config, "is_managed": is_managed}[name]
     if name in ("EvolutionGuard", "FireKeeper", "PrometheusLifecycle", "SoulOrchestrator"):
-        from prometheus.framework import EvolutionGuard, FireKeeper, PrometheusLifecycle, SoulOrchestrator
+        from prometheus.framework import (
+            EvolutionGuard,
+            FireKeeper,
+            PrometheusLifecycle,
+            SoulOrchestrator,
+        )
         return {"EvolutionGuard": EvolutionGuard, "FireKeeper": FireKeeper, "PrometheusLifecycle": PrometheusLifecycle, "SoulOrchestrator": SoulOrchestrator}[name]
     if name in ("PrometheusMode", "ToolHooks"):
         from prometheus.integration import PrometheusMode, ToolHooks
@@ -81,7 +87,13 @@ def __getattr__(name):
         from prometheus.tools.registry import registry
         return registry
     if name in ("AppendResult", "Chronicler", "StampResult", "TraceReport", "format_trace_report"):
-        from prometheus.chronicler import AppendResult, Chronicler, StampResult, TraceReport, format_trace_report
+        from prometheus.chronicler import (
+            AppendResult,
+            Chronicler,
+            StampResult,
+            TraceReport,
+            format_trace_report,
+        )
         return {"AppendResult": AppendResult, "Chronicler": Chronicler, "StampResult": StampResult, "TraceReport": TraceReport, "format_trace_report": format_trace_report}[name]
     if name in ("FOUNDER_CHRONICLE_SIGNATURE", "FOUNDER_TAG_LEXICON", "FOUNDER_TAGS", "IMMUTABLE_GENES", "SNAPSHOT_DIR", "TEMPLATE_TTG", "DormancyGuard", "PrometheusAPI", "SeedGardener", "_update_genealogy", "_verify_founder_chronicle", "cmd_audit", "cmd_create", "cmd_decode", "cmd_edit", "cmd_genes", "cmd_lexicon", "cmd_view", "inject_founder_chronicle", "load_seed", "save_seed", "save_snapshot"):
         from prometheus.prometheus import (

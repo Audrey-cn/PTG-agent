@@ -1,79 +1,8 @@
-"""Prometheus Tools — Flat re-exports for backward compatibility."""
+"""Prometheus Tools — Lazy re-exports for backward compatibility.
 
-from prometheus.tools import browser_providers, environments
-from prometheus.tools.browser.browser_camofox import camofox_browser_tool
-from prometheus.tools.browser.browser_camofox_state import CamofoxState
-from prometheus.tools.browser.browser_cdp_tool import browser_cdp_tool
-from prometheus.tools.browser.browser_dialog_tool import browser_dialog_tool
-from prometheus.tools.browser.browser_supervisor import SUPERVISOR_REGISTRY, BrowserSupervisor
-from prometheus.tools.browser.browser_tool import browser_tool
-from prometheus.tools.cron.cron import cron_tool
-from prometheus.tools.cron.cronjob_tools import cronjob_tool_handler
-from prometheus.tools.devops.checkpoint_manager import CheckpointManager
-from prometheus.tools.devops.clarify_tool import clarify_tool
-from prometheus.tools.devops.credential_files import get_credential_path, read_credential_file
-from prometheus.tools.devops.delegate_tool import delegate_tool
-from prometheus.tools.devops.homeassistant_tool import homeassistant_tool
-from prometheus.tools.devops.kanban_tools import kanban_tool_handler
-from prometheus.tools.devops.mcp_oauth import mcp_oauth_handler
-from prometheus.tools.devops.mcp_oauth_manager import MCPOAuthManager
-from prometheus.tools.devops.mcp_tool import mcp_tool_handler
-from prometheus.tools.devops.memory_tool import memory_tool
-from prometheus.tools.devops.send_message_tool import send_message_tool
-from prometheus.tools.devops.skill_manager_tool import skill_manager_tool
-from prometheus.tools.devops.skill_usage import record_skill_usage
-from prometheus.tools.devops.skills_guard import skills_guard_handler
-from prometheus.tools.devops.skills_hub import skills_hub_handler
-from prometheus.tools.devops.skills_sync import skills_sync_handler
-from prometheus.tools.devops.todo_tool import todo_tool
-from prometheus.tools.file.binary_extensions import BINARY_EXTENSIONS
-from prometheus.tools.file.code_execution_tool import code_execution_tool
-from prometheus.tools.file.file_operations import file_read, file_search, file_write
-from prometheus.tools.file.file_tools import file_tool_handler
-from prometheus.tools.file.patch_parser import PatchParser, parse_patch
-from prometheus.tools.messaging.discord import DiscordMessageTool
-from prometheus.tools.messaging.discord_tool import discord_tool
-from prometheus.tools.messaging.slack import SlackTool
-from prometheus.tools.messaging.telegram import TelegramTool
-from prometheus.tools.messaging.telegram_network import telegram_network_tool
-from prometheus.tools.platform.browser_camofox import browser_camofox_tool
-from prometheus.tools.platform.browser_camofox_state import CamofoxBrowserState
-from prometheus.tools.platform.dingtalk import dingtalk_tool
-from prometheus.tools.platform.feishu_doc_tool import feishu_doc_tool
-from prometheus.tools.platform.feishu_drive_tool import feishu_drive_tool
-from prometheus.tools.platform.image_generation_tool import image_generation_tool
-from prometheus.tools.platform.managed_tool_gateway import managed_tool_gateway
-from prometheus.tools.platform.mixture_of_agents import mixture_of_agents_tool
-from prometheus.tools.platform.rl_training_tool import rl_training_tool
-from prometheus.tools.platform.vision_tools import vision_tool
-from prometheus.tools.platform.yuanbao_tools import yuanbao_tool
-from prometheus.tools.security.approval import (
-    approve_session,
-    is_session_approved,
-    reject_session,
-    session_yolo_mode,
-    set_session_yolo,
-)
-from prometheus.tools.security.budget_config import BudgetConfig
-from prometheus.tools.security.env_passthrough import get_passthrough_env
-from prometheus.tools.security.fuzzy_match import fuzzy_match
-from prometheus.tools.security.interrupt import InterruptManager, is_interrupted
-from prometheus.tools.security.osv_check import osv_vulnerability_check
-from prometheus.tools.security.path_security import PathSecurity
-from prometheus.tools.security.process_registry import ProcessRegistry
-from prometheus.tools.security.registry import registry, tool_error, tool_result
-from prometheus.tools.security.schema_sanitizer import sanitize_tool_schemas
-from prometheus.tools.security.tirith_security import tirith_security_tool
-from prometheus.tools.security.tool_output_limits import limit_tool_output
-from prometheus.tools.security.tool_result_storage import ToolResultStorage
-from prometheus.tools.security.url_safety import is_url_safe
-from prometheus.tools.voice.neutts_synth import neutts_synth
-from prometheus.tools.voice.transcription_tools import transcribe_audio
-from prometheus.tools.voice.tts_tool import tts_tool
-from prometheus.tools.voice.voice_mode import enter_voice_mode, exit_voice_mode
-from prometheus.tools.web.session_search_tool import session_search_tool
-from prometheus.tools.web.web_tools import web_fetch, web_search
-from prometheus.tools.web.xai_http import xai_http_tool
+All imports are deferred until first access to avoid circular-dependency
+and missing-submodule failures during package initialization.
+"""
 
 __all__ = [
     "registry",
@@ -85,12 +14,13 @@ __all__ = [
     "browser_dialog_tool",
     "BrowserSupervisor",
     "SUPERVISOR_REGISTRY",
-    "Camof oxState",
+    "CamofoxState",
     "code_execution_tool",
     "file_read",
     "file_write",
     "file_search",
     "file_tool_handler",
+    "file_state",
     "web_search",
     "web_fetch",
     "session_search_tool",
@@ -158,3 +88,232 @@ __all__ = [
     "environments",
     "browser_providers",
 ]
+
+# Lazy import mapping
+_LAZY_MAP = {
+    # security / registry
+    "registry": ("prometheus.tools.security.registry", "registry"),
+    "tool_result": ("prometheus.tools.security.registry", "tool_result"),
+    "tool_error": ("prometheus.tools.security.registry", "tool_error"),
+    # security submodules
+    "approve_session": ("prometheus.tools.security.approval", "approve_session"),
+    "is_session_approved": ("prometheus.tools.security.approval", "is_session_approved"),
+    "reject_session": ("prometheus.tools.security.approval", "reject_session"),
+    "session_yolo_mode": ("prometheus.tools.security.approval", "session_yolo_mode"),
+    "set_session_yolo": ("prometheus.tools.security.approval", "set_session_yolo"),
+    "BudgetConfig": ("prometheus.tools.security.budget_config", "BudgetConfig"),
+    "get_passthrough_env": ("prometheus.tools.security.env_passthrough", "get_passthrough_env"),
+    "fuzzy_match": ("prometheus.tools.security.fuzzy_match", "fuzzy_match"),
+    "InterruptManager": ("prometheus.tools.security.interrupt", "InterruptManager"),
+    "is_interrupted": ("prometheus.tools.security.interrupt", "is_interrupted"),
+    "osv_vulnerability_check": ("prometheus.tools.security.osv_check", "osv_vulnerability_check"),
+    "PathSecurity": ("prometheus.tools.security.path_security", "PathSecurity"),
+    "ProcessRegistry": ("prometheus.tools.security.process_registry", "ProcessRegistry"),
+    "sanitize_tool_schemas": (
+        "prometheus.tools.security.schema_sanitizer",
+        "sanitize_tool_schemas",
+    ),
+    "tirith_security_tool": ("prometheus.tools.security.tirith_security", "tirith_security_tool"),
+    "limit_tool_output": ("prometheus.tools.security.tool_output_limits", "limit_tool_output"),
+    "ToolResultStorage": ("prometheus.tools.security.tool_result_storage", "ToolResultStorage"),
+    "is_url_safe": ("prometheus.tools.security.url_safety", "is_url_safe"),
+    # browser
+    "browser_tool": ("prometheus.tools.browser.browser_tool", "browser_tool"),
+    "browser_cdp_tool": ("prometheus.tools.browser.browser_cdp_tool", "browser_cdp_tool"),
+    "browser_dialog_tool": ("prometheus.tools.browser.browser_dialog_tool", "browser_dialog_tool"),
+    "BrowserSupervisor": ("prometheus.tools.browser.browser_supervisor", "BrowserSupervisor"),
+    "SUPERVISOR_REGISTRY": ("prometheus.tools.browser.browser_supervisor", "SUPERVISOR_REGISTRY"),
+    "CamofoxState": ("prometheus.tools.browser.browser_camofox_state", "CamofoxState"),
+    # browser / camofox (may not be available)
+    "camofox_browser_tool": ("prometheus.tools.browser.browser_camofox", "camofox_browser_tool"),
+    # cron
+    "cron_tool": ("prometheus.tools.cron.cron", "cron_tool"),
+    "cronjob_tool_handler": ("prometheus.tools.cron.cronjob_tools", "cronjob_tool_handler"),
+    # devops
+    "CheckpointManager": ("prometheus.tools.devops.checkpoint_manager", "CheckpointManager"),
+    "clarify_tool": ("prometheus.tools.devops.clarify_tool", "clarify_tool"),
+    "get_credential_path": ("prometheus.tools.devops.credential_files", "get_credential_path"),
+    "read_credential_file": ("prometheus.tools.devops.credential_files", "read_credential_file"),
+    "delegate_tool": ("prometheus.tools.devops.delegate_tool", "delegate_tool"),
+    "homeassistant_tool": ("prometheus.tools.devops.homeassistant_tool", "homeassistant_tool"),
+    "kanban_tool_handler": ("prometheus.tools.devops.kanban_tools", "kanban_tool_handler"),
+    "mcp_oauth_handler": ("prometheus.tools.devops.mcp_oauth", "mcp_oauth_handler"),
+    "MCPOAuthManager": ("prometheus.tools.devops.mcp_oauth_manager", "MCPOAuthManager"),
+    "mcp_tool_handler": ("prometheus.tools.devops.mcp_tool", "mcp_tool_handler"),
+    "memory_tool": ("prometheus.tools.devops.memory_tool", "memory_tool"),
+    "send_message_tool": ("prometheus.tools.devops.send_message_tool", "send_message_tool"),
+    "skill_manager_tool": ("prometheus.tools.devops.skill_manager_tool", "skill_manager_tool"),
+    "record_skill_usage": ("prometheus.tools.devops.skill_usage", "record_skill_usage"),
+    "skills_guard_handler": ("prometheus.tools.devops.skills_guard", "skills_guard_handler"),
+    "skills_hub_handler": ("prometheus.tools.devops.skills_hub", "skills_hub_handler"),
+    "skills_sync_handler": ("prometheus.tools.devops.skills_sync", "skills_sync_handler"),
+    "todo_tool": ("prometheus.tools.devops.todo_tool", "todo_tool"),
+    # file
+    "BINARY_EXTENSIONS": ("prometheus.tools.file.binary_extensions", "BINARY_EXTENSIONS"),
+    "code_execution_tool": ("prometheus.tools.file.code_execution_tool", "code_execution_tool"),
+    "file_read": ("prometheus.tools.file.file_operations", "file_read"),
+    "file_write": ("prometheus.tools.file.file_operations", "file_write"),
+    "file_search": ("prometheus.tools.file.file_operations", "file_search"),
+    "file_tool_handler": ("prometheus.tools.file.file_tools", "file_tool_handler"),
+    "file_state": ("prometheus.tools.file.file_state", "file_state"),
+    "tool_backend_helpers": (
+        "prometheus.tools.security.tool_backend_helpers",
+        "tool_backend_helpers",
+    ),
+    "voice_mode": ("prometheus.tools.voice.voice_mode", "voice_mode"),
+    "PatchParser": ("prometheus.tools.file.patch_parser", "PatchParser"),
+    "parse_patch": ("prometheus.tools.file.patch_parser", "parse_patch"),
+    # messaging
+    "DiscordMessageTool": ("prometheus.tools.messaging.discord", "DiscordMessageTool"),
+    "discord_tool": ("prometheus.tools.messaging.discord_tool", "discord_tool"),
+    "SlackTool": ("prometheus.tools.messaging.slack", "SlackTool"),
+    "telegram_tool": ("prometheus.tools.messaging.telegram", "TelegramTool"),
+    "telegram_network_tool": (
+        "prometheus.tools.messaging.telegram_network",
+        "telegram_network_tool",
+    ),
+    # platform
+    "browser_camofox_tool": ("prometheus.tools.platform.browser_camofox", "browser_camofox_tool"),
+    "CamofoxBrowserState": (
+        "prometheus.tools.platform.browser_camofox_state",
+        "CamofoxBrowserState",
+    ),
+    "dingtalk_tool": ("prometheus.tools.platform.dingtalk", "dingtalk_tool"),
+    "feishu_doc_tool": ("prometheus.tools.platform.feishu_doc_tool", "feishu_doc_tool"),
+    "feishu_drive_tool": ("prometheus.tools.platform.feishu_drive_tool", "feishu_drive_tool"),
+    "image_generation_tool": (
+        "prometheus.tools.platform.image_generation_tool",
+        "image_generation_tool",
+    ),
+    "managed_tool_gateway": (
+        "prometheus.tools.platform.managed_tool_gateway",
+        "managed_tool_gateway",
+    ),
+    "mixture_of_agents_tool": (
+        "prometheus.tools.platform.mixture_of_agents",
+        "mixture_of_agents_tool",
+    ),
+    "rl_training_tool": ("prometheus.tools.platform.rl_training_tool", "rl_training_tool"),
+    "vision_tool": ("prometheus.tools.platform.vision_tools", "vision_tool"),
+    "yuanbao_tool": ("prometheus.tools.platform.yuanbao_tools", "yuanbao_tool"),
+    # voice
+    "neutts_synth": ("prometheus.tools.voice.neutts_synth", "neutts_synth"),
+    "transcribe_audio": ("prometheus.tools.voice.transcription_tools", "transcribe_audio"),
+    "tts_tool": ("prometheus.tools.voice.tts_tool", "tts_tool"),
+    "enter_voice_mode": ("prometheus.tools.voice.voice_mode", "enter_voice_mode"),
+    "exit_voice_mode": ("prometheus.tools.voice.voice_mode", "exit_voice_mode"),
+    # web
+    "session_search_tool": ("prometheus.tools.web.session_search_tool", "session_search_tool"),
+    "web_fetch": ("prometheus.tools.web.web_tools", "web_fetch"),
+    "web_search": ("prometheus.tools.web.web_tools", "web_search"),
+    "xai_http_tool": ("prometheus.tools.web.xai_http", "xai_http_tool"),
+    # submodules
+    "browser_providers": ("prometheus.tools.browser", "providers"),
+    "environments": ("prometheus.tools", "environments"),
+}
+
+_cache = {}
+
+
+def __getattr__(name: str):
+    if name not in _LAZY_MAP:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    if name in _cache:
+        return _cache[name]
+
+    module_path, attr = _LAZY_MAP[name]
+    try:
+        import importlib
+
+        mod = importlib.import_module(module_path)
+        # If attr is "__module__" or attr matches the module's basename,
+        # return the module itself (used for submodule re-exports like file_state).
+        if attr == "__module__" or attr == module_path.split(".")[-1]:
+            value = mod
+        else:
+            value = getattr(mod, attr)
+        _cache[name] = value
+        return value
+    except Exception as e:
+        raise AttributeError(f"Failed to load {name!r} from {module_path}: {e}") from e
+
+
+_TOOL_MODULES = [
+    "prometheus.tools.file.file_operations",
+    "prometheus.tools.file.code_execution_tool",
+    "prometheus.tools.file.code_execution_register",
+    "prometheus.tools.file.file_tools",
+    "prometheus.tools.file.file_state",
+    "prometheus.tools.web.web_tools",
+    "prometheus.tools.web.session_search_tool",
+    "prometheus.tools.devops.mcp_tool",
+    "prometheus.tools.devops.memory_tool",
+    "prometheus.tools.devops.send_message_tool",
+    "prometheus.tools.devops.todo_tool",
+    "prometheus.tools.devops.clarify_tool",
+    "prometheus.tools.devops.delegate_tool",
+    "prometheus.tools.devops.kanban_tools",
+    "prometheus.tools.devops.skill_manager_tool",
+    "prometheus.tools.devops.skills_hub",
+    "prometheus.tools.devops.skills_guard",
+    "prometheus.tools.devops.skills_sync",
+    "prometheus.tools.devops.skill_usage",
+    "prometheus.tools.devops.checkpoint_manager",
+    "prometheus.tools.browser.browser_tool",
+    "prometheus.tools.browser.browser_cdp_tool",
+    "prometheus.tools.browser.browser_dialog_tool",
+    "prometheus.tools.browser.browser_camofox",
+    "prometheus.tools.cron.cron",
+    "prometheus.tools.cron.cronjob_tools",
+    "prometheus.tools.messaging.discord_tool",
+    "prometheus.tools.voice.tts_tool",
+    "prometheus.tools.voice.transcription_tools",
+    "prometheus.tools.voice.voice_mode",
+    "prometheus.tools.platform.image_generation_tool",
+    "prometheus.tools.platform.vision_tools",
+    "prometheus.tools.platform.yuanbao_tools",
+    "prometheus.tools.platform.feishu_doc_tool",
+    "prometheus.tools.platform.feishu_drive_tool",
+    "prometheus.tools.security.tirith_security",
+    "prometheus.tools.security.tool_output_limits",
+    "prometheus.tools.security.url_safety",
+]
+
+_initialized = False
+
+
+def load_all_tools():
+    """显式加载并注册所有工具。
+
+    调用后 registry 将包含所有可用工具。
+    """
+    global _initialized
+    if _initialized:
+        return
+
+    import logging
+
+    logger = logging.getLogger(__name__)
+    loaded = 0
+    failed = 0
+
+    from prometheus.tools.security.registry import registry
+
+    before = len(registry._tools)
+
+    for module_path in _TOOL_MODULES:
+        try:
+            import importlib
+
+            importlib.import_module(module_path)
+            loaded += 1
+        except Exception as e:
+            failed += 1
+            logger.debug(f"Failed to load tool module {module_path}: {e}")
+
+    after = len(registry._tools)
+    _initialized = True
+
+    logger.info(f"Tools initialized: {loaded} modules loaded, {failed} failed, {after - before} tools registered")
+    return registry

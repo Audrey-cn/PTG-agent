@@ -6,8 +6,8 @@ import json
 import logging
 from typing import Any
 
-from prometheus.tools.browser_supervisor import SUPERVISOR_REGISTRY
-from prometheus.tools.registry import registry
+from prometheus.tools.browser.browser_supervisor import SUPERVISOR_REGISTRY
+from prometheus.tools.security.registry import registry
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from prometheus.chronicler import Chronicler
-from prometheus.tools.registry import registry, tool_error, tool_result
+from prometheus.tools.security.registry import registry, tool_error, tool_result
 
 
 def _get_chronicler() -> Chronicler:

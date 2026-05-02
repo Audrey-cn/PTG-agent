@@ -12,11 +12,11 @@ from typing import Any
 DEFAULT_CONFIG = {
     # ── 路径 ──
     "paths": {
-        "data_dir": "~/.hermes/tools/prometheus/data",
-        "snapshot_dir": "~/.hermes/tools/prometheus/snapshots",
-        "seed_vault": "~/.hermes/seed-vault",
-        "skills_dir": "~/.hermes/skills",
-        "knowledge_dir": "~/.hermes/knowledge",
+        "data_dir": "~/.prometheus/tools/prometheus/data",
+        "snapshot_dir": "~/.prometheus/tools/prometheus/snapshots",
+        "seed_vault": "~/.prometheus/seed-vault",
+        "skills_dir": "~/.prometheus/skills",
+        "knowledge_dir": "~/.prometheus/knowledge",
     },
     # ── 模型 ──
     "model": {
@@ -80,7 +80,7 @@ DEFAULT_CONFIG = {
     # ── 日志 ──
     "logging": {
         "level": "INFO",  # DEBUG | INFO | WARNING | ERROR
-        "file": "~/.hermes/tools/prometheus/prometheus.log",
+        "file": "~/.prometheus/tools/prometheus/prometheus.log",
         "max_size_mb": 10,
         "backup_count": 3,
     },
@@ -95,7 +95,7 @@ DEFAULT_CONFIG = {
 class Config:
     """Prometheus 配置管理器
 
-    设计哲学（对齐 Hermes）：
+    设计哲学（对齐 Prometheus）：
       • YAML 文件为源，环境变量可覆盖
       • 支持 dot-notation 访问：config.get("model.name")
       • 类型安全：get_int, get_bool, get_list
@@ -104,7 +104,7 @@ class Config:
 
     def __init__(self, config_path: str = None):
         self._config_path = config_path or os.path.expanduser(
-            "~/.hermes/tools/prometheus/config.yaml"
+            "~/.prometheus/tools/prometheus/config.yaml"
         )
         self._data: dict = {}
         self._loaded = False

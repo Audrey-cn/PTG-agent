@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Telegram platform adapter."""
 
 import asyncio
@@ -259,7 +261,7 @@ class TelegramAdapter(BasePlatformAdapter):
         # Buffer rapid/album photo updates so Telegram image bursts are handled
         # as a single MessageEvent instead of self-interrupting multiple turns.
         self._media_batch_delay_seconds = float(
-            os.getenv("HERMES_TELEGRAM_MEDIA_BATCH_DELAY_SECONDS", "0.8")
+            os.getenv("PROMETHEUS_TELEGRAM_MEDIA_BATCH_DELAY_SECONDS", "0.8")
         )
         self._pending_photo_batches: dict[str, MessageEvent] = {}
         self._pending_photo_batch_tasks: dict[str, asyncio.Task] = {}
@@ -268,10 +270,10 @@ class TelegramAdapter(BasePlatformAdapter):
         # Buffer rapid text messages so Telegram client-side splits of long
         # messages are aggregated into a single MessageEvent.
         self._text_batch_delay_seconds = float(
-            os.getenv("HERMES_TELEGRAM_TEXT_BATCH_DELAY_SECONDS", "0.6")
+            os.getenv("PROMETHEUS_TELEGRAM_TEXT_BATCH_DELAY_SECONDS", "0.6")
         )
         self._text_batch_split_delay_seconds = float(
-            os.getenv("HERMES_TELEGRAM_TEXT_BATCH_SPLIT_DELAY_SECONDS", "2.0")
+            os.getenv("PROMETHEUS_TELEGRAM_TEXT_BATCH_SPLIT_DELAY_SECONDS", "2.0")
         )
         self._pending_text_batches: dict[str, MessageEvent] = {}
         self._pending_text_batch_tasks: dict[str, asyncio.Task] = {}
@@ -542,8 +544,8 @@ class TelegramAdapter(BasePlatformAdapter):
         # Exhausted retries — fatal
         message = (
             "Another process is already polling this Telegram bot token "
-            "(possibly OpenClaw or another Hermes instance). "
-            "Hermes stopped Telegram polling after %d retries. "
+            "(possibly OpenClaw or another Prometheus instance). "
+            "Prometheus stopped Telegram polling after %d retries. "
             "Only one poller can run per token — stop the other process "
             "and restart with 'prometheus start'." % MAX_CONFLICT_RETRIES
         )
@@ -825,15 +827,15 @@ class TelegramAdapter(BasePlatformAdapter):
                     return default
 
             request_kwargs = {
-                "connection_pool_size": _env_int("HERMES_TELEGRAM_HTTP_POOL_SIZE", 512),
-                "pool_timeout": _env_float("HERMES_TELEGRAM_HTTP_POOL_TIMEOUT", 8.0),
-                "connect_timeout": _env_float("HERMES_TELEGRAM_HTTP_CONNECT_TIMEOUT", 10.0),
-                "read_timeout": _env_float("HERMES_TELEGRAM_HTTP_READ_TIMEOUT", 20.0),
-                "write_timeout": _env_float("HERMES_TELEGRAM_HTTP_WRITE_TIMEOUT", 20.0),
+                "connection_pool_size": _env_int("PROMETHEUS_TELEGRAM_HTTP_POOL_SIZE", 512),
+                "pool_timeout": _env_float("PROMETHEUS_TELEGRAM_HTTP_POOL_TIMEOUT", 8.0),
+                "connect_timeout": _env_float("PROMETHEUS_TELEGRAM_HTTP_CONNECT_TIMEOUT", 10.0),
+                "read_timeout": _env_float("PROMETHEUS_TELEGRAM_HTTP_READ_TIMEOUT", 20.0),
+                "write_timeout": _env_float("PROMETHEUS_TELEGRAM_HTTP_WRITE_TIMEOUT", 20.0),
             }
 
             disable_fallback = os.getenv(
-                "HERMES_TELEGRAM_DISABLE_FALLBACK_IPS", ""
+                "PROMETHEUS_TELEGRAM_DISABLE_FALLBACK_IPS", ""
             ).strip().lower() in ("1", "true", "yes", "on")
             fallback_ips = self._fallback_ips()
             if not fallback_ips:
@@ -1883,7 +1885,7 @@ class TelegramAdapter(BasePlatformAdapter):
             await query.answer()
 
     async def _handle_callback_query(
-        self, update: "Update", context: "ContextTypes.DEFAULT_TYPE"
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         """Handle inline keyboard button clicks."""
         query = update.callback_query
@@ -3355,7 +3357,7 @@ class TelegramAdapter(BasePlatformAdapter):
         finally:
             self._media_group_tasks.pop(media_group_id, None)
 
-    async def _handle_sticker(self, msg: Message, event: "MessageEvent") -> None:
+    async def _handle_sticker(self, msg: Message, event: MessageEvent) -> None:
         """
         Describe a Telegram sticker via vision analysis, with caching.
 

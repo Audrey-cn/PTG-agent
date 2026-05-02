@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """CLI presentation -- spinner, kawaii faces, tool preview formatting."""
 
 import contextlib
@@ -582,35 +584,13 @@ class KawaiiSpinner:
         "sparkle": ["⁺", "˚", "*", "✧", "✦", "✧", "*", "˚"],
     }
 
-    KAWAII_WAITING = [
-        "(｡◕‿◕｡)",
-        "(◕‿◕✿)",
-        "٩(◕‿◕｡)۶",
-        "(✿◠‿◠)",
-        "( ˘▽˘)っ",
-        "♪(´ε` )",
-        "(◕ᴗ◕✿)",
-        "ヾ(＾∇＾)",
-        "(≧◡≦)",
-        "(★ω★)",
+    PROMETHEUS_WAITING = [
+        "🔥", "🧬", "📜", "💻", "⚡", "🌱", "🔮", "🌀", "✨", "🌟"
     ]
 
-    KAWAII_THINKING = [
-        "(｡•́︿•̀｡)",
-        "(◔_◔)",
-        "(¬‿¬)",
-        "( •_•)>⌐■-■",
-        "(⌐■_■)",
-        "(´･_･`)",
-        "◉_◉",
-        "(°ロ°)",
-        "( ˘⌣˘)♡",
-        "ヽ(>∀<☆)☆",
-        "٩(๑❛ᴗ❛๑)۶",
-        "(⊙_⊙)",
-        "(¬_¬)",
-        "( ͡° ͜ʖ ͡°)",
-        "ಠ_ಠ",
+    PROMETHEUS_THINKING = [
+        "🤔", "💭", "🧠", "🔍", "⚙️", "🔧", "📊", "🔬", "💡", "🎯",
+        "📝", "🔮", "🌀", "⚗️", "🧪", "🔭", "📡", "💫", "🌌", "🪐"
     ]
 
     THINKING_VERBS = [
@@ -642,7 +622,7 @@ class KawaiiSpinner:
                     return faces
         except Exception:
             pass
-        return cls.KAWAII_WAITING
+        return cls.PROMETHEUS_WAITING
 
     @classmethod
     def get_thinking_faces(cls) -> list:
@@ -655,7 +635,7 @@ class KawaiiSpinner:
                     return faces
         except Exception:
             pass
-        return cls.KAWAII_THINKING
+        return cls.PROMETHEUS_THINKING
 
     @classmethod
     def get_thinking_verbs(cls) -> list:

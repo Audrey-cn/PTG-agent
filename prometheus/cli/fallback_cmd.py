@@ -78,9 +78,9 @@ def _restore_auth_active_provider(value: Any) -> None:
 
 
 def cmd_fallback_list(args) -> None:
-    from prometheus.cli.config import load_config
+    from prometheus.config import PrometheusConfig
 
-    config = load_config()
+    config = PrometheusConfig.load().to_dict()
     chain = _read_chain(config)
 
     print()
@@ -115,12 +115,12 @@ def _describe_primary(config: dict[str, Any]) -> str | None:
 
 
 def cmd_fallback_add(args) -> None:
-    from prometheus.cli.config import load_config, save_config
     from prometheus.cli.main import _require_tty, select_provider_and_model
+    from prometheus.config import PrometheusConfig, save_config
 
     _require_tty("fallback add")
 
-    before_cfg = load_config()
+    before_cfg = PrometheusConfig.load()
     model_before = copy.deepcopy(before_cfg.get("model"))
     active_provider_before = _snapshot_auth_active_provider()
 
@@ -136,7 +136,7 @@ def cmd_fallback_add(args) -> None:
         _restore_auth_active_provider(active_provider_before)
         raise
 
-    after_cfg = load_config()
+    after_cfg = PrometheusConfig.load()
     model_after = after_cfg.get("model")
 
     new_entry = _extract_fallback_from_model_cfg(model_after)
@@ -163,7 +163,7 @@ def cmd_fallback_add(args) -> None:
     _restore_model_cfg(model_before)
     _restore_auth_active_provider(active_provider_before)
 
-    final_cfg = load_config()
+    final_cfg = PrometheusConfig.load()
     chain = _read_chain(final_cfg)
 
     for existing in chain:
@@ -187,9 +187,9 @@ def cmd_fallback_add(args) -> None:
 
 
 def _restore_model_cfg(model_before: Any) -> None:
-    from prometheus.cli.config import load_config, save_config
+    from prometheus.config import PrometheusConfig, save_config
 
-    cfg = load_config()
+    cfg = PrometheusConfig.load()
     if model_before is None:
         cfg.pop("model", None)
     else:
@@ -198,9 +198,9 @@ def _restore_model_cfg(model_before: Any) -> None:
 
 
 def cmd_fallback_remove(args) -> None:
-    from prometheus.cli.config import load_config, save_config
+    from prometheus.config import PrometheusConfig, save_config
 
-    config = load_config()
+    config = PrometheusConfig.load().to_dict()
     chain = _read_chain(config)
 
     if not chain:
@@ -238,9 +238,9 @@ def cmd_fallback_remove(args) -> None:
 
 
 def cmd_fallback_clear(args) -> None:
-    from prometheus.cli.config import load_config, save_config
+    from prometheus.config import PrometheusConfig, save_config
 
-    config = load_config()
+    config = PrometheusConfig.load().to_dict()
     chain = _read_chain(config)
 
     if not chain:

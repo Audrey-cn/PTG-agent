@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 """Honcho memory integration for Prometheus."""
 
 import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("prometheus.honcho")
 
@@ -52,7 +54,7 @@ class HonchoConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "HonchoConfig":
+    def from_dict(cls, data: dict[str, Any]) -> HonchoConfig:
         return cls(
             enabled=data.get("enabled", False),
             mode=data.get("mode", HonchoMemoryMode.NATIVE),
@@ -158,7 +160,7 @@ class HonchoClient:
             json.dump(self._config.to_dict(), f, indent=2)
 
     @classmethod
-    def load(cls) -> Optional["HonchoClient"]:
+    def load(cls) -> HonchoClient | None:
         """Load Honcho configuration from disk."""
         if not HONCHO_CONFIG_FILE.exists():
             return None

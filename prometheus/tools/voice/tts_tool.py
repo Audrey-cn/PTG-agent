@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """Text-to-Speech Tool Module."""
 
@@ -44,12 +46,12 @@ def get_env_value(name, default=None):
 import contextlib
 
 from prometheus.tools.managed_tool_gateway import resolve_managed_tool_gateway
-from prometheus.tools.tool_backend_helpers import (
+from prometheus.tools.security.tool_backend_helpers import (
     managed_nous_tools_enabled,
     prefers_gateway,
     resolve_openai_audio_api_key,
 )
-from prometheus.tools.xai_http import prometheus_xai_user_agent
+from prometheus.tools.web.xai_http import prometheus_xai_user_agent
 
 # ---------------------------------------------------------------------------
 # Lazy imports -- providers are imported only when actually used to avoid
@@ -259,9 +261,9 @@ def _load_tts_config() -> dict[str, Any]:
     for any missing fields.
     """
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        config = load_config()
+        config = PrometheusConfig.load()
         return config.get("tts", {})
     except ImportError:
         logger.debug("prometheus_cli.config not available, using default TTS config")
@@ -2248,7 +2250,7 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 TTS_SCHEMA = {
     "name": "text_to_speech",

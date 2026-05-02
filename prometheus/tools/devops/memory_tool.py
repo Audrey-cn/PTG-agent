@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """Memory Tool Module - Persistent Curated Memory."""
 
@@ -401,7 +403,7 @@ def memory_tool(
     store: MemoryStore | None = None,
 ) -> str:
     """Single entry point for the memory tool. Dispatches to MemoryStore methods."""
-    from prometheus.tools.registry import tool_error
+    from prometheus.tools.security.registry import tool_error
 
     if store is None:
         return tool_error(
@@ -492,7 +494,7 @@ MEMORY_SCHEMA = {
 }
 
 
-from prometheus.tools.registry import registry
+from prometheus.tools.security.registry import registry
 
 registry.register(
     name="memory",

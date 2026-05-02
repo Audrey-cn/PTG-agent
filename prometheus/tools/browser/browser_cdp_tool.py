@@ -23,7 +23,7 @@ import json
 import logging
 from typing import Any
 
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 logger = logging.getLogger(__name__)
 

@@ -32,7 +32,7 @@ class AudioBridge:
     ``teardown()`` when the session ends. ``teardown()`` is idempotent.
     """
 
-    def __init__(self, name_prefix: str = "hermes_meet") -> None:
+    def __init__(self, name_prefix: str = "prometheus_meet") -> None:
         self._name_prefix = name_prefix
         self._platform: str | None = None
         self._device_name: str | None = None
@@ -104,7 +104,7 @@ class AudioBridge:
                     "load-module",
                     "module-null-sink",
                     f"sink_name={sink_name}",
-                    "sink_properties=device.description=HermesMeetSink",
+                    "sink_properties=device.description=PrometheusMeetSink",
                 ],
                 check=True,
                 capture_output=True,

@@ -11,24 +11,24 @@ from dataclasses import dataclass
 logger = logging.getLogger(__name__)
 
 
-_NOUS_HERMES_NON_AGENTIC_RE = re.compile(
-    r"(?:^|[/:])hermes[-_ ]?[34](?:[-_.:]|$)",
+_NOUS_PROMETHEUS_NON_AGENTIC_RE = re.compile(
+    r"(?:^|[/:])prometheus[-_ ]?[34](?:[-_.:]|$)",
     re.IGNORECASE,
 )
 
 
-def is_nous_hermes_non_agentic(model_name: str) -> bool:
-    """Return True if *model_name* is a real Nous Hermes 3/4 chat model."""
+def is_nous_prometheus_non_agentic(model_name: str) -> bool:
+    """Return True if *model_name* is a real Nous Prometheus 3/4 chat model."""
     if not model_name:
         return False
-    return bool(_NOUS_HERMES_NON_AGENTIC_RE.search(model_name))
+    return bool(_NOUS_PROMETHEUS_NON_AGENTIC_RE.search(model_name))
 
 
-def _check_hermes_model_warning(model_name: str) -> str:
-    """Return a warning string if *model_name* is a Nous Hermes 3/4 chat model."""
-    if is_nous_hermes_non_agentic(model_name):
+def _check_prometheus_model_warning(model_name: str) -> str:
+    """Return a warning string if *model_name* is a Nous Prometheus 3/4 chat model."""
+    if is_nous_prometheus_non_agentic(model_name):
         return (
-            "Nous Research Hermes 3 & 4 models are NOT agentic and are not designed "
+            "Nous Research Prometheus 3 & 4 models are NOT agentic and are not designed "
             "for use with Prometheus. They lack tool-calling capabilities."
         )
     return ""
@@ -83,9 +83,9 @@ def _load_direct_aliases() -> Dict[str, DirectAlias]:
     """Load direct aliases from config.yaml ``model_aliases:`` section."""
     merged = dict(_DIRECT_ALIASES)
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config()
+        cfg = PrometheusConfig.load()
         user_aliases = cfg.get("model_aliases")
         if isinstance(user_aliases, dict):
             for name, entry in user_aliases.items():
@@ -391,9 +391,9 @@ def switch_model(
                 api_key = "no-key-required"
 
     warnings: List[str] = []
-    hermes_warn = _check_hermes_model_warning(new_model)
-    if hermes_warn:
-        warnings.append(hermes_warn)
+    prometheus_warn = _check_prometheus_model_warning(new_model)
+    if prometheus_warn:
+        warnings.append(prometheus_warn)
 
     return ModelSwitchResult(
         success=True,

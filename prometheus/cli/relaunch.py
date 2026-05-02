@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Unified self-relaunch for Prometheus CLI."""
 
 import os

@@ -523,9 +523,9 @@ def cmd_setup(args) -> None:
     print(f"\n  Config written to {write_path}")
 
     try:
-        from prometheus.cli.config import load_config, save_config
+        from prometheus.config import PrometheusConfig, save_config
 
-        prometheus_config = load_config()
+        prometheus_config = PrometheusConfig.load().to_dict()
         prometheus_config.setdefault("memory", {})["provider"] = "honcho"
         save_config(prometheus_config)
         print("  Memory provider set to 'honcho' in config.yaml")

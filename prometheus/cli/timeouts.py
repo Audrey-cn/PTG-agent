@@ -17,9 +17,9 @@ def get_provider_request_timeout(provider_id: str, model: str | None = None) -> 
         return None
 
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        config = load_config()
+        config = PrometheusConfig.load().to_dict()
     except Exception:
         return None
 
@@ -43,9 +43,9 @@ def get_provider_stale_timeout(provider_id: str, model: str | None = None) -> fl
         return None
 
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        config = load_config()
+        config = PrometheusConfig.load().to_dict()
     except Exception:
         return None
 

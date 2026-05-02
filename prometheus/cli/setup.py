@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Interactive setup wizard for Prometheus Agent."""
 
 import copy
@@ -11,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from prometheus.cli.nous_subscription import get_nous_subscription_features
+from prometheus.config import DEFAULT_CONFIG, load_config, save_config
 from prometheus.constants_core import get_optional_skills_dir
 from prometheus.tools.tool_backend_helpers import managed_nous_tools_enabled
 from prometheus.utils import base_url_hostname
@@ -154,16 +157,13 @@ def _set_reasoning_effort(config: dict[str, Any], effort: str) -> None:
 
 from prometheus.cli.colors import Colors, color
 from prometheus.config import (
-    DEFAULT_CONFIG,
     cfg_get,
     ensure_prometheus_home,
     get_config_path,
     get_env_path,
     get_env_value,
     get_prometheus_home,
-    load_config,
     remove_env_value,
-    save_config,
     save_env_value,
 )
 
@@ -2875,7 +2875,7 @@ def run_setup_wizard(args):
                         Colors.MAGENTA,
                     )
                 )
-                print(color(f"│     ⚕ Prometheus Setup — {label:<30s} │", Colors.MAGENTA))
+                print(color(f"│     🔥 Prometheus Setup — {label:<30s} │", Colors.MAGENTA))
                 print(
                     color(
                         "└─────────────────────────────────────────────────────────┘",
@@ -2908,7 +2908,7 @@ def run_setup_wizard(args):
             Colors.MAGENTA,
         )
     )
-    print(color("│             ⚕ Prometheus Agent Setup Wizard                │", Colors.MAGENTA))
+    print(color("│             🔥 Prometheus Agent Setup Wizard                │", Colors.MAGENTA))
     print(
         color(
             "├─────────────────────────────────────────────────────────┤",

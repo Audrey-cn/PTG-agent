@@ -1,27 +1,27 @@
-"""Unified removal contract for every credential source Hermes reads from.
+"""Unified removal contract for every credential source Prometheus reads from.
 
-Hermes seeds its credential pool from many places:
+Prometheus seeds its credential pool from many places:
 
-    env:<VAR>     — os.environ / ~/.hermes/.env
+    env:<VAR>     — os.environ / ~/.prometheus/.env
     claude_code   — ~/.claude/.credentials.json
-    hermes_pkce   — ~/.hermes/.anthropic_oauth.json
+    prometheus_pkce   — ~/.prometheus/.anthropic_oauth.json
     device_code   — auth.json providers.<provider> (nous, openai-codex, ...)
     qwen-cli      — ~/.qwen/oauth_creds.json
     gh_cli        — gh auth token
     config:<name> — custom_providers config entry
     model_config  — model.api_key when model.provider == "custom"
-    manual        — user ran `hermes auth add`
+    manual        — user ran `prometheus auth add`
 
 Each source has its own reader inside ``agent.credential_pool._seed_from_*``
 (which keep their existing shape — we haven't restructured them).  What we
 unify here is **removal**:
 
-    ``hermes auth remove <provider> <N>`` must make the pool entry stay gone.
+    ``prometheus auth remove <provider> <N>`` must make the pool entry stay gone.
 
 Before this module, every source had an ad-hoc removal branch in
 ``auth_remove_command``, and several sources had no branch at all — so
 ``auth remove`` silently reverted on the next ``load_pool()`` call for
-qwen-cli, nous device_code (partial), hermes_pkce, copilot gh_cli, and
+qwen-cli, nous device_code (partial), prometheus_pkce, copilot gh_cli, and
 custom-config sources.
 
 Now every source registers a ``RemovalStep`` that does exactly three things
@@ -147,7 +147,7 @@ def _remove_env_source(provider: str, removed) -> RemovalResult:
     """env:<VAR> — the most common case.
 
     Handles three user situations:
-      1. Var lives only in ~/.hermes/.env  → clear it
+      1. Var lives only in ~/.prometheus/.env  → clear it
       2. Var lives only in the user's shell (shell profile, systemd
          EnvironmentFile, launchd plist) → hint them where to unset it
       3. Var lives in both → clear from .env, hint about shell
@@ -180,11 +180,11 @@ def _remove_env_source(provider: str, removed) -> RemovalResult:
     if shell_exported:
         result.hints.extend(
             [
-                f"Note: {env_var} is still set in your shell environment (not in ~/.hermes/.env).",
+                f"Note: {env_var} is still set in your shell environment (not in ~/.prometheus/.env).",
                 "  Unset it there (shell profile, systemd EnvironmentFile, "
-                "launchd plist, etc.) or it will keep being visible to Hermes.",
-                f"  The pool entry is now suppressed — Hermes will ignore "
-                f"{env_var} until you run `hermes auth add {provider}`.",
+                "launchd plist, etc.) or it will keep being visible to Prometheus.",
+                f"  The pool entry is now suppressed — Prometheus will ignore "
+                f"{env_var} until you run `prometheus auth add {provider}`.",
             ]
         )
     else:
@@ -199,27 +199,27 @@ def _remove_claude_code(provider: str, removed) -> RemovalResult:
     """~/.claude/.credentials.json is owned by Claude Code itself.
 
     We don't delete it — the user's Claude Code install still needs to
-    work.  We just suppress it so Hermes stops reading it.
+    work.  We just suppress it so Prometheus stops reading it.
     """
     return RemovalResult(
         hints=[
             "Suppressed claude_code credential — it will not be re-seeded.",
             "Note: Claude Code credentials still live in ~/.claude/.credentials.json",
-            "Run `hermes auth add anthropic` to re-enable if needed.",
+            "Run `prometheus auth add anthropic` to re-enable if needed.",
         ]
     )
 
 
-def _remove_hermes_pkce(provider: str, removed) -> RemovalResult:
-    """~/.hermes/.anthropic_oauth.json is ours — delete it outright."""
-    from prometheus.constants_core import get_hermes_home
+def _remove_prometheus_pkce(provider: str, removed) -> RemovalResult:
+    """~/.prometheus/.anthropic_oauth.json is ours — delete it outright."""
+    from prometheus.constants_core import get_prometheus_home
 
     result = RemovalResult()
-    oauth_file = get_hermes_home() / ".anthropic_oauth.json"
+    oauth_file = get_prometheus_home() / ".anthropic_oauth.json"
     if oauth_file.exists():
         try:
             oauth_file.unlink()
-            result.cleaned.append("Cleared Hermes Anthropic OAuth credentials")
+            result.cleaned.append("Cleared Prometheus Anthropic OAuth credentials")
         except OSError as exc:
             result.hints.append(f"Could not delete {oauth_file}: {exc}")
     return result
@@ -247,9 +247,9 @@ def _remove_nous_device_code(provider: str, removed) -> RemovalResult:
     """Nous OAuth lives in auth.json providers.nous — clear it and suppress.
 
     We suppress in addition to clearing because nothing else stops the
-    user's next `hermes login` run from writing providers.nous again
+    user's next `prometheus login` run from writing providers.nous again
     before they decide to.  Suppression forces them to go through
-    `hermes auth add nous` to re-engage, which is the documented re-add
+    `prometheus auth add nous` to re-engage, which is the documented re-add
     path and clears the suppression atomically.
     """
     result = RemovalResult()
@@ -275,7 +275,7 @@ def _remove_codex_device_code(provider: str, removed) -> RemovalResult:
     """Codex tokens live in TWO places: our auth store AND ~/.codex/auth.json.
 
     refresh_codex_oauth_pure() writes both every time, so clearing only
-    the Hermes auth store is not enough — _seed_from_singletons() would
+    the Prometheus auth store is not enough — _seed_from_singletons() would
     re-import from ~/.codex/auth.json on the next load_pool() call and
     the removal would be instantly undone.  We suppress instead of
     deleting Codex CLI's file, so the Codex CLI itself keeps working.
@@ -283,7 +283,7 @@ def _remove_codex_device_code(provider: str, removed) -> RemovalResult:
     The canonical source name in ``_seed_from_singletons`` is
     ``"device_code"`` (no prefix).  Entries may show up in the pool as
     either ``"device_code"`` (seeded) or ``"manual:device_code"`` (added
-    via ``hermes auth add openai-codex``), but in both cases the re-seed
+    via ``prometheus auth add openai-codex``), but in both cases the re-seed
     gate lives at the ``"device_code"`` suppression key.  We suppress
     that canonical key here; the central dispatcher also suppresses
     ``removed.source`` which is fine — belt-and-suspenders, idempotent.
@@ -301,7 +301,7 @@ def _remove_codex_device_code(provider: str, removed) -> RemovalResult:
         [
             "Suppressed openai-codex device_code source — it will not be re-seeded.",
             "Note: Codex CLI credentials still live in ~/.codex/auth.json",
-            "Run `hermes auth add openai-codex` to re-enable if needed.",
+            "Run `prometheus auth add openai-codex` to re-enable if needed.",
         ]
     )
     return result
@@ -317,7 +317,7 @@ def _remove_qwen_cli(provider: str, removed) -> RemovalResult:
         hints=[
             "Suppressed qwen-cli credential — it will not be re-seeded.",
             "Note: Qwen CLI credentials still live in ~/.qwen/oauth_creds.json",
-            "Run `hermes auth add qwen-oauth` to re-enable if needed.",
+            "Run `prometheus auth add qwen-oauth` to re-enable if needed.",
         ]
     )
 
@@ -333,7 +333,7 @@ def _remove_copilot_gh(provider: str, removed) -> RemovalResult:
     user clicked.
 
     We don't touch the user's gh CLI or shell state — just suppress so
-    Hermes stops picking the token up.
+    Prometheus stops picking the token up.
     """
     # Suppress ALL copilot source variants up-front so no path resurrects
     # the pool entry.  The central dispatcher in auth_remove_command will
@@ -349,7 +349,7 @@ def _remove_copilot_gh(provider: str, removed) -> RemovalResult:
         hints=[
             "Suppressed all copilot token sources (gh_cli + env vars) — they will not be re-seeded.",
             "Note: Your gh CLI / shell environment is unchanged.",
-            "Run `hermes auth add copilot` to re-enable if needed.",
+            "Run `prometheus auth add copilot` to re-enable if needed.",
         ]
     )
 
@@ -408,9 +408,9 @@ def _register_all_sources() -> None:
     register(
         RemovalStep(
             provider="anthropic",
-            source_id="hermes_pkce",
-            remove_fn=_remove_hermes_pkce,
-            description="~/.hermes/.anthropic_oauth.json",
+            source_id="prometheus_pkce",
+            remove_fn=_remove_prometheus_pkce,
+            description="~/.prometheus/.anthropic_oauth.json",
         )
     )
     register(

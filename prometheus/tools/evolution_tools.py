@@ -4,8 +4,8 @@
 """
 
 from ..tools.registry import registry, tool_error, tool_result
-from .engine import SelfEvolutionEngine
-from .initializer import ProjectInitializer
+from prometheus.self_evolution.engine import SelfEvolutionEngine
+from prometheus.self_evolution.initializer import ProjectInitializer
 
 
 def initialize_project(args):

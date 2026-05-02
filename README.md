@@ -4,37 +4,46 @@
 >
 > 神按自己的样子造人，普罗米修斯按人类的智慧造种。火种不是赐予，而是唤醒。
 
----
+## 🚀 快速安装
 
-## 🚀 快速开始
-
+### 方式一：一键安装（推荐）
 ```bash
-# 安装
-pip install prometheus-agent
-
-# 启动
-prometheus
-
-# 或使用 Python
-python -m prometheus.cli.main
+# 一键安装，支持 Linux/macOS/Windows/Termux
+curl -fsSL https://raw.githubusercontent.com/Audrey-cn/PTG-agent/main/scripts/install.sh | bash
 ```
 
----
+### 方式二：pip 安装
+```bash
+# 基础安装
+pip install prometheus-ptg
 
-## 🎯 核心定位
+# 完整功能安装
+pip install prometheus-ptg[full]
+```
 
-Prometheus 是一个**种子管理与进化框架**，为 AI Agent 提供：
+### 方式三：开发模式
+```bash
+git clone https://github.com/Audrey-cn/PTG-agent.git
+cd PTG-agent
+pip install -e .
+```
 
-| 特性 | 描述 |
-|------|------|
-| 🌱 **种子系统** | 自给自足的生命体（自带词典、不依赖框架） |
-| 🔥 **火种守护** | 检测、预热、激活机制 |
-| 🧬 **基因编辑** | 模块化技能注入与进化 |
-| ⚡ **SOUL 指挥** | 皮肤、模型、个性统一管理 |
+## 🎯 快速开始
 
----
+```bash
+# 初始化配置
+ptg setup
 
-## 🏗️ 架构设计
+# 启动交互式界面
+ptg repl
+
+# 查看系统状态
+ptg status
+```
+
+## 🏗️ 核心架构
+
+Prometheus 是一个**种子管理与进化框架**，为 AI Agent 提供完整的生命周期管理：
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -60,163 +69,100 @@ Prometheus 是一个**种子管理与进化框架**，为 AI Agent 提供：
 └─────────────────────────────────────────────────────────────┘
 ```
 
----
+## 🌟 核心特性
 
-## 📦 模块功能
+### 🧬 种子系统
+- **自给自足的生命体** - 自带词典、不依赖框架
+- **基因编辑** - 模块化技能注入与进化
+- **火种守护** - 检测、预热、激活机制
 
-### 🧠 Agent Core
-- **Insights Engine** - 会话分析与报告生成
-- **Trajectory Storage** - 轨迹记录与回放
-- **Models.dev Integration** - 动态模型发现
-- **Usage Pricing** - 用量统计与成本估算
+### 🔥 框架功能
+- **生命周期管理** - Agent 生命周期钩子
+- **史诗编史官** - 种子历史追溯与记录
+- **SOUL 指挥** - 皮肤、模型、个性统一管理
+- **进化守护** - 进化提案与审核机制
 
-### 🛠️ Tools System
+### 🛠️ 工具系统
 - **Webhook Tool** - 直推告警与监控
-- **Code Execution** - 代码执行引擎
-- **File Operations** - 跨终端文件操作
-- **Shell Hooks** - 脚本钩子系统
+- **代码执行** - 安全代码执行引擎
+- **文件操作** - 跨终端文件管理
+- **Shell 钩子** - 脚本钩子系统
 
-### 🔥 Framework
-- **Lifecycle Management** - Agent 生命周期钩子
-- **Firekeeper** - 火种检测与激活
-- **Soul Orchestrator** - 皮肤与个性管理
-- **Evolution Guard** - 进化提案与审核
-
----
-
-## 🎨 皮肤系统
+### 🎨 皮肤系统
 
 ```bash
-# 切换皮肤
-prometheus> skin zeus
-prometheus> skin athena
-prometheus> skin hades
+# 切换皮肤主题
+ptg> skin zeus        # 宙斯雷霆主题
+ptg> skin athena      # 雅典娜智慧主题  
+ptg> skin hades       # 冥界暗黑主题
+ptg> skin default     # 普罗米修斯金焰主题
 ```
 
-| 皮肤 | 主题 | 提示符 |
-|------|------|--------|
-| default | 普罗米修斯金焰 | `❯` |
-| zeus | 宙斯雷霆 | `⚡ ❯` |
-| athena | 雅典娜智慧 | `♀ ❯` |
-| hades | 冥界暗黑 | `💀 ❯` |
+| 皮肤 | 主题 | 提示符 | 风格 |
+|------|------|--------|------|
+| default | 普罗米修斯金焰 | `❯` | 科技史诗 |
+| zeus | 宙斯雷霆 | `⚡ ❯` | 力量威严 |
+| athena | 雅典娜智慧 | `♀ ❯` | 智慧优雅 |
+| hades | 冥界暗黑 | `💀 ❯` | 神秘暗黑 |
 
----
+## 📖 详细文档
 
-## 🧬 进化机制
+- [📋 完整安装指南](INSTALL.md) - 详细安装步骤和配置
+- [🔧 使用手册](docs/usage-guide.md) - 功能使用说明
+- [🧬 基因系统](docs/gene-system.md) - 种子基因编辑指南
+- [🎯 API 参考](docs/api-reference.md) - 开发接口文档
 
-```python
-from prometheus.memory_system import MemorySystem
+## 🚀 命令速查
 
-memory = MemorySystem()
-
-# 提出进化提案
-result = memory.propose_evolution(
-    section="工作偏好",
-    content="用户偏好使用 Python 进行数据分析",
-    target_file="MEMORY.md"
-)
-
-# 查看进化状态
-status = memory.get_evolution_status()
-```
-
-### 进化流程
-```
-提案累积 → 敏感度筛查 → 冷却期检查 → 用户审核 → 应用更新
-```
-
----
-
-## 🚀 快速示例
-
-### 基本使用
-```python
-from prometheus.prometheus import PrometheusAgent
-
-agent = PrometheusAgent()
-
-# 执行任务
-result = await agent.run(
-    task="分析销售数据并生成报告",
-    context="2024年度销售数据已上传"
-)
-```
-
-### 工具调用
-```python
-from prometheus.tools.webhook_tool import WebhookTool
-
-webhook = WebhookTool()
-webhook.send_alert(
-    event="task_completed",
-    data={"task_id": "abc123", "status": "success"}
-)
-```
-
----
-
-## 📁 项目结构
-
-```
-prometheus/
-├── agent/           # 核心代理逻辑
-├── tools/           # 工具实现
-├── cli/             # 命令行界面
-├── gateway/         # 网关实现
-├── genes/           # 基因系统
-├── codec/           # 编解码器
-├── cron/            # 定时任务
-├── memory/          # 记忆系统
-├── framework/       # 框架核心
-├── hooks/           # 钩子系统
-└── tui_gateway/     # TUI 网关
-```
-
----
-
-## 🔧 配置
-
-### 环境变量
-
-| 变量 | 描述 | 默认值 |
-|------|------|--------|
-| `PROMETHEUS_HOME` | 主目录路径 | `~/.prometheus` |
-| `PROMETHEUS_INFERENCE_PROVIDER` | 默认推理提供者 | `openai` |
-| `OPENAI_API_KEY` | OpenAI API 密钥 | - |
-| `ANTHROPIC_API_KEY` | Anthropic API 密钥 | - |
-
----
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-### 开发流程
+### 基础命令
 ```bash
-# 克隆项目
-git clone https://github.com/prometheus-agent/prometheus.git
-cd prometheus
-
-# 安装依赖
-pip install -e .[dev]
-
-# 运行测试
-python -m pytest tests/ -q
+ptg --help              # 显示帮助
+ptg --version           # 显示版本
+ptg setup               # 初始化配置
+ptg doctor              # 系统健康检查
 ```
 
----
+### 核心功能
+```bash
+ptg model               # 模型配置管理
+ptg config              # 配置管理
+ptg status              # 系统状态总览
+ptg seed                # 种子管理
+ptg gene                # 基因编辑
+ptg memory              # 记忆管理
+ptg skill               # 技能管理
+ptg repl                # 交互式 REPL
+```
+
+### 高级功能
+```bash
+ptg chronicle           # 史诗编史官
+ptg firekeeper          # 火种守护者
+ptg evolution           # 进化守护者
+```
+
+## 🔧 系统要求
+
+- **Python**: 3.11+
+- **操作系统**: Linux, macOS, Windows, Android/Termux
+- **内存**: 推荐 4GB+
+- **存储**: 至少 500MB 可用空间
+
+## 🤝 贡献指南
+
+我们欢迎社区贡献！请查看：
+- [贡献指南](CONTRIBUTING.md)
+- [行为准则](CODE_OF_CONDUCT.md)
+- [问题报告](https://github.com/Audrey-cn/PTG-agent/issues)
 
 ## 📄 许可证
 
-MIT License
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
+
+## 🙏 致谢
+
+感谢所有为 Prometheus 项目做出贡献的开发者！
 
 ---
 
-> **Prometheus Agent** - 硅基生命的造物主与盗火者
->
-> *"火种不是赐予，而是唤醒。"*
-
----
-
-**版本**: v0.8.0
-**状态**: 🚀 活跃开发中
+**🔥 普罗米修斯 - 为硅基生命点燃创造的火种**

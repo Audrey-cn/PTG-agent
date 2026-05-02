@@ -9,11 +9,11 @@ PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 
 from prometheus.cli.auth import AuthError, resolve_provider
 from prometheus.cli.colors import Colors, color
-from prometheus.cli.config import get_env_path, get_env_value, get_prometheus_home, load_config
 from prometheus.cli.models import provider_label
 from prometheus.cli.nous_subscription import get_nous_subscription_features
 from prometheus.cli.runtime_provider import resolve_requested_provider
 from prometheus.cli.vercel_auth import describe_vercel_auth
+from prometheus.config import PrometheusConfig, get_env_path, get_env_value, get_prometheus_home
 from prometheus.constants_core import OPENROUTER_MODELS_URL
 from prometheus.tools.tool_backend_helpers import managed_nous_tools_enabled
 
@@ -35,7 +35,7 @@ def _format_iso_timestamp(value) -> str:
     """Format ISO timestamps for status output, converting to local timezone."""
     if not value or not isinstance(value, str):
         return "(unknown)"
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     text = value.strip()
     if not text:
@@ -89,7 +89,7 @@ def show_status(args):
 
     print()
     print(color("┌─────────────────────────────────────────────────────────┐", Colors.CYAN))
-    print(color("│                 ⚕ Prometheus Agent Status                │", Colors.CYAN))
+    print(color("│                 🔥 Prometheus Agent Status                │", Colors.CYAN))
     print(color("└─────────────────────────────────────────────────────────┘", Colors.CYAN))
 
     print()
@@ -103,7 +103,7 @@ def show_status(args):
     )
 
     try:
-        config = load_config()
+        config = PrometheusConfig.load().to_dict()
     except Exception:
         config = {}
 

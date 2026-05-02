@@ -47,7 +47,7 @@ def register_credential_file(
 
     host_path = prometheus_home / relative_path
 
-    from prometheus.tools.path_security import validate_within_dir
+    from prometheus.tools.security.path_security import validate_within_dir
 
     containment_error = validate_within_dir(host_path, prometheus_home)
     if containment_error:
@@ -101,7 +101,7 @@ def _load_config_files() -> list[dict[str, str]]:
         cfg = read_raw_config()
         cred_files = cfg_get(cfg, "terminal", "credential_files")
         if isinstance(cred_files, list):
-            from prometheus.tools.path_security import validate_within_dir
+            from prometheus.tools.security.path_security import validate_within_dir
 
             for item in cred_files:
                 if isinstance(item, str) and item.strip():

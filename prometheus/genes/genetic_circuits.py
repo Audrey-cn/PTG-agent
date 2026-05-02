@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any
 
-PROMETHEUS_HOME = os.path.expanduser("~/.hermes/tools/prometheus")
+PROMETHEUS_HOME = os.path.expanduser("~/.prometheus/tools/prometheus")
 CIRCUITS_DIR = os.path.join(PROMETHEUS_HOME, "genes", "circuits")
 
 os.makedirs(CIRCUITS_DIR, exist_ok=True)

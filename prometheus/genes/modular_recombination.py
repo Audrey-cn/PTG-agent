@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any
 
-PROMETHEUS_HOME = os.path.expanduser("~/.hermes/tools/prometheus")
+PROMETHEUS_HOME = os.path.expanduser("~/.prometheus/tools/prometheus")
 RECOMBINATION_DIR = os.path.join(PROMETHEUS_HOME, "recombination")
 
 os.makedirs(RECOMBINATION_DIR, exist_ok=True)

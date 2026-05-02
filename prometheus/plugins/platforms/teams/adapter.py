@@ -366,10 +366,10 @@ class TeamsAdapter(BasePlatformAdapter):
 
         action = ctx.activity.value.action
         data = action.data or {}
-        hermes_action = data.get("hermes_action", "")
+        prometheus_action = data.get("prometheus_action", "")
         session_key = data.get("session_key", "")
 
-        if not hermes_action or not session_key:
+        if not prometheus_action or not session_key:
             return InvokeResponse(
                 status=200,
                 body=AdaptiveCardActionMessageResponse(value="Unknown action."),
@@ -396,7 +396,7 @@ class TeamsAdapter(BasePlatformAdapter):
             "approve_always": "always",
             "deny": "deny",
         }
-        choice = choice_map.get(hermes_action)
+        choice = choice_map.get(prometheus_action)
         if not choice:
             return InvokeResponse(
                 status=200,
@@ -474,24 +474,24 @@ class TeamsAdapter(BasePlatformAdapter):
                 [
                     ExecuteAction(
                         title="Allow Once",
-                        verb="hermes_approve",
-                        data={**btn_data_base, "hermes_action": "approve_once"},
+                        verb="prometheus_approve",
+                        data={**btn_data_base, "prometheus_action": "approve_once"},
                         style="positive",
                     ),
                     ExecuteAction(
                         title="Allow Session",
-                        verb="hermes_approve",
-                        data={**btn_data_base, "hermes_action": "approve_session"},
+                        verb="prometheus_approve",
+                        data={**btn_data_base, "prometheus_action": "approve_session"},
                     ),
                     ExecuteAction(
                         title="Always Allow",
-                        verb="hermes_approve",
-                        data={**btn_data_base, "hermes_action": "approve_always"},
+                        verb="prometheus_approve",
+                        data={**btn_data_base, "prometheus_action": "approve_always"},
                     ),
                     ExecuteAction(
                         title="Deny",
-                        verb="hermes_approve",
-                        data={**btn_data_base, "hermes_action": "deny"},
+                        verb="prometheus_approve",
+                        data={**btn_data_base, "prometheus_action": "deny"},
                         style="destructive",
                     ),
                 ]

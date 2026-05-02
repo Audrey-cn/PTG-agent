@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """RL Training Tools Module."""
 
@@ -1261,7 +1263,7 @@ def get_missing_keys() -> list[str]:
 # ---------------------------------------------------------------------------
 # Schemas + Registry
 # ---------------------------------------------------------------------------
-from prometheus.tools.registry import registry
+from prometheus.tools.security.registry import registry
 
 RL_LIST_ENVIRONMENTS_SCHEMA = {
     "name": "rl_list_environments",

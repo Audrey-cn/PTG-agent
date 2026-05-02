@@ -50,12 +50,12 @@ class ToolRegistry:
         name: str,
         toolset: str,
         schema: dict[str, Any],
-        handler: Callable,
-        description: str = "",
-        emoji: str = "🔧",
-        check_fn: Callable | None = None,
-        max_result_size: int = 10000,
-    ):
+        handler: Callable[..., str],
+        check_fn: Callable[[], tuple[bool, str]] | None = None,
+        emoji: str = "",
+        max_result_size_chars: float = float("inf"),
+        **kwargs,
+    ) -> None:
         """注册工具"""
         tool_def = ToolDefinition(
             name=name,
@@ -67,10 +67,10 @@ class ToolRegistry:
                 required=schema.get("required"),
             ),
             handler=handler,
-            description=description or schema.get("description", ""),
+            description=schema.get("description", ""),
             emoji=emoji,
             check_fn=check_fn,
-            max_result_size=max_result_size,
+            max_result_size=int(max_result_size_chars) if max_result_size_chars != float("inf") else 10000,
         )
 
         self._tools[name] = tool_def
@@ -93,6 +93,10 @@ class ToolRegistry:
     def list_toolsets(self) -> list[str]:
         """列出工具集"""
         return list(self._toolsets.keys())
+
+    def get_all_tool_names(self) -> list[str]:
+        """获取所有工具名称列表"""
+        return list(self._tools.keys())
 
     def get_all_schemas(self) -> list[dict[str, Any]]:
         """获取所有工具的 schema"""
@@ -145,9 +149,9 @@ def tool_result(data: dict[str, Any]) -> str:
     return json.dumps(data, ensure_ascii=False, indent=2)
 
 
-def tool_error(message: str) -> str:
+def tool_error(message: str, success: bool = False) -> str:
     """工具错误格式化"""
-    return json.dumps({"error": message}, ensure_ascii=False)
+    return json.dumps({"error": message, "success": success}, ensure_ascii=False)
 
 
 def get_registry() -> ToolRegistry:

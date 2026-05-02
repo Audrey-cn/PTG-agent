@@ -22,7 +22,7 @@ SKILL_FILENAME = "SKILL.md"
 DEFAULT_SKILL_PATHS = [
     os.path.expanduser("~/.prometheus/skills"),
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skills"),
-    os.path.expanduser("~/.hermes/skills"),
+    os.path.expanduser("~/.prometheus/skills"),
 ]
 
 
@@ -79,7 +79,7 @@ class Skill:
             d["license"] = self.meta.license
         if self.meta.tags or self.meta.related_skills:
             d["metadata"] = {
-                "hermes": {
+                "prometheus": {
                     "tags": self.meta.tags,
                     "related_skills": self.meta.related_skills,
                 }
@@ -168,7 +168,7 @@ class SkillParser:
 
         # 提取元数据
         metadata = fm.get("metadata", {})
-        hermes_meta = metadata.get("hermes", {}) if isinstance(metadata, dict) else {}
+        prometheus_meta = metadata.get("prometheus", {}) if isinstance(metadata, dict) else {}
 
         meta = SkillMeta(
             name=fm["name"][:MAX_NAME_LENGTH],
@@ -176,8 +176,8 @@ class SkillParser:
             version=fm.get("version", "1.0.0"),
             author=fm.get("author", ""),
             license=fm.get("license", ""),
-            tags=hermes_meta.get("tags", []),
-            related_skills=hermes_meta.get("related_skills", []),
+            tags=prometheus_meta.get("tags", []),
+            related_skills=prometheus_meta.get("related_skills", []),
             raw_meta=fm,
         )
 
@@ -269,7 +269,7 @@ class SkillParser:
 class SkillLoader:
     """Skill 加载器——扫描、索引、查询 Skill。
 
-    对齐 Hermes 的 Skill 系统架构：
+    对齐 Prometheus 的 Skill 系统架构：
       • 目录结构：skills/<category>/<name>/SKILL.md
       • 支持引用文件：references/, templates/, scripts/
       • 按标签/分类/名称过滤

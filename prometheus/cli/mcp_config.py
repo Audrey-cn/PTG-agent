@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """MCP Server Management CLI — ``prometheus mcp`` subcommand."""
 
 import asyncio

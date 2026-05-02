@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """╔══════════════════════════════════════════════════════════════╗."""
 
@@ -12,7 +14,7 @@ from enum import Enum
 
 import yaml
 
-PROMETHEUS_HOME = os.path.expanduser("~/.hermes/tools/prometheus")
+PROMETHEUS_HOME = os.path.expanduser("~/.prometheus/tools/prometheus")
 SNAPSHOT_DIR = os.path.join(PROMETHEUS_HOME, "snapshots")
 REPAIR_LOG = os.path.join(PROMETHEUS_HOME, "repair_log.json")
 

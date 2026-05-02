@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Prometheus CLI skin/theme engine."""
 
 import logging
@@ -78,7 +80,7 @@ _BUILTIN_SKINS: dict[str, dict[str, Any]] = {
             "agent_name": "Prometheus Agent",
             "welcome": "Welcome to Prometheus Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! ⚕",
-            "response_label": " ⚕ Prometheus ",
+            "response_label": " 🔥 Prometheus ",
             "prompt_symbol": "❯",
             "help_header": "(^_^)? Available Commands",
         },
@@ -195,7 +197,7 @@ _BUILTIN_SKINS: dict[str, dict[str, Any]] = {
             "agent_name": "Prometheus Agent",
             "welcome": "Welcome to Prometheus Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! ⚕",
-            "response_label": " ⚕ Prometheus ",
+            "response_label": " 🔥 Prometheus ",
             "prompt_symbol": "❯",
             "help_header": "[?] Available Commands",
         },
@@ -234,7 +236,7 @@ _BUILTIN_SKINS: dict[str, dict[str, Any]] = {
             "agent_name": "Prometheus Agent",
             "welcome": "Welcome to Prometheus Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! ⚕",
-            "response_label": " ⚕ Prometheus ",
+            "response_label": " 🔥 Prometheus ",
             "prompt_symbol": "❯",
             "help_header": "(^_^)? Available Commands",
         },
@@ -271,7 +273,7 @@ _BUILTIN_SKINS: dict[str, dict[str, Any]] = {
             "agent_name": "Prometheus Agent",
             "welcome": "Welcome to Prometheus Agent! Type your message or /help for commands.",
             "goodbye": "Goodbye! ⚕",
-            "response_label": " ⚕ Prometheus ",
+            "response_label": " 🔥 Prometheus ",
             "prompt_symbol": "❯",
             "help_header": "[?] Available Commands",
         },

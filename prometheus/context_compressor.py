@@ -81,7 +81,7 @@ class ContextCompressor:
     """
     上下文压缩器 - 管理长对话历史的压缩和截断
 
-    基于 Hermes 的实现，适配 Prometheus 架构。
+    基于 Prometheus 的实现，适配 Prometheus 架构。
     """
 
     def __init__(

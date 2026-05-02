@@ -1,6 +1,6 @@
 """Snapshot and restore tools."""
 
-from prometheus.tools.registry import registry, tool_error, tool_result
+from prometheus.tools.security.registry import registry, tool_error, tool_result
 
 
 def create_snapshot_tool(args):

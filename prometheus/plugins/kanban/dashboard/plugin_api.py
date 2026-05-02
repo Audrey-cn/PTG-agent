@@ -693,9 +693,9 @@ def get_config():
     or set column-width preferences without a round-trip per page load.
     """
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config() or {}
+        cfg = PrometheusConfig.load() or {}
     except Exception:
         cfg = {}
     dash_cfg = cfg.get("dashboard") or {}

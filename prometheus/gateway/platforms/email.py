@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Email platform adapter for the Prometheus gateway."""
 
 import asyncio

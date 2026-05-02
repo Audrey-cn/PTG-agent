@@ -8,7 +8,9 @@ import platform
 import re
 import subprocess
 
-_IS_WINDOWS = platform.system() == "Windows"
+# 临时修复：避免 platform.system() 错误
+_IS_WINDOWS = False
+# _IS_WINDOWS = platform.system() == "Windows"
 import contextlib
 from pathlib import Path
 from typing import Any

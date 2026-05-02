@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Voice Mode -- Push-to-talk audio recording and playback for the CLI."""
 
 import logging

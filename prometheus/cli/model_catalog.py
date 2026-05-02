@@ -40,9 +40,9 @@ _catalog_cache_source_mtime: float = 0.0
 def _load_catalog_config() -> Dict[str, Any]:
     """Load the ``model_catalog`` config block with defaults filled in."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config() or {}
+        cfg = PrometheusConfig.load()
     except Exception:
         cfg = {}
 

@@ -1,5 +1,7 @@
 """Shared constants for Prometheus Agent."""
 
+from __future__ import annotations
+
 import os
 from pathlib import Path
 from typing import Any
@@ -77,10 +79,15 @@ def get_prometheus_dir(new_subpath: str, old_name: str) -> Path:
         Absolute ``Path`` — old location if it exists on disk, otherwise the new one.
     """
     home = get_prometheus_home()
-    old_path = home / old_name
-    if old_path.exists():
-        return old_path
+    old = home / old_name
+    if old.exists():
+        return old
     return home / new_subpath
+
+
+def get_prometheus_home_display() -> str:
+    """Return the Prometheus home directory as a display string."""
+    return str(get_prometheus_home())
 
 
 def display_prometheus_home() -> str:
@@ -270,6 +277,8 @@ def apply_ipv4_preference(force: bool = False) -> None:
 
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_CODEX_BASE_URL = "https://chatgpt.com/backend-api/codex"
+DEFAULT_QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 OPENROUTER_MODELS_URL = f"{OPENROUTER_BASE_URL}/models"
 
 AI_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1"

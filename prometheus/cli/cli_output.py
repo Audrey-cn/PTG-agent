@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Shared CLI output helpers for Prometheus CLI modules."""
 
 import getpass

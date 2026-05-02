@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """Skills Tool Module."""
 
@@ -9,8 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from prometheus.constants_core import display_prometheus_home, get_prometheus_home
-from prometheus.tools.path_security import has_traversal_component, validate_within_dir
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.path_security import has_traversal_component, validate_within_dir
+from prometheus.tools.security.registry import registry, tool_error
 
 logger = logging.getLogger(__name__)
 

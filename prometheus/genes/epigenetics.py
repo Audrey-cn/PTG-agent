@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """╔══════════════════════════════════════════════════════════════╗."""
 
@@ -7,7 +9,7 @@ import os
 import re
 from dataclasses import asdict, dataclass
 
-PROMETHEUS_HOME = os.path.expanduser("~/.hermes/tools/prometheus")
+PROMETHEUS_HOME = os.path.expanduser("~/.prometheus/tools/prometheus")
 EPIGENETICS_LOG = os.path.join(PROMETHEUS_HOME, "epigenetics_log.json")
 
 
@@ -66,7 +68,7 @@ class EpigeneticMark:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "EpigeneticMark":
+    def from_dict(cls, data: dict) -> EpigeneticMark:
         return cls(
             methylation=data.get("methylation", False),
             acetylation=data.get("acetylation", True),

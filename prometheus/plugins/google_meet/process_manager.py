@@ -133,27 +133,27 @@ def start(
                 f.unlink()
 
     env = os.environ.copy()
-    env["HERMES_MEET_URL"] = url
-    env["HERMES_MEET_OUT_DIR"] = str(out)
-    env["HERMES_MEET_GUEST_NAME"] = guest_name
+    env["PROMETHEUS_MEET_URL"] = url
+    env["PROMETHEUS_MEET_OUT_DIR"] = str(out)
+    env["PROMETHEUS_MEET_GUEST_NAME"] = guest_name
     if headed:
-        env["HERMES_MEET_HEADED"] = "1"
+        env["PROMETHEUS_MEET_HEADED"] = "1"
     if auth_state:
-        env["HERMES_MEET_AUTH_STATE"] = auth_state
+        env["PROMETHEUS_MEET_AUTH_STATE"] = auth_state
     if duration:
-        env["HERMES_MEET_DURATION"] = duration
+        env["PROMETHEUS_MEET_DURATION"] = duration
     # v2: realtime mode + passthroughs. The bot defaults to transcribe
-    # mode if HERMES_MEET_MODE isn't set, matching v1 behavior.
+    # mode if PROMETHEUS_MEET_MODE isn't set, matching v1 behavior.
     if mode:
-        env["HERMES_MEET_MODE"] = mode
+        env["PROMETHEUS_MEET_MODE"] = mode
     if realtime_model:
-        env["HERMES_MEET_REALTIME_MODEL"] = realtime_model
+        env["PROMETHEUS_MEET_REALTIME_MODEL"] = realtime_model
     if realtime_voice:
-        env["HERMES_MEET_REALTIME_VOICE"] = realtime_voice
+        env["PROMETHEUS_MEET_REALTIME_VOICE"] = realtime_voice
     if realtime_instructions:
-        env["HERMES_MEET_REALTIME_INSTRUCTIONS"] = realtime_instructions
+        env["PROMETHEUS_MEET_REALTIME_INSTRUCTIONS"] = realtime_instructions
     if realtime_api_key:
-        env["HERMES_MEET_REALTIME_KEY"] = realtime_api_key
+        env["PROMETHEUS_MEET_REALTIME_KEY"] = realtime_api_key
 
     log_path = out / "bot.log"
     # Detach: stdin=devnull, stdout/stderr → log file, new session so parent

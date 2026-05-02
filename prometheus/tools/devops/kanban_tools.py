@@ -1,7 +1,7 @@
 """Kanban tools — structured tool-call surface for worker + orchestrator agents.
 
 These tools are only registered into the model's schema when the agent is
-running under the dispatcher (env var ``HERMES_KANBAN_TASK`` set). A
+running under the dispatcher (env var ``PROMETHEUS_KANBAN_TASK`` set). A
 normal ``prometheus chat`` session sees **zero** kanban tools in its schema.
 
 Why tools instead of just shelling out to ``prometheus kanban``?
@@ -31,7 +31,7 @@ import logging
 import os
 from typing import Any
 
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -42,13 +42,13 @@ logger = logging.getLogger(__name__)
 
 
 def _check_kanban_mode() -> bool:
-    """Tools are available iff the current process has ``HERMES_KANBAN_TASK``
+    """Tools are available iff the current process has ``PROMETHEUS_KANBAN_TASK``
     set in its env, which the dispatcher sets when spawning a worker.
 
     Humans running ``prometheus chat`` see zero kanban tools. Workers spawned
     by the kanban dispatcher (gateway-embedded by default) see all seven.
     """
-    return bool(os.environ.get("HERMES_KANBAN_TASK"))
+    return bool(os.environ.get("PROMETHEUS_KANBAN_TASK"))
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +60,7 @@ def _default_task_id(arg: str | None) -> str | None:
     """Resolve ``task_id`` arg or fall back to the env var the dispatcher set."""
     if arg:
         return arg
-    env_tid = os.environ.get("HERMES_KANBAN_TASK")
+    env_tid = os.environ.get("PROMETHEUS_KANBAN_TASK")
     return env_tid or None
 
 
@@ -86,7 +86,7 @@ def _handle_show(args: dict, **kw) -> str:
     runs (attempt history), and the last N events."""
     tid = _default_task_id(args.get("task_id"))
     if not tid:
-        return tool_error("task_id is required (or set HERMES_KANBAN_TASK in the env)")
+        return tool_error("task_id is required (or set PROMETHEUS_KANBAN_TASK in the env)")
     try:
         kb, conn = _connect()
         try:
@@ -168,7 +168,7 @@ def _handle_complete(args: dict, **kw) -> str:
     """Mark the current task done with a structured handoff."""
     tid = _default_task_id(args.get("task_id"))
     if not tid:
-        return tool_error("task_id is required (or set HERMES_KANBAN_TASK in the env)")
+        return tool_error("task_id is required (or set PROMETHEUS_KANBAN_TASK in the env)")
     summary = args.get("summary")
     metadata = args.get("metadata")
     result = args.get("result")
@@ -201,7 +201,7 @@ def _handle_block(args: dict, **kw) -> str:
     """Transition the task to blocked with a reason a human will read."""
     tid = _default_task_id(args.get("task_id"))
     if not tid:
-        return tool_error("task_id is required (or set HERMES_KANBAN_TASK in the env)")
+        return tool_error("task_id is required (or set PROMETHEUS_KANBAN_TASK in the env)")
     reason = args.get("reason")
     if not reason or not str(reason).strip():
         return tool_error("reason is required — explain what input you need")
@@ -224,7 +224,7 @@ def _handle_heartbeat(args: dict, **kw) -> str:
     """Signal that the worker is still alive during a long operation."""
     tid = _default_task_id(args.get("task_id"))
     if not tid:
-        return tool_error("task_id is required (or set HERMES_KANBAN_TASK in the env)")
+        return tool_error("task_id is required (or set PROMETHEUS_KANBAN_TASK in the env)")
     note = args.get("note")
     try:
         kb, conn = _connect()
@@ -251,7 +251,7 @@ def _handle_comment(args: dict, **kw) -> str:
     body = args.get("body")
     if not body or not str(body).strip():
         return tool_error("body is required")
-    author = args.get("author") or os.environ.get("HERMES_PROFILE") or "worker"
+    author = args.get("author") or os.environ.get("PROMETHEUS_PROFILE") or "worker"
     try:
         kb, conn = _connect()
         try:
@@ -281,7 +281,7 @@ def _handle_create(args: dict, **kw) -> str:
         )
     body = args.get("body")
     parents = args.get("parents") or []
-    tenant = args.get("tenant") or os.environ.get("HERMES_TENANT")
+    tenant = args.get("tenant") or os.environ.get("PROMETHEUS_TENANT")
     priority = args.get("priority")
     workspace_kind = args.get("workspace_kind") or "scratch"
     workspace_path = args.get("workspace_path")
@@ -317,7 +317,7 @@ def _handle_create(args: dict, **kw) -> str:
                     int(max_runtime_seconds) if max_runtime_seconds is not None else None
                 ),
                 skills=skills,
-                created_by=os.environ.get("HERMES_PROFILE") or "worker",
+                created_by=os.environ.get("PROMETHEUS_PROFILE") or "worker",
             )
             new_task = kb.get_task(conn, new_tid)
             return _ok(
@@ -357,7 +357,7 @@ def _handle_link(args: dict, **kw) -> str:
 # ---------------------------------------------------------------------------
 
 _DESC_TASK_ID_DEFAULT = (
-    "Task id. If omitted, defaults to HERMES_KANBAN_TASK from the env "
+    "Task id. If omitted, defaults to PROMETHEUS_KANBAN_TASK from the env "
     "(the task the dispatcher spawned you to work on)."
 )
 
@@ -511,7 +511,7 @@ KANBAN_COMMENT_SCHEMA = {
             "author": {
                 "type": "string",
                 "description": (
-                    "Override author name. Defaults to the current profile (HERMES_PROFILE env)."
+                    "Override author name. Defaults to the current profile (PROMETHEUS_PROFILE env)."
                 ),
             },
         },
@@ -568,7 +568,7 @@ KANBAN_CREATE_SCHEMA = {
                 "type": "string",
                 "description": (
                     "Optional namespace for multi-project isolation. "
-                    "Defaults to HERMES_TENANT env if set."
+                    "Defaults to PROMETHEUS_TENANT env if set."
                 ),
             },
             "priority": {

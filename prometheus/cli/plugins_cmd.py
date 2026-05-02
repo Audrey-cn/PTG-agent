@@ -10,7 +10,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from prometheus.cli.config import cfg_get
 from prometheus.constants_core import get_prometheus_home, get_prometheus_home_display
 
 logger = logging.getLogger(__name__)
@@ -432,10 +431,10 @@ def cmd_remove(name: str) -> None:
 def _get_disabled_set() -> set:
     """Read the disabled plugins set from config.yaml."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        config = load_config()
-        disabled = cfg_get(config, "plugins", "disabled", default=[])
+        config = PrometheusConfig.load()
+        disabled = config.get("plugins.disabled", default=[])
         return set(disabled) if isinstance(disabled, list) else set()
     except Exception:
         return set()
@@ -443,9 +442,9 @@ def _get_disabled_set() -> set:
 
 def _save_disabled_set(disabled: set) -> None:
     """Write the disabled plugins list to config.yaml."""
-    from prometheus.cli.config import load_config, save_config
+    from prometheus.config import PrometheusConfig, save_config
 
-    config = load_config()
+    config = PrometheusConfig.load().to_dict()
     if "plugins" not in config:
         config["plugins"] = {}
     config["plugins"]["disabled"] = sorted(disabled)
@@ -455,9 +454,9 @@ def _save_disabled_set(disabled: set) -> None:
 def _get_enabled_set() -> set:
     """Read the enabled plugins allow-list from config.yaml."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        config = load_config()
+        config = PrometheusConfig.load()
         plugins_cfg = config.get("plugins", {})
         if not isinstance(plugins_cfg, dict):
             return set()
@@ -469,9 +468,9 @@ def _get_enabled_set() -> set:
 
 def _save_enabled_set(enabled: set) -> None:
     """Write the enabled plugins list to config.yaml."""
-    from prometheus.cli.config import load_config, save_config
+    from prometheus.config import PrometheusConfig, save_config
 
-    config = load_config()
+    config = PrometheusConfig.load().to_dict()
     if "plugins" not in config:
         config["plugins"] = {}
     config["plugins"]["enabled"] = sorted(enabled)
@@ -660,10 +659,10 @@ def _discover_context_engines() -> list[Tuple[str, str]]:
 def _get_current_memory_provider() -> str:
     """Return the current memory.provider from config (empty = built-in)."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        config = load_config()
-        return cfg_get(config, "memory", "provider", default="") or ""
+        config = PrometheusConfig.load()
+        return config.get("memory.provider", default="") or ""
     except Exception:
         return ""
 
@@ -671,19 +670,19 @@ def _get_current_memory_provider() -> str:
 def _get_current_context_engine() -> str:
     """Return the current context.engine from config."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        config = load_config()
-        return cfg_get(config, "context", "engine", default="compressor") or "compressor"
+        config = PrometheusConfig.load()
+        return config.get("context.engine", default="compressor") or "compressor"
     except Exception:
         return "compressor"
 
 
 def _save_memory_provider(name: str) -> None:
     """Persist memory.provider to config.yaml."""
-    from prometheus.cli.config import load_config, save_config
+    from prometheus.config import PrometheusConfig, save_config
 
-    config = load_config()
+    config = PrometheusConfig.load().to_dict()
     if "memory" not in config:
         config["memory"] = {}
     config["memory"]["provider"] = name
@@ -692,9 +691,9 @@ def _save_memory_provider(name: str) -> None:
 
 def _save_context_engine(name: str) -> None:
     """Persist context.engine to config.yaml."""
-    from prometheus.cli.config import load_config, save_config
+    from prometheus.config import PrometheusConfig, save_config
 
-    config = load_config()
+    config = PrometheusConfig.load().to_dict()
     if "context" not in config:
         config["context"] = {}
     config["context"]["engine"] = name

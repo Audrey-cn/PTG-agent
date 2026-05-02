@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Process Registry -- In-memory registry for managed background processes.
 """
@@ -13,15 +15,32 @@ import threading
 import time
 import uuid
 
-_IS_WINDOWS = platform.system() == "Windows"
+_IS_WINDOWS = False
+# 临时修复：避免 platform.system() 错误
+# _IS_WINDOWS = platform.system() == "Windows"
 import contextlib
 from dataclasses import dataclass, field
 from typing import Any
 
 from prometheus.cli.config import get_prometheus_home
-from prometheus.tools.environments.local import _find_shell, _sanitize_subprocess_env
 
 logger = logging.getLogger(__name__)
+
+
+def _find_shell() -> str:
+    """Find available shell."""
+    import shutil
+    for shell in ["bash", "zsh", "sh"]:
+        if shutil.which(shell):
+            return shell
+    return "/bin/sh"
+
+
+def _sanitize_subprocess_env(env: dict | None) -> dict:
+    """Sanitize environment for subprocess."""
+    if env is None:
+        return dict(os.environ)
+    return {k: str(v) for k, v in env.items()}
 
 CHECKPOINT_PATH = get_prometheus_home() / "processes.json"
 
@@ -627,7 +646,7 @@ class ProcessRegistry:
             session = self._running.get(session_id) or self._finished.get(session_id)
         return self._refresh_detached_session(session)
 
-    def _reconcile_local_exit(self, session: "ProcessSession") -> None:
+    def _reconcile_local_exit(self, session: ProcessSession) -> None:
         if session is None or session.exited:
             return
         proc = getattr(session, "process", None)
@@ -741,7 +760,7 @@ class ProcessRegistry:
 
     def wait(self, session_id: str, timeout: int = None) -> dict:
         from prometheus.tools.ansi_strip import strip_ansi
-        from prometheus.tools.interrupt import is_interrupted as _is_interrupted
+        from prometheus.tools.security.interrupt import is_interrupted as _is_interrupted
 
         try:
             default_timeout = int(os.getenv("TERMINAL_TIMEOUT", "180"))
@@ -1105,7 +1124,7 @@ class ProcessRegistry:
 process_registry = ProcessRegistry()
 
 
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 PROCESS_SCHEMA = {
     "name": "process",

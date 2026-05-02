@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from prometheus.cli.config import cfg_get
 from prometheus.constants_core import get_prometheus_home
 from prometheus.utils import env_var_enabled
 
@@ -83,10 +82,10 @@ def _get_disabled_plugins() -> set:
     ``plugins.enabled``.
     """
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        config = load_config()
-        disabled = cfg_get(config, "plugins", "disabled", default=[])
+        config = PrometheusConfig.load()
+        disabled = config.get("plugins.disabled", default=[])
         return set(disabled) if isinstance(disabled, list) else set()
     except Exception:
         return set()
@@ -107,9 +106,9 @@ def _get_enabled_plugins() -> set | None:
     * ``set(...)`` — the concrete allow-list.
     """
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        config = load_config()
+        config = PrometheusConfig.load()
         plugins_cfg = config.get("plugins")
         if not isinstance(plugins_cfg, dict):
             return None

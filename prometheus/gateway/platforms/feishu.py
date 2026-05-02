@@ -1390,21 +1390,21 @@ class FeishuAdapter(BasePlatformAdapter):
             bot_name=os.getenv("FEISHU_BOT_NAME", "").strip(),
             dedup_cache_size=max(
                 32,
-                int(os.getenv("HERMES_FEISHU_DEDUP_CACHE_SIZE", str(_DEFAULT_DEDUP_CACHE_SIZE))),
+                int(os.getenv("PROMETHEUS_FEISHU_DEDUP_CACHE_SIZE", str(_DEFAULT_DEDUP_CACHE_SIZE))),
             ),
             text_batch_delay_seconds=float(
                 os.getenv(
-                    "HERMES_FEISHU_TEXT_BATCH_DELAY_SECONDS", str(_DEFAULT_TEXT_BATCH_DELAY_SECONDS)
+                    "PROMETHEUS_FEISHU_TEXT_BATCH_DELAY_SECONDS", str(_DEFAULT_TEXT_BATCH_DELAY_SECONDS)
                 )
             ),
             text_batch_split_delay_seconds=float(
-                os.getenv("HERMES_FEISHU_TEXT_BATCH_SPLIT_DELAY_SECONDS", "2.0")
+                os.getenv("PROMETHEUS_FEISHU_TEXT_BATCH_SPLIT_DELAY_SECONDS", "2.0")
             ),
             text_batch_max_messages=max(
                 1,
                 int(
                     os.getenv(
-                        "HERMES_FEISHU_TEXT_BATCH_MAX_MESSAGES",
+                        "PROMETHEUS_FEISHU_TEXT_BATCH_MAX_MESSAGES",
                         str(_DEFAULT_TEXT_BATCH_MAX_MESSAGES),
                     )
                 ),
@@ -1413,13 +1413,13 @@ class FeishuAdapter(BasePlatformAdapter):
                 1,
                 int(
                     os.getenv(
-                        "HERMES_FEISHU_TEXT_BATCH_MAX_CHARS", str(_DEFAULT_TEXT_BATCH_MAX_CHARS)
+                        "PROMETHEUS_FEISHU_TEXT_BATCH_MAX_CHARS", str(_DEFAULT_TEXT_BATCH_MAX_CHARS)
                     )
                 ),
             ),
             media_batch_delay_seconds=float(
                 os.getenv(
-                    "HERMES_FEISHU_MEDIA_BATCH_DELAY_SECONDS",
+                    "PROMETHEUS_FEISHU_MEDIA_BATCH_DELAY_SECONDS",
                     str(_DEFAULT_MEDIA_BATCH_DELAY_SECONDS),
                 )
             ),
@@ -1532,7 +1532,7 @@ class FeishuAdapter(BasePlatformAdapter):
             if not acquired:
                 owner_pid = existing.get("pid") if isinstance(existing, dict) else None
                 message = (
-                    "Another local Hermes gateway is already using this Feishu app_id"
+                    "Another local Prometheus gateway is already using this Feishu app_id"
                     + (f" (PID {owner_pid})." if owner_pid else ".")
                     + " Stop the other gateway before starting a second Feishu websocket client."
                 )
@@ -2254,7 +2254,7 @@ class FeishuAdapter(BasePlatformAdapter):
         )
 
     def _on_message_read_event(self, data: P2ImMessageMessageReadV1) -> None:
-        """Ignore read-receipt events that Hermes does not act on."""
+        """Ignore read-receipt events that Prometheus does not act on."""
         event = getattr(data, "event", None)
         message = getattr(event, "message", None)
         message_id = getattr(message, "message_id", None) or ""
@@ -2918,7 +2918,7 @@ class FeishuAdapter(BasePlatformAdapter):
             response = await client.get(
                 file_url,
                 headers={
-                    "User-Agent": "Mozilla/5.0 (compatible; HermesAgent/1.0)",
+                    "User-Agent": "Mozilla/5.0 (compatible; PrometheusAgent/1.0)",
                     "Accept": "*/*",
                 },
             )
@@ -3060,7 +3060,7 @@ class FeishuAdapter(BasePlatformAdapter):
 
         if payload.get("encrypt"):
             logger.error(
-                "[Feishu] Encrypted webhook payloads are not supported by Hermes webhook mode"
+                "[Feishu] Encrypted webhook payloads are not supported by Prometheus webhook mode"
             )
             self._record_webhook_anomaly(remote_ip, "400-encrypted")
             return web.json_response(
@@ -3596,7 +3596,7 @@ class FeishuAdapter(BasePlatformAdapter):
         return "group"
 
     async def _resolve_sender_profile(self, sender_id: Any) -> dict[str, str | None]:
-        """Map Feishu's three-tier user IDs onto Hermes' SessionSource fields.
+        """Map Feishu's three-tier user IDs onto Prometheus' SessionSource fields.
 
         Preference order for the primary ``user_id`` field:
           1. user_id  (tenant-scoped, most stable — requires permission scope)
@@ -3800,7 +3800,7 @@ class FeishuAdapter(BasePlatformAdapter):
         return self._post_mentions_bot(normalized.mentions)
 
     def _is_self_sent_bot_message(self, event: Any) -> bool:
-        """Return True only for Feishu events emitted by this Hermes bot."""
+        """Return True only for Feishu events emitted by this Prometheus bot."""
         sender = getattr(event, "sender", None)
         sender_type = str(getattr(sender, "sender_type", "") or "").strip().lower()
         if sender_type not in {"bot", "app"}:

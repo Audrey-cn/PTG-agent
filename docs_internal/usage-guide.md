@@ -105,7 +105,7 @@
 ## 目录结构
 
 ```
-~/.hermes/
+~/.prometheus/
 ├── skills/teach-to-grow/          # 始祖种子
 │   └── teach-to-grow-core.ttg
 ├── seed-vault/                    # 种子仓库（create 命令默认输出目录）
@@ -261,7 +261,7 @@ genealogy_codex:
 查看种子的完整 DNA 结构，显示生命ID、圣名、谱系、创始印记、所有基因位点、压缩族谱和标签词典统计。
 
 ```bash
-prometheus view ~/.hermes/seed-vault/my_skill.ttg
+prometheus view ~/.prometheus/seed-vault/my_skill.ttg
 ```
 
 **输出内容：**
@@ -276,7 +276,7 @@ prometheus view ~/.hermes/seed-vault/my_skill.ttg
 以表格形式简洁列出所有基因位点。
 
 ```bash
-prometheus genes ~/.hermes/seed-vault/my_skill.ttg
+prometheus genes ~/.prometheus/seed-vault/my_skill.ttg
 ```
 
 **输出格式：**
@@ -288,7 +288,7 @@ G100-writer       写手         configuration, behavior_params  ◆碳基
 
 ### prometheus vault
 
-扫描 `~/.hermes/` 目录下所有 `.ttg` 文件，列出种子仓库中的所有种子。
+扫描 `~/.prometheus/` 目录下所有 `.ttg` 文件，列出种子仓库中的所有种子。
 
 ```bash
 prometheus vault
@@ -307,7 +307,7 @@ prometheus vault
 启动交互式基因编辑器。**进入时自动创建编辑前快照**，退出时可选择保存。
 
 ```bash
-prometheus edit ~/.hermes/seed-vault/my_skill.ttg
+prometheus edit ~/.prometheus/seed-vault/my_skill.ttg
 ```
 
 **交互式命令：**
@@ -369,7 +369,7 @@ prometheus library
 运行完整的基因健康度审计，由 `GeneHealthAuditor` 执行。
 
 ```bash
-prometheus health ~/.hermes/seed-vault/my_skill.ttg
+prometheus health ~/.prometheus/seed-vault/my_skill.ttg
 ```
 
 **检查项：**
@@ -384,7 +384,7 @@ prometheus health ~/.hermes/seed-vault/my_skill.ttg
 分析两个种子的基因融合可能性，由 `GeneFusionAnalyzer` 执行。
 
 ```bash
-prometheus fusion ~/.hermes/seed-vault/skill_a.ttg ~/.hermes/seed-vault/skill_b.ttg
+prometheus fusion ~/.prometheus/seed-vault/skill_a.ttg ~/.prometheus/seed-vault/skill_b.ttg
 ```
 
 **输出内容：**
@@ -422,7 +422,7 @@ prometheus create "MyAwesomeSkill"
 1. 生成生命ID：`TTG@L1-G1-<变体4位>-<校验和8位>`
 2. 按模板生成完整 .ttg 结构
 3. 调用 `inject_founder_chronicle()` 注入创始铭刻
-4. 输出到 `~/.hermes/seed-vault/<小写名称>.ttg`
+4. 输出到 `~/.prometheus/seed-vault/<小写名称>.ttg`
 
 **输出示例：**
 ```
@@ -431,7 +431,7 @@ prometheus create "MyAwesomeSkill"
 ╠══════════════════════════════════════════════════════════════╣
 ║   名称: MyAwesomeSkill
 ║   生命ID: TTG@L1-G1-MYAW-A1B2C3D4
-║   路径: ~/.hermes/seed-vault/myawesomeskill.ttg
+║   路径: ~/.prometheus/seed-vault/myawesomeskill.ttg
 ║   携带创始人 Audrey · 001X 的印记                           ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
@@ -442,13 +442,13 @@ prometheus create "MyAwesomeSkill"
 
 ```bash
 # 追加到末尾（默认）
-prometheus insert ~/.hermes/seed-vault/my_skill.ttg G100-writer
+prometheus insert ~/.prometheus/seed-vault/my_skill.ttg G100-writer
 
 # 插入到指定基因之前
-prometheus insert ~/.hermes/seed-vault/my_skill.ttg G100-writer G001-parser before
+prometheus insert ~/.prometheus/seed-vault/my_skill.ttg G100-writer G001-parser before
 
 # 插入到指定基因之后
-prometheus insert ~/.hermes/seed-vault/my_skill.ttg G100-writer G001-parser after
+prometheus insert ~/.prometheus/seed-vault/my_skill.ttg G100-writer G001-parser after
 ```
 
 **参数：**
@@ -470,10 +470,10 @@ prometheus insert ~/.hermes/seed-vault/my_skill.ttg G100-writer G001-parser afte
 
 ```bash
 # 普通移除（碳基基因会被拒绝）
-prometheus remove ~/.hermes/seed-vault/my_skill.ttg G100-writer
+prometheus remove ~/.prometheus/seed-vault/my_skill.ttg G100-writer
 
 # 强制移除（跳过碳基保护检查）
-prometheus remove ~/.hermes/seed-vault/my_skill.ttg G100-writer --force
+prometheus remove ~/.prometheus/seed-vault/my_skill.ttg G100-writer --force
 ```
 
 **安全机制：**
@@ -489,7 +489,7 @@ prometheus remove ~/.hermes/seed-vault/my_skill.ttg G100-writer --force
 将种子的压缩族谱数据解码为史诗叙事文本。
 
 ```bash
-prometheus decode ~/.hermes/seed-vault/my_skill.ttg
+prometheus decode ~/.prometheus/seed-vault/my_skill.ttg
 ```
 
 **输出内容：**
@@ -513,7 +513,7 @@ G2 · MUTATION · PROMETHEUS · 2个突变标记
 管理种子的标签词典，查看所有标签的详细信息。
 
 ```bash
-prometheus lexicon ~/.hermes/seed-vault/my_skill.ttg
+prometheus lexicon ~/.prometheus/seed-vault/my_skill.ttg
 ```
 
 **输出格式：**
@@ -539,7 +539,7 @@ prometheus lexicon ~/.hermes/seed-vault/my_skill.ttg
 执行创始铭刻验证，检查种子的完整性和来源合法性。
 
 ```bash
-prometheus audit ~/.hermes/seed-vault/my_skill.ttg
+prometheus audit ~/.prometheus/seed-vault/my_skill.ttg
 ```
 
 **检查项：**
@@ -560,13 +560,13 @@ prometheus audit ~/.hermes/seed-vault/my_skill.ttg
 
 ```bash
 # 保存快照（可选注释）
-prometheus snapshot save "编辑前备份" ~/.hermes/seed-vault/my_skill.ttg
+prometheus snapshot save "编辑前备份" ~/.prometheus/seed-vault/my_skill.ttg
 
 # 保存快照（不指定路径，默认使用始祖种子）
 prometheus snapshot save "备份说明"
 ```
 
-**快照存储位置：** `~/.hermes/tools/prometheus/snapshots/`
+**快照存储位置：** `~/.prometheus/tools/prometheus/snapshots/`
 
 **快照文件：**
 - `<名称>-<时间戳>.ttg`：种子文件副本
@@ -600,7 +600,7 @@ prometheus snapshot restore
 
 **恢复逻辑：**
 - 如果原始路径存在且目录有效 → 恢复到原位
-- 否则 → 恢复到 `~/.hermes/seed-vault/` 仓库
+- 否则 → 恢复到 `~/.prometheus/seed-vault/` 仓库
 
 ---
 
@@ -612,18 +612,18 @@ prometheus snapshot restore
 
 ```bash
 # 基本用法
-prometheus forge ~/.hermes/seed-vault/my_skill.ttg
+prometheus forge ~/.prometheus/seed-vault/my_skill.ttg
 
 # 指定基因池和组合模式
-prometheus forge ~/.hermes/seed-vault/my_skill.ttg --genes G100,G101 --mode power_set --max 50
+prometheus forge ~/.prometheus/seed-vault/my_skill.ttg --genes G100,G101 --mode power_set --max 50
 
 # 完整选项
-prometheus forge ~/.hermes/seed-vault/my_skill.ttg \
+prometheus forge ~/.prometheus/seed-vault/my_skill.ttg \
   --genes G100,G101,G102 \
   --mode power_set \
   --max 30 \
   --ordering \
-  --output ~/.hermes/gene-lab/my_batch/ \
+  --output ~/.prometheus/gene-lab/my_batch/ \
   --name "写作增强批次"
 ```
 
@@ -634,7 +634,7 @@ prometheus forge ~/.hermes/seed-vault/my_skill.ttg \
 | `--mode <模式>` | 组合模式 | `power_set` |
 | `--max <N>` | 最大变异体数量 | `50` |
 | `--ordering` | 是否排列基因顺序（排列组合） | 否 |
-| `--output <目录>` | 输出目录 | `~/.hermes/gene-lab/` |
+| `--output <目录>` | 输出目录 | `~/.prometheus/gene-lab/` |
 | `--name <名称>` | 批次名称 | 自动生成 |
 
 **组合模式：**
@@ -643,7 +643,7 @@ prometheus forge ~/.hermes/seed-vault/my_skill.ttg \
 - `single`：单基因模式
 
 **输出：**
-- 变异体保存到 `~/.hermes/gene-lab/<批次ID>/` 目录
+- 变异体保存到 `~/.prometheus/gene-lab/<批次ID>/` 目录
 - 每个变异体为一个 `.ttg` 文件
 - 包含 `manifest.json` 记录批次元数据
 
@@ -653,10 +653,10 @@ prometheus forge ~/.hermes/seed-vault/my_skill.ttg \
 
 ```bash
 # 筛选前5名（默认）
-prometheus sieve ~/.hermes/gene-lab/batch_20260430/
+prometheus sieve ~/.prometheus/gene-lab/batch_20260430/
 
 # 筛选前10名
-prometheus sieve ~/.hermes/gene-lab/batch_20260430/ 10
+prometheus sieve ~/.prometheus/gene-lab/batch_20260430/ 10
 ```
 
 **评分维度：**
@@ -680,7 +680,7 @@ prometheus sieve ~/.hermes/gene-lab/batch_20260430/ 10
 将筛选出的优胜变异体提升为正式种子，移入种子仓库。
 
 ```bash
-prometheus promote ~/.hermes/gene-lab/batch_20260430/variant_003.ttg "MyEnhancedSkill"
+prometheus promote ~/.prometheus/gene-lab/batch_20260430/variant_003.ttg "MyEnhancedSkill"
 ```
 
 **行为：**
@@ -731,7 +731,7 @@ prometheus bank versions G100-writer
 将种子种入苗圃沙箱，运行完整的培育周期评估。
 
 ```bash
-prometheus nursery ~/.hermes/seed-vault/my_skill.ttg
+prometheus nursery ~/.prometheus/seed-vault/my_skill.ttg
 ```
 
 **培育阶段：**
@@ -747,7 +747,7 @@ prometheus nursery ~/.hermes/seed-vault/my_skill.ttg
   建议：增强基因完整性，优化可变范围
 ```
 
-**生长日志存储在：** `~/.hermes/seedling-logs/`
+**生长日志存储在：** `~/.prometheus/seedling-logs/`
 
 ---
 
@@ -775,22 +775,22 @@ prometheus nursery ~/.hermes/seed-vault/my_skill.ttg
 from prometheus import api
 
 # 获取状态
-api.dormancy_state("~/.hermes/seed-vault/my_skill.ttg")
+api.dormancy_state("~/.prometheus/seed-vault/my_skill.ttg")
 
 # 激活（休眠→发芽）
-api.dormancy_activate("~/.hermes/seed-vault/my_skill.ttg", ritual_word="grow")
+api.dormancy_activate("~/.prometheus/seed-vault/my_skill.ttg", ritual_word="grow")
 
 # 生长（发芽→生长）
-api.dormancy_grow("~/.hermes/seed-vault/my_skill.ttg")
+api.dormancy_grow("~/.prometheus/seed-vault/my_skill.ttg")
 
 # 开花（生长→开花）
-api.dormancy_bloom("~/.hermes/seed-vault/my_skill.ttg")
+api.dormancy_bloom("~/.prometheus/seed-vault/my_skill.ttg")
 
 # 强制休眠
-api.dormancy_sleep("~/.hermes/seed-vault/my_skill.ttg")
+api.dormancy_sleep("~/.prometheus/seed-vault/my_skill.ttg")
 
 # 检查超时
-api.dormancy_check("~/.hermes/seed-vault/my_skill.ttg")
+api.dormancy_check("~/.prometheus/seed-vault/my_skill.ttg")
 ```
 
 ### 超时规则
@@ -822,9 +822,9 @@ api.dormancy_check("~/.hermes/seed-vault/my_skill.ttg")
 ### 搜索路径
 
 默认搜索以下目录：
-- `~/.hermes/skills/`
-- `~/.hermes/seed-vault/`
-- `~/.hermes/tools/prometheus/`
+- `~/.prometheus/skills/`
+- `~/.prometheus/seed-vault/`
+- `~/.prometheus/tools/prometheus/`
 
 ### API 方法
 
@@ -854,7 +854,7 @@ result = api.gardener_health()
 
 ```python
 import sys
-sys.path.insert(0, '/Users/audrey/.hermes/tools/prometheus')
+sys.path.insert(0, '/Users/audrey/.prometheus/tools/prometheus')
 from prometheus import PrometheusAPI
 
 api = PrometheusAPI()
@@ -950,68 +950,68 @@ api.bank_versions("G100-writer")
 prometheus create "写作助手"
 
 # 2. 编辑基因
-prometheus edit ~/.hermes/seed-vault/写作助手.ttg
+prometheus edit ~/.prometheus/seed-vault/写作助手.ttg
 # 在交互式编辑器中配置基因位点
 
 # 3. 验证创始印记
-prometheus audit ~/.hermes/seed-vault/写作助手.ttg
+prometheus audit ~/.prometheus/seed-vault/写作助手.ttg
 
 # 4. 查看完整DNA
-prometheus view ~/.hermes/seed-vault/写作助手.ttg
+prometheus view ~/.prometheus/seed-vault/写作助手.ttg
 ```
 
 ### 工作流二：基因编辑与扩展
 
 ```bash
 # 1. 查看现有基因
-prometheus genes ~/.hermes/seed-vault/写作助手.ttg
+prometheus genes ~/.prometheus/seed-vault/写作助手.ttg
 
 # 2. 查看可用基因
 prometheus library
 
 # 3. 插入新基因
-prometheus insert ~/.hermes/seed-vault/写作助手.ttg G100-writer
+prometheus insert ~/.prometheus/seed-vault/写作助手.ttg G100-writer
 
 # 4. 健康审计
-prometheus health ~/.hermes/seed-vault/写作助手.ttg
+prometheus health ~/.prometheus/seed-vault/写作助手.ttg
 
 # 5. 保存快照
-prometheus snapshot save "插入写作基因后" ~/.hermes/seed-vault/写作助手.ttg
+prometheus snapshot save "插入写作基因后" ~/.prometheus/seed-vault/写作助手.ttg
 ```
 
 ### 工作流三：锻造与筛选
 
 ```bash
 # 1. 锻造变异体
-prometheus forge ~/.hermes/seed-vault/写作助手.ttg \
+prometheus forge ~/.prometheus/seed-vault/写作助手.ttg \
   --genes G100,G101,G102 \
   --mode power_set \
   --max 50
 
 # 2. 筛选优胜者
-prometheus sieve ~/.hermes/gene-lab/batch_20260430/ 5
+prometheus sieve ~/.prometheus/gene-lab/batch_20260430/ 5
 
 # 3. 提升为正式种子
-prometheus promote ~/.hermes/gene-lab/batch_20260430/variant_003.ttg "写作大师"
+prometheus promote ~/.prometheus/gene-lab/batch_20260430/variant_003.ttg "写作大师"
 
 # 4. 苗圃验证
-prometheus nursery ~/.hermes/seed-vault/写作大师.ttg
+prometheus nursery ~/.prometheus/seed-vault/写作大师.ttg
 ```
 
 ### 工作流四：种子融合
 
 ```bash
 # 1. 分析融合兼容性
-prometheus fusion ~/.hermes/seed-vault/skill_a.ttg ~/.hermes/seed-vault/skill_b.ttg
+prometheus fusion ~/.prometheus/seed-vault/skill_a.ttg ~/.prometheus/seed-vault/skill_b.ttg
 
 # 2. 拆解外来技能
 prometheus extract ~/external_framework.md
 
 # 3. 插入拆解出的基因
-prometheus insert ~/.hermes/seed-vault/skill_a.ttg G100-writer
+prometheus insert ~/.prometheus/seed-vault/skill_a.ttg G100-writer
 
 # 4. 验证
-prometheus health ~/.hermes/seed-vault/skill_a.ttg
+prometheus health ~/.prometheus/seed-vault/skill_a.ttg
 ```
 
 ### 工作流五：从外部技能导入
@@ -1024,13 +1024,13 @@ prometheus extract ~/my_external_skill.md
 prometheus create "外部技能"
 
 # 3. 插入拆解出的基因
-prometheus insert ~/.hermes/seed-vault/外部技能.ttg G100-writer
+prometheus insert ~/.prometheus/seed-vault/外部技能.ttg G100-writer
 
 # 4. 健康审计
-prometheus health ~/.hermes/seed-vault/外部技能.ttg
+prometheus health ~/.prometheus/seed-vault/外部技能.ttg
 
 # 5. 标签词典验证
-prometheus lexicon ~/.hermes/seed-vault/外部技能.ttg
+prometheus lexicon ~/.prometheus/seed-vault/外部技能.ttg
 ```
 
 ---
@@ -1058,7 +1058,7 @@ prometheus lexicon ~/.hermes/seed-vault/外部技能.ttg
 
 ### 操作日志
 
-所有操作自动记录到 `~/.hermes/tools/prometheus/prometheus.log`：
+所有操作自动记录到 `~/.prometheus/tools/prometheus/prometheus.log`：
 ```json
 {"timestamp": "2026-04-30T12:00:00", "action": "cli_invoke", "detail": "view path"}
 {"timestamp": "2026-04-30T12:00:01", "action": "edit_save", "detail": "path"}
@@ -1078,7 +1078,7 @@ prometheus lexicon ~/.hermes/seed-vault/外部技能.ttg
 ### Q: 如何备份种子？
 
 ```bash
-prometheus snapshot save "备份说明" ~/.hermes/seed-vault/my_skill.ttg
+prometheus snapshot save "备份说明" ~/.prometheus/seed-vault/my_skill.ttg
 ```
 
 或使用 vault 查看所有种子后手动复制。
@@ -1112,7 +1112,7 @@ prometheus library
 ### Q: 如何检测种子是否被篡改？
 
 ```bash
-prometheus audit ~/.hermes/seed-vault/my_skill.ttg
+prometheus audit ~/.prometheus/seed-vault/my_skill.ttg
 ```
 
 如果显示"疑似基因篡改"或"外来种子"，说明创始印记可能被移除。

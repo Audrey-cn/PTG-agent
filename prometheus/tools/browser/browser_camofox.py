@@ -12,7 +12,6 @@ from typing import Any
 
 import requests
 
-from prometheus.cli.config import cfg_get, load_config
 from prometheus.tools.browser.browser_camofox_state import get_camofox_identity
 from prometheus.tools.security.registry import tool_error
 

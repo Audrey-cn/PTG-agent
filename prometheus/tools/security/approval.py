@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Dangerous command approval -- detection, prompting, and per-session state."""
 
 import contextvars

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """MCP OAuth 2.1 Client Support."""
 
@@ -126,7 +128,7 @@ class PrometheusTokenStorage:
     def _client_info_path(self) -> Path:
         return _get_token_dir() / f"{self._server_name}.client.json"
 
-    async def get_tokens(self) -> "OAuthToken | None":
+    async def get_tokens(self) -> OAuthToken | None:
         data = _read_json(self._tokens_path())
         if data is None:
             return None
@@ -150,7 +152,7 @@ class PrometheusTokenStorage:
             logger.warning("Corrupt tokens at %s -- ignoring: %s", self._tokens_path(), exc)
             return None
 
-    async def set_tokens(self, tokens: "OAuthToken") -> None:
+    async def set_tokens(self, tokens: OAuthToken) -> None:
         payload = tokens.model_dump(mode="json", exclude_none=True)
         expires_in = payload.get("expires_in")
         if expires_in is not None:
@@ -159,7 +161,7 @@ class PrometheusTokenStorage:
         _write_json(self._tokens_path(), payload)
         logger.debug("OAuth tokens saved for %s", self._server_name)
 
-    async def get_client_info(self) -> "OAuthClientInformationFull | None":
+    async def get_client_info(self) -> OAuthClientInformationFull | None:
         data = _read_json(self._client_info_path())
         if data is None:
             return None
@@ -171,7 +173,7 @@ class PrometheusTokenStorage:
             )
             return None
 
-    async def set_client_info(self, client_info: "OAuthClientInformationFull") -> None:
+    async def set_client_info(self, client_info: OAuthClientInformationFull) -> None:
         _write_json(
             self._client_info_path(), client_info.model_dump(mode="json", exclude_none=True)
         )
@@ -302,7 +304,7 @@ def _configure_callback_port(cfg: dict) -> int:
     return port
 
 
-def _build_client_metadata(cfg: dict) -> "OAuthClientMetadata":
+def _build_client_metadata(cfg: dict) -> OAuthClientMetadata:
     port = cfg.get("_resolved_port")
     if port is None:
         raise ValueError(
@@ -328,9 +330,9 @@ def _build_client_metadata(cfg: dict) -> "OAuthClientMetadata":
 
 
 def _maybe_preregister_client(
-    storage: "PrometheusTokenStorage",
+    storage: PrometheusTokenStorage,
     cfg: dict,
-    client_metadata: "OAuthClientMetadata",
+    client_metadata: OAuthClientMetadata,
 ) -> None:
     client_id = cfg.get("client_id")
     if not client_id:
@@ -361,7 +363,7 @@ def build_oauth_auth(
     server_name: str,
     server_url: str,
     oauth_config: Optional[Dict] = None,
-) -> "OAuthClientProvider | None":
+) -> OAuthClientProvider | None:
     if not _OAUTH_AVAILABLE:
         logger.warning(
             "MCP OAuth requested for '%s' but SDK auth types are not available. "

@@ -193,9 +193,9 @@ def cmd_dump(args):
 
 def cmd_model(args):
     """模型/提供者配置。"""
-    from config import Config as PrometheusConfig
+    from prometheus.config import Config
 
-    cfg = PrometheusConfig()
+    cfg = Config.load()
 
     if args.action == "show":
         print("\n🤖 模型配置\n")
@@ -208,7 +208,8 @@ def cmd_model(args):
             print("示例: ptg model set provider openrouter")
             print("      ptg model set name anthropic/claude-sonnet-4")
             return
-        cfg.set("model", args.key, args.value)
+        cfg.set(f"model.{args.key}", args.value)
+        cfg.save()
         print(f"✅ 模型配置已更新: {args.key} = {args.value}")
     elif args.action == "providers":
         print("\n🤖 支持的提供者\n")
@@ -242,9 +243,9 @@ def cmd_model(args):
 
 def cmd_config(args):
     """配置管理。"""
-    from config import Config as PrometheusConfig
+    from prometheus.config import Config
 
-    cfg = PrometheusConfig()
+    cfg = Config.load()
 
     if args.action == "show" or args.action is None:
         print("\n⚙️ Prometheus 配置\n")
@@ -260,11 +261,8 @@ def cmd_config(args):
             print("用法: ptg config set <key> <value>")
             print("示例: ptg config set model.provider openrouter")
             return
-        if "." in args.key:
-            section, k = args.key.rsplit(".", 1)
-            cfg.set(section, k, args.value)
-        else:
-            cfg.set("general", args.key, args.value)
+        cfg.set(args.key, args.value)
+        cfg.save()
         print(f"✅ 已更新: {args.key} = {args.value}")
     elif args.action == "path":
         print(os.path.join(_PROMETHEUS_DIR, "config.yaml"))
@@ -309,9 +307,9 @@ def cmd_status(args):
         print("  🧠 记忆: 未初始化")
 
     # 配置
-    from config import Config as PrometheusConfig
+    from prometheus.config import Config
 
-    cfg = PrometheusConfig()
+    cfg = Config.load()
     model_cfg = cfg.to_dict().get("model", {})
     provider = model_cfg.get("provider", "?")
     model = model_cfg.get("name", "?")
@@ -1660,25 +1658,28 @@ def cmd_chat(args):
     api_cfg = config_dict.get("api", {})
 
     model = getattr(args, "model", None) or model_cfg.get("name", "") or "gpt-4o"
-    base_url = api_cfg.get("base_url", "https://api.openai.com/v1")
-    api_key = api_cfg.get("key", "") or os.getenv("OPENAI_API_KEY", "")
     provider = model_cfg.get("provider", "")
 
-    if provider == "anthropic":
-        api_key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
+    # Provider-specific configuration
+    if provider == "ollama":
+        base_url = model_cfg.get("base_url", "") or "http://localhost:11434/v1"
+        api_key = "ollama"
+    elif provider == "anthropic":
+        base_url = model_cfg.get("base_url", "") or "https://api.anthropic.com"
+        api_key = api_cfg.get("key", "") or os.getenv("ANTHROPIC_API_KEY", "")
     elif provider == "openrouter":
-        api_key = api_key or os.getenv("OPENROUTER_API_KEY", "")
-        base_url = api_cfg.get("base_url", "") or "https://openrouter.ai/api/v1"
+        base_url = model_cfg.get("base_url", "") or "https://openrouter.ai/api/v1"
+        api_key = api_cfg.get("key", "") or os.getenv("OPENROUTER_API_KEY", "")
     elif provider == "deepseek":
-        api_key = api_key or os.getenv("DEEPSEEK_API_KEY", "")
-        base_url = api_cfg.get("base_url", "") or "https://api.deepseek.com/v1"
-    elif provider == "ollama":
-        # Local Ollama doesn't require API key
-        api_key = api_key or "ollama"
-        base_url = api_cfg.get("base_url", "") or "http://localhost:11434/v1"
+        base_url = model_cfg.get("base_url", "") or "https://api.deepseek.com/v1"
+        api_key = api_cfg.get("key", "") or os.getenv("DEEPSEEK_API_KEY", "")
     elif provider == "custom":
-        # Custom OpenAI-compatible endpoint may not need a key
-        api_key = api_key or "placeholder"
+        base_url = model_cfg.get("base_url", "") or api_cfg.get("base_url", "https://api.openai.com/v1")
+        api_key = api_cfg.get("key", "") or "placeholder"
+    else:
+        # Default to OpenAI
+        base_url = model_cfg.get("base_url", "") or api_cfg.get("base_url", "https://api.openai.com/v1")
+        api_key = api_cfg.get("key", "") or os.getenv("OPENAI_API_KEY", "")
 
     if not api_key:
         print("⚠️  未配置 API Key。请运行 'ptg setup' 或设置环境变量。")
@@ -1694,9 +1695,32 @@ def cmd_chat(args):
     )
 
     try:
-        from prometheus.agent_loop import AIAgent, AgentConfig
+        from prometheus.agent_loop import AgentConfig, AIAgent
     except ImportError:
-        from agent_loop import AIAgent, AgentConfig
+        from agent_loop import AgentConfig, AIAgent
+
+    # 流式输出回调
+    current_content = ""
+    
+    def stream_callback(event):
+        nonlocal current_content
+        if event.get("type") == "content":
+            delta = event.get("delta", "")
+            print(delta, end="", flush=True)
+        elif event.get("type") == "done":
+            print()  # 换行
+
+    # 状态回调
+    def status_callback(status):
+        status_type = status.get("status")
+        if status_type == "thinking":
+            print("\n🤔 思考中...")
+        elif status_type == "calling_tool":
+            tool_name = status.get("tool_name", "")
+            print(f"\n🔧 调用工具: {tool_name}")
+        elif status_type == "error":
+            error = status.get("error", "")
+            print(f"\n❌ 错误: {error}")
 
     agent_config = AgentConfig(
         model=model,
@@ -1704,15 +1728,23 @@ def cmd_chat(args):
         base_url=base_url,
         api_key=api_key,
         max_iterations=getattr(args, "max_iterations", 50),
+        streaming=True,
     )
 
-    agent = AIAgent(config=agent_config, system_prompt=system_prompt)
+    agent = AIAgent(
+        config=agent_config, 
+        system_prompt=system_prompt,
+        stream_callback=stream_callback,
+        status_callback=status_callback,
+    )
 
     if getattr(args, "message", None):
         initial = " ".join(getattr(args, "message", []))
         print(f"\n>>> {initial}\n")
         result = agent.run_conversation(initial)
-        print(f"\n{result['text']}\n")
+        # 如果使用流式输出，内容已经打印
+        if not getattr(agent_config, "streaming", False):
+            print(f"\n{result['text']}\n")
         print(
             f"({result.get('iterations', '?')} 次迭代, {result.get('tool_calls_made', '?')} 次工具调用)"
         )
@@ -1761,7 +1793,11 @@ def cmd_chat(args):
         try:
             result = agent.run_conversation(resolved_input, history=session.history)
             text = result.get("text", "")
-            print(f"\n{text}\n")
+            # 如果使用流式输出，内容已经打印，这里只打印统计信息
+            if not getattr(agent_config, "streaming", False):
+                print(f"\n{text}\n")
+            else:
+                print()  # 空行分隔
             session.add_exchange(user_input, text, result.get("cost"))
             session.tool_calls_count += result.get("tool_calls_made", 0)
         except Exception as e:
@@ -2591,17 +2627,17 @@ def cmd_pairing(args):
 
 def cmd_tools(args):
     """工具管理命令组。"""
-    from prometheus.tools.registry import get_tool_registry
+    from prometheus.tools import load_all_tools
+    from prometheus.tools.registry import registry
 
-    registry = get_tool_registry()
+    load_all_tools()
+
     action = getattr(args, "tools_action", None)
 
     if action is None:
         print("\n  工具管理\n")
         print("  可用命令:")
         print("    ptg tools list    - 列出所有可用工具")
-        print("    ptg tools enable  - 启用工具")
-        print("    ptg tools disable - 禁用工具")
         print("    ptg tools info    - 显示工具信息")
         print()
         return
@@ -2614,37 +2650,24 @@ def cmd_tools(args):
         else:
             print(f"\n  可用工具 ({len(tools)}):\n")
             for t in tools:
-                status = "✓" if t.get("enabled", True) else "✗"
-                print(f"    [{status}] {t['name']}")
+                status = "✓" if t else "✗"
+                print(f"    [{status}] {t}")
                 if verbose:
-                    print(f"         {t.get('description', '无描述')}")
-
-    elif action == "enable":
-        tool_name = getattr(args, "tool_name", None)
-        if not tool_name:
-            print("  错误: 需要工具名称")
-            return
-        registry.enable_tool(tool_name)
-        print(f"  已启用工具: {tool_name}")
-
-    elif action == "disable":
-        tool_name = getattr(args, "tool_name", None)
-        if not tool_name:
-            print("  错误: 需要工具名称")
-            return
-        registry.disable_tool(tool_name)
-        print(f"  已禁用工具: {tool_name}")
+                    tool_def = registry.get(t)
+                    if tool_def:
+                        print(f"         {tool_def.description}")
 
     elif action == "info":
         tool_name = getattr(args, "tool_name", None)
         if not tool_name:
             print("  错误: 需要工具名称")
             return
-        info = registry.get_tool_info(tool_name)
-        if info:
-            print(f"\n  工具: {info['name']}\n")
-            print(f"  描述: {info.get('description', '无')}")
-            print(f"  状态: {'启用' if info.get('enabled', True) else '禁用'}")
+        tool_def = registry.get(tool_name)
+        if tool_def:
+            print(f"\n  工具: {tool_def.name}\n")
+            print(f"  描述: {tool_def.description}")
+            print(f"  工具集: {tool_def.toolset}")
+            print(f"  图标: {tool_def.emoji}")
         else:
             print(f"  工具不存在: {tool_name}")
 
@@ -3396,7 +3419,7 @@ def main():
 def cmd_skill(args):
     """技能管理命令。"""
     try:
-        from prometheus.tools.skill_loader import SkillLoader
+        from prometheus.tools.devops.skill_loader import SkillLoader
     except ImportError:
         try:
             from skill_loader import SkillLoader
@@ -3490,7 +3513,7 @@ def cmd_skill(args):
 def cmd_skills():
     """列出可用 Skill 工作流 (向后兼容)。"""
     try:
-        from prometheus.tools.skill_loader import SkillLoader
+        from prometheus.tools.devops.skill_loader import SkillLoader
     except ImportError:
         from skill_loader import SkillLoader
 

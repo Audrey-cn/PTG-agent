@@ -10,11 +10,14 @@ import uuid
 from typing import Any
 from urllib.parse import urlencode
 
-import fal_client
+try:
+    import fal_client
+except ImportError:
+    fal_client = None
 
 from prometheus.tools.debug_helpers import DebugSession
 from prometheus.tools.managed_tool_gateway import resolve_managed_tool_gateway
-from prometheus.tools.tool_backend_helpers import (
+from prometheus.tools.security.tool_backend_helpers import (
     fal_key_is_configured,
     managed_nous_tools_enabled,
     prefers_gateway,
@@ -471,9 +474,9 @@ def _resolve_fal_model() -> tuple:
     """Resolve the active FAL model from config.yaml (primary) or default."""
     model_id = ""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config()
+        cfg = PrometheusConfig.load()
         img_cfg = cfg.get("image_gen") if isinstance(cfg, dict) else None
         if isinstance(img_cfg, dict):
             raw = img_cfg.get("model")
@@ -797,7 +800,7 @@ if __name__ == "__main__":
         print(f"\n🐛 Debug mode enabled — session {_debug.session_id}")
 
 
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 IMAGE_GENERATE_SCHEMA = {
     "name": "image_generate",
@@ -830,9 +833,9 @@ IMAGE_GENERATE_SCHEMA = {
 def _read_configured_image_provider():
     """Return the value of ``image_gen.provider`` from config.yaml, or None."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config()
+        cfg = PrometheusConfig.load()
         section = cfg.get("image_gen") if isinstance(cfg, dict) else None
         if isinstance(section, dict):
             value = section.get("provider")

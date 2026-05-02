@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Home Assistant tool for controlling smart home devices via REST API."""
 
 import asyncio
@@ -470,7 +472,7 @@ HA_CALL_SERVICE_SCHEMA = {
 # Registration
 # ---------------------------------------------------------------------------
 
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 registry.register(
     name="ha_list_entities",

@@ -26,7 +26,7 @@ DEFAULT_DB = os.path.join(DATA_DIR, "prometheus.db")
 class StorageEngine:
     """SQLite 存储引擎，支持 FTS5 全文搜索。
 
-    设计哲学（对齐 Hermes）：
+    设计哲学（对齐 Prometheus）：
       - 结构化数据统一存 SQLite，不散落多个 JSON 文件
       - 每个模块通过 table_name 隔离，共享同一个数据库文件
       - FTS5 虚拟表提供毫秒级全文检索

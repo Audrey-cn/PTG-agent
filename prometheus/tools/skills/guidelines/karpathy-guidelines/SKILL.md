@@ -5,7 +5,7 @@ version: 1.0.0
 author: Andrej Karpathy (inspired)
 license: MIT
 metadata:
-  hermes:
+  prometheus:
     tags:
       - coding
       - guidelines

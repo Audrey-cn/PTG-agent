@@ -3,8 +3,8 @@ version: "1.0.0"
 description: "Optional Langfuse observability for Prometheus — traces conversations, LLM calls, and tool usage. Opt-in via `prometheus plugins enable observability/langfuse` or `prometheus tools → Langfuse Observability`."
 author: NousResearch
 requires_env:
-  - HERMES_LANGFUSE_PUBLIC_KEY
-  - HERMES_LANGFUSE_SECRET_KEY
+  - PROMETHEUS_LANGFUSE_PUBLIC_KEY
+  - PROMETHEUS_LANGFUSE_SECRET_KEY
 hooks:
   - pre_api_request
   - post_api_request

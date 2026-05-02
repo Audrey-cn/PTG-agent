@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Discord server introspection and management tool."""
 
 import contextlib
@@ -9,7 +11,7 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-from prometheus.tools.registry import registry
+from prometheus.tools.security.registry import registry
 
 logger = logging.getLogger(__name__)
 
@@ -508,9 +510,9 @@ def _load_allowed_actions_config() -> list[str] | None:
     Unknown action names are dropped with a log warning.
     """
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config()
+        cfg = PrometheusConfig.load()
     except Exception as exc:
         logger.debug("discord: could not load config (%s); allowing all actions.", exc)
         return None

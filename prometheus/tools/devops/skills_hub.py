@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """Skills Hub — Source adapters and hub state management for the Prometheus Skills Hub."""
 
@@ -21,7 +23,7 @@ import httpx
 import yaml
 
 from prometheus.constants_core import get_prometheus_home
-from prometheus.tools.skills_guard import (
+from prometheus.tools.devops.skills_guard import (
     TRUSTED_REPOS,
     ScanResult,
     content_hash,
@@ -452,7 +454,7 @@ class GitHubSource(SkillSource):
         self._tree_cache[repo] = (default_branch, entries)
         return (default_branch, entries)
 
-    def _check_rate_limit_response(self, resp: "httpx.Response") -> None:
+    def _check_rate_limit_response(self, resp: httpx.Response) -> None:
         if resp.status_code == 403:
             remaining = resp.headers.get("X-RateLimit-Remaining", "")
             if remaining == "0":

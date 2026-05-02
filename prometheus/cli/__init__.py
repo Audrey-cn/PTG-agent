@@ -1,5 +1,7 @@
 """Prometheus CLI 包."""
 
+__version__ = "0.8.0"
+
 from .main import (
     build_parser,
     cmd_config,

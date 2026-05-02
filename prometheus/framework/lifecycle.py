@@ -20,7 +20,7 @@ class SessionInfo:
 
     session_id: str
     cwd: str
-    mode: str = "hermes"
+    mode: str = "prometheus"
     seed_path: str | None = None
     started_at: datetime = field(default_factory=datetime.now)
     tool_calls: int = 0
@@ -83,8 +83,8 @@ class PrometheusLifecycle:
             self._session.mode = "prometheus"
             return {"mode": "prometheus", "seed": seed, "context": {"prometheus_awake": True}}
 
-        # 没有种子，保持 Hermes 模式
-        return {"mode": "hermes", "seed": None, "context": {}}
+        # 没有种子，保持 Prometheus 模式
+        return {"mode": "prometheus", "seed": None, "context": {}}
 
     def on_message(self, message: dict[str, Any]) -> dict[str, Any]:
         """每条消息 - 普罗米修斯倾听并思考"""

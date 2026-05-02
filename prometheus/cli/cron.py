@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Cron subcommand for prometheus CLI."""
 
 import json

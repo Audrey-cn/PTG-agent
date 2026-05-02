@@ -11,7 +11,7 @@ from enum import Enum
 #   配置
 # ═══════════════════════════════════════════
 
-REGISTRY_DIR = os.path.expanduser("~/.hermes/tools/prometheus/registry")
+REGISTRY_DIR = os.path.expanduser("~/.prometheus/tools/prometheus/registry")
 os.makedirs(REGISTRY_DIR, exist_ok=True)
 
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """File Operations Module."""
 
@@ -20,7 +22,7 @@ from prometheus.file_safety import (
 from prometheus.file_safety import (
     is_write_denied as _shared_is_write_denied,
 )
-from prometheus.tools.binary_extensions import BINARY_EXTENSIONS
+from prometheus.tools.file.binary_extensions import BINARY_EXTENSIONS
 
 _HOME = str(Path.home())
 
@@ -270,7 +272,7 @@ def normalize_read_pagination(
     offset: Any = DEFAULT_READ_OFFSET, limit: Any = DEFAULT_READ_LIMIT
 ) -> Tuple[int, int]:
     """Return safe read_file pagination bounds."""
-    from prometheus.tools.tool_output_limits import get_max_lines
+    from prometheus.tools.security.tool_output_limits import get_max_lines
 
     max_lines = get_max_lines()
     normalized_offset = max(1, _coerce_int(offset, DEFAULT_READ_OFFSET))
@@ -323,12 +325,29 @@ class ShellFileOperations(FileOperations):
         kwargs = {}
         if timeout:
             kwargs["timeout"] = timeout
-        if stdin_data is not None:
-            kwargs["stdin_data"] = stdin_data
+        # Note: stdin_data is not supported with LocalEnvironment.execute()
+        # We'll use a different approach for file content if needed
 
         effective_cwd = cwd or getattr(self.env, "cwd", None) or self.cwd
-        result = self.env.execute(command, cwd=effective_cwd, **kwargs)
-        return ExecuteResult(stdout=result.get("output", ""), exit_code=result.get("returncode", 0))
+        
+        try:
+            # Try passing stdin_data if the environment supports it
+            result = self.env.execute(command, cwd=effective_cwd, **kwargs)
+        except TypeError as e:
+            if "stdin_data" in str(e):
+                # Environment doesn't support stdin_data, remove it and retry
+                kwargs.pop("stdin_data", None)
+                result = self.env.execute(command, cwd=effective_cwd, **kwargs)
+            else:
+                raise
+        
+        # Handle both ExecutionResult objects and dictionaries
+        if hasattr(result, 'output'):
+            return ExecuteResult(stdout=result.output, exit_code=getattr(result, 'exit_code', 0))
+        elif hasattr(result, 'get'):
+            return ExecuteResult(stdout=result.get("output", ""), exit_code=result.get("returncode", 0))
+        else:
+            return ExecuteResult(stdout="", exit_code=-1)
 
     def _has_command(self, cmd: str) -> bool:
         """Check if a command exists in the environment (cached)."""
@@ -360,7 +379,7 @@ class ShellFileOperations(FileOperations):
 
     def _add_line_numbers(self, content: str, start_line: int = 1) -> str:
         """Add line numbers to content in LINE_NUM|CONTENT format."""
-        from prometheus.tools.tool_output_limits import get_max_line_length
+        from prometheus.tools.security.tool_output_limits import get_max_line_length
 
         max_line_length = get_max_line_length()
         lines = content.split("\n")
@@ -593,21 +612,52 @@ class ShellFileOperations(FileOperations):
             if mkdir_result.exit_code == 0:
                 dirs_created = True
 
-        write_cmd = f"cat > {self._escape_shell_arg(path)}"
-        write_result = self._exec(write_cmd, stdin_data=content)
+        # Use Python directly to write the file (most reliable method)
+        import json
+        encoded_content = json.dumps(content, ensure_ascii=False)
+        write_cmd = f"python3 -c \"import sys,json; open(sys.argv[1],'w',encoding='utf-8').write(json.loads(sys.argv[2]))\" {self._escape_shell_arg(path)} {encoded_content}"
+        
+        write_result = self._exec(write_cmd)
 
         if write_result.exit_code != 0:
-            return WriteResult(error=f"Failed to write file: {write_result.stdout}")
+            # Fallback: write to temp file then move
+            import tempfile
+            temp_file = None
+            try:
+                # Write content to a temp file in the same directory
+                temp_file = tempfile.NamedTemporaryFile(mode='w', dir=parent or '.', delete=False, suffix='.tmp')
+                temp_file.write(content)
+                temp_file.close()
+                
+                # Move temp file to target
+                move_cmd = f"mv {self._escape_shell_arg(temp_file.name)} {self._escape_shell_arg(path)}"
+                write_result = self._exec(move_cmd)
+                
+                if write_result.exit_code != 0:
+                    return WriteResult(error=f"Failed to write file: {write_result.stdout}")
+            except Exception as e:
+                return WriteResult(error=f"Failed to write file: {str(e)}")
+            finally:
+                # Clean up temp file if it still exists
+                if temp_file and os.path.exists(temp_file.name):
+                    try:
+                        os.remove(temp_file.name)
+                    except:
+                        pass
+        else:
+            # Verify file was actually written
+            if not os.path.exists(path):
+                return WriteResult(error="File write completed but file not found")
+            
+            stat_cmd = f"wc -c < {self._escape_shell_arg(path)} 2>/dev/null"
+            stat_result = self._exec(stat_cmd)
 
-        stat_cmd = f"wc -c < {self._escape_shell_arg(path)} 2>/dev/null"
-        stat_result = self._exec(stat_cmd)
+            try:
+                bytes_written = int(stat_result.stdout.strip())
+            except ValueError:
+                bytes_written = len(content.encode("utf-8"))
 
-        try:
-            bytes_written = int(stat_result.stdout.strip())
-        except ValueError:
-            bytes_written = len(content.encode("utf-8"))
-
-        return WriteResult(bytes_written=bytes_written, dirs_created=dirs_created)
+            return WriteResult(bytes_written=bytes_written, dirs_created=dirs_created)
 
     # =========================================================================
     # PATCH Implementation (Replace Mode)
@@ -634,7 +684,7 @@ class ShellFileOperations(FileOperations):
 
         content = read_result.stdout
 
-        from prometheus.tools.fuzzy_match import fuzzy_find_and_replace
+        from prometheus.tools.security.fuzzy_match import fuzzy_find_and_replace
 
         new_content, match_count, _strategy, error = fuzzy_find_and_replace(
             content, old_string, new_string, replace_all
@@ -643,7 +693,7 @@ class ShellFileOperations(FileOperations):
         if error or match_count == 0:
             err_msg = error or f"Could not find match for old_string in {path}"
             try:
-                from prometheus.tools.fuzzy_match import format_no_match_hint
+                from prometheus.tools.security.fuzzy_match import format_no_match_hint
 
                 err_msg += format_no_match_hint(err_msg, match_count, old_string, content)
             except Exception:
@@ -682,7 +732,7 @@ class ShellFileOperations(FileOperations):
         """
         Apply a V4A format patch.
         """
-        from prometheus.tools.patch_parser import apply_v4a_operations, parse_v4a_patch
+        from prometheus.tools.file.patch_parser import apply_v4a_operations, parse_v4a_patch
 
         operations, parse_error = parse_v4a_patch(patch_content)
         if parse_error:

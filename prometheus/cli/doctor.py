@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Doctor command for Prometheus CLI."""
 
 import importlib.util

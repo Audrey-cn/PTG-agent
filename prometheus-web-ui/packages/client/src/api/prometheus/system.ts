@@ -1,0 +1,105 @@
+import { request } from '../client'
+
+export interface HealthResponse {
+  status: string
+  version?: string
+  webui_version?: string
+  webui_latest?: string
+  webui_update_available?: boolean
+  node_version?: string
+}
+
+// Config-based model types
+export interface ModelInfo {
+  id: string
+  label: string
+}
+
+export interface ModelGroup {
+  provider: string
+  models: ModelInfo[]
+}
+
+export interface ConfigModelsResponse {
+  default: string
+  groups: ModelGroup[]
+}
+
+export interface AvailableModelGroup {
+  provider: string   // credential pool key (e.g. "zai", "custom:subrouter.ai")
+  label: string      // display name (e.g. "zai", "subrouter.ai")
+  base_url: string
+  models: string[]
+  api_key: string
+  /** 可选：模型 ID -> 元数据（preview/disabled）。目前仅 Copilot 提供。 */
+  model_meta?: Record<string, { preview?: boolean; disabled?: boolean }>
+}
+
+export interface AvailableModelsResponse {
+  default: string
+  default_provider: string
+  groups: AvailableModelGroup[]
+  allProviders: AvailableModelGroup[]
+}
+
+export interface CustomProvider {
+  name: string
+  base_url: string
+  api_key: string
+  model: string
+  context_length?: number
+  providerKey?: string | null
+}
+
+export async function checkHealth(): Promise<HealthResponse> {
+  return request<HealthResponse>('/health')
+}
+
+export async function triggerUpdate(): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>('/api/prometheus/update', { method: 'POST' })
+}
+
+export async function fetchConfigModels(): Promise<ConfigModelsResponse> {
+  return request<ConfigModelsResponse>('/api/prometheus/config/models')
+}
+
+export async function fetchAvailableModels(): Promise<AvailableModelsResponse> {
+  return request<AvailableModelsResponse>('/api/prometheus/available-models')
+}
+
+export async function updateDefaultModel(data: {
+  default: string
+  provider?: string
+  base_url?: string
+  api_key?: string
+}): Promise<void> {
+  await request('/api/prometheus/config/model', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function addCustomProvider(data: CustomProvider): Promise<void> {
+  await request('/api/prometheus/config/providers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function removeCustomProvider(name: string): Promise<void> {
+  await request(`/api/prometheus/config/providers/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function updateProvider(poolKey: string, data: {
+  name?: string
+  base_url?: string
+  api_key?: string
+  model?: string
+}): Promise<void> {
+  await request(`/api/prometheus/config/providers/${encodeURIComponent(poolKey)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}

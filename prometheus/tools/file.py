@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Prometheus 文件操作工具
 读取、写入、搜索文件

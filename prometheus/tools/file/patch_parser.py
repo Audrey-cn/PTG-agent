@@ -224,7 +224,7 @@ def _validate_operations(
     For UPDATE operations, hunks are simulated in order so that later
     hunks validate against post-earlier-hunk content (matching apply order).
     """
-    from prometheus.tools.fuzzy_match import fuzzy_find_and_replace
+    from prometheus.tools.security.fuzzy_match import fuzzy_find_and_replace
 
     errors: list[str] = []
 
@@ -267,7 +267,7 @@ def _validate_operations(
                         f" — {match_error}" if match_error else ""
                     )
                     try:
-                        from prometheus.tools.fuzzy_match import format_no_match_hint
+                        from prometheus.tools.security.fuzzy_match import format_no_match_hint
 
                         msg += format_no_match_hint(match_error, count, search_pattern, simulated)
                     except Exception:
@@ -312,7 +312,7 @@ def apply_v4a_operations(operations: list[PatchOperation], file_ops: Any) -> "Pa
     Returns:
         PatchResult with results of all operations
     """
-    from prometheus.tools.file_operations import PatchResult
+    from prometheus.tools.file.file_operations import PatchResult
 
     validation_errors = _validate_operations(operations, file_ops)
     if validation_errors:
@@ -449,7 +449,7 @@ def _apply_move(op: PatchOperation, file_ops: Any) -> tuple[bool, str]:
 
 def _apply_update(op: PatchOperation, file_ops: Any) -> tuple[bool, str]:
     """Apply an update file operation."""
-    from prometheus.tools.fuzzy_match import fuzzy_find_and_replace
+    from prometheus.tools.security.fuzzy_match import fuzzy_find_and_replace
 
     read_result = file_ops.read_file_raw(op.file_path)
 
@@ -502,7 +502,7 @@ def _apply_update(op: PatchOperation, file_ops: Any) -> tuple[bool, str]:
                 if error:
                     err_msg = f"Could not apply hunk: {error}"
                     try:
-                        from prometheus.tools.fuzzy_match import format_no_match_hint
+                        from prometheus.tools.security.fuzzy_match import format_no_match_hint
 
                         err_msg += format_no_match_hint(error, 0, search_pattern, new_content)
                     except Exception:

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Vision Tools Module."""
 
+from __future__ import annotations
+
 import base64
 import json
 import logging
@@ -31,10 +33,10 @@ def _resolve_download_timeout() -> float:
         except ValueError:
             pass
     try:
-        from prometheus.cli.config import cfg_get, load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config()
-        val = cfg_get(cfg, "auxiliary", "vision", "download_timeout")
+        cfg = PrometheusConfig.load()
+        val = cfg.get("auxiliary.vision.download_timeout")
         if val is not None:
             return float(val)
     except Exception:
@@ -58,7 +60,7 @@ def _validate_image_url(url: str) -> bool:
     if not parsed.netloc:
         return False
 
-    from prometheus.tools.url_safety import is_safe_url
+    from prometheus.tools.security.url_safety import is_safe_url
 
     return is_safe_url(url)
 
@@ -94,7 +96,7 @@ async def _download_image(image_url: str, destination: Path, max_retries: int = 
     async def _ssrf_redirect_guard(response):
         if response.is_redirect and response.next_request:
             redirect_url = str(response.next_request.url)
-            from prometheus.tools.url_safety import is_safe_url
+            from prometheus.tools.security.url_safety import is_safe_url
 
             if not is_safe_url(redirect_url):
                 raise ValueError(f"Blocked redirect to private/internal address: {redirect_url}")
@@ -330,7 +332,7 @@ async def vision_analyze_tool(
     detected_mime_type = None
 
     try:
-        from prometheus.tools.interrupt import is_interrupted
+        from prometheus.tools.security.interrupt import is_interrupted
 
         if is_interrupted():
             return tool_error("Interrupted", success=False)
@@ -404,10 +406,10 @@ async def vision_analyze_tool(
         vision_timeout = 120.0
         vision_temperature = 0.1
         try:
-            from prometheus.cli.config import cfg_get, load_config
+            from prometheus.config import PrometheusConfig
 
-            _cfg = load_config()
-            _vision_cfg = cfg_get(_cfg, "auxiliary", "vision", default={})
+            _cfg = PrometheusConfig.load()
+            _vision_cfg = _cfg.get("auxiliary.vision", default={})
             _vt = _vision_cfg.get("timeout")
             if _vt is not None:
                 vision_timeout = float(_vt)
@@ -596,7 +598,7 @@ if __name__ == "__main__":
     print("  # Logs saved to: ./logs/vision_tools_debug_UUID.json")
 
 
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 VISION_ANALYZE_SCHEMA = {
     "name": "vision_analyze",

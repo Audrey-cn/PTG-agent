@@ -67,7 +67,7 @@ class FileWriteRequest:
 class CopilotACPClient:
     """GitHub Copilot ACP (Agent Communication Protocol) client.
 
-    This implementation mirrors the Hermes copilot_acp_client by:
+    This implementation mirrors the Prometheus copilot_acp_client by:
     1. Running the copilot CLI as a subprocess
     2. Using JSON-RPC protocol over stdin/stdout
     3. Handling file system operations with permission checks

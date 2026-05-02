@@ -9,8 +9,8 @@ from enum import Enum
 from re import Pattern
 from typing import Any
 
-from genes.bank import GeneBank
-from storage import StorageEngine
+from prometheus.genes.bank import GeneBank
+from prometheus.storage import StorageEngine
 
 
 class AutophagyLevel(Enum):

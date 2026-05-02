@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """Standalone Web Tools Module."""
 
@@ -63,8 +65,8 @@ from prometheus.tools.managed_tool_gateway import (
 from prometheus.tools.managed_tool_gateway import (
     read_nous_access_token as _read_nous_access_token,
 )
-from prometheus.tools.tool_backend_helpers import managed_nous_tools_enabled, prefers_gateway
-from prometheus.tools.url_safety import is_safe_url
+from prometheus.tools.security.tool_backend_helpers import managed_nous_tools_enabled, prefers_gateway
+from prometheus.tools.security.url_safety import is_safe_url
 from prometheus.tools.website_policy import check_website_access
 
 logger = logging.getLogger(__name__)
@@ -81,9 +83,9 @@ def _has_env(name: str) -> bool:
 def _load_web_config() -> dict:
     """Load the ``web:`` section from ~/.prometheus/config.yaml."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        return load_config().get("web", {})
+        return PrometheusConfig.load().get("web", {})
     except (ImportError, Exception):
         return {}
 
@@ -226,6 +228,8 @@ def _get_firecrawl_client():
     When ``web.use_gateway`` is set in config, the Tool Gateway is preferred
     even if direct Firecrawl credentials are present.  Otherwise direct
     Firecrawl takes precedence when explicitly configured.
+    
+    Returns None when no configuration is available (caller should fallback).
     """
     global _firecrawl_client, _firecrawl_client_config
 
@@ -238,10 +242,11 @@ def _get_firecrawl_client():
             token_reader=_read_nous_access_token,
         )
         if managed_gateway is None:
-            logger.error(
-                "Firecrawl client initialization failed: missing direct config and tool-gateway auth."
+            logger.warning(
+                "Firecrawl client not configured: no direct config and no tool-gateway auth. "
+                "Web search will fallback to terminal-based search."
             )
-            _raise_web_backend_configuration_error()
+            return None
 
         kwargs = {
             "api_key": managed_gateway.nous_user_token,
@@ -972,7 +977,7 @@ def _get_exa_client():
 
 def _exa_search(query: str, limit: int = 10) -> dict:
     """Search using the Exa SDK and return results as a dict."""
-    from prometheus.tools.interrupt import is_interrupted
+    from prometheus.tools.security.interrupt import is_interrupted
 
     if is_interrupted():
         return {"error": "Interrupted", "success": False}
@@ -1007,7 +1012,7 @@ def _exa_extract(urls: list[str]) -> list[dict[str, Any]]:
     Returns a list of result dicts matching the structure expected by the
     LLM post-processing pipeline (url, title, content, metadata).
     """
-    from prometheus.tools.interrupt import is_interrupted
+    from prometheus.tools.security.interrupt import is_interrupted
 
     if is_interrupted():
         return [{"url": u, "error": "Interrupted", "title": ""} for u in urls]
@@ -1041,7 +1046,7 @@ def _exa_extract(urls: list[str]) -> list[dict[str, Any]]:
 
 def _parallel_search(query: str, limit: int = 5) -> dict:
     """Search using the Parallel SDK and return results as a dict."""
-    from prometheus.tools.interrupt import is_interrupted
+    from prometheus.tools.security.interrupt import is_interrupted
 
     if is_interrupted():
         return {"error": "Interrupted", "success": False}
@@ -1079,7 +1084,7 @@ async def _parallel_extract(urls: list[str]) -> list[dict[str, Any]]:
     Returns a list of result dicts matching the structure expected by the
     LLM post-processing pipeline (url, title, content, metadata).
     """
-    from prometheus.tools.interrupt import is_interrupted
+    from prometheus.tools.security.interrupt import is_interrupted
 
     if is_interrupted():
         return [{"url": u, "error": "Interrupted", "title": ""} for u in urls]
@@ -1119,6 +1124,111 @@ async def _parallel_extract(urls: list[str]) -> list[dict[str, Any]]:
         )
 
     return results
+
+
+def _fallback_terminal_search(query: str, limit: int) -> dict:
+    """Fallback web search using terminal curl to GitHub API when no web backend configured.
+    
+    This allows basic search functionality even without Firecrawl/Exa/Tavily/Parallel API keys.
+    """
+    import subprocess
+    import urllib.parse
+    
+    try:
+        # Search GitHub repositories
+        encoded_query = urllib.parse.quote(query)
+        url = f"https://api.github.com/search/repositories?q={encoded_query}&sort=stars&order=desc&per_page={limit}"
+        
+        result = subprocess.run(
+            ["curl", "-s", "-H", "Accept: application/vnd.github.v3+json", url],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+        
+        if result.returncode == 0:
+            import json as _json
+            data = _json.loads(result.stdout)
+            
+            web_results = []
+            for i, item in enumerate(data.get("items", [])[:limit]):
+                web_results.append({
+                    "title": item.get("full_name", ""),
+                    "url": item.get("html_url", ""),
+                    "description": item.get("description", "") or "No description",
+                    "position": i + 1,
+                    "stars": item.get("stargazers_count", 0),
+                    "language": item.get("language", ""),
+                })
+            
+            if web_results:
+                logger.info("Fallback terminal search found %d results", len(web_results))
+                return {"success": True, "data": {"web": web_results}}
+        
+        # If GitHub search failed, try DuckDuckGo via curl
+        logger.warning("GitHub API search failed, trying DuckDuckGo fallback")
+        return _fallback_duckduckgo_search(query, limit)
+        
+    except Exception as e:
+        logger.warning("Fallback terminal search failed: %s", e)
+        return _fallback_duckduckgo_search(query, limit)
+
+
+def _fallback_duckduckgo_search(query: str, limit: int) -> dict:
+    """Fallback search using DuckDuckGo HTML scraping when no API is configured."""
+    import subprocess
+    import urllib.parse
+    from html.parser import HTMLParser
+    
+    try:
+        encoded_query = urllib.parse.quote(query)
+        url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
+        
+        result = subprocess.run(
+            ["curl", "-s", "-A", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36", url],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+        
+        if result.returncode == 0 and result.stdout:
+            # Simple HTML parsing to extract search results
+            web_results = []
+            html_content = result.stdout
+            
+            # Extract result links using regex
+            import re
+            pattern = r'<a[^>]+class="result[^"]*"[^>]+href="([^"]+)"[^>]*>(.*?)</a>'
+            matches = re.findall(pattern, html_content, re.DOTALL)
+            
+            for i, (url, title) in enumerate(matches[:limit]):
+                # Clean title
+                title = re.sub(r'<[^>]+>', '', title).strip()
+                if title and url.startswith('http'):
+                    web_results.append({
+                        "title": title,
+                        "url": url,
+                        "description": "Content from fallback search",
+                        "position": i + 1,
+                    })
+            
+            if web_results:
+                logger.info("DuckDuckGo fallback found %d results", len(web_results))
+                return {"success": True, "data": {"web": web_results}}
+        
+        return {
+            "success": False,
+            "data": {"web": []},
+            "message": "No web search backend configured. Run 'prometheus setup tools' to configure Firecrawl, Exa, Tavily, or Parallel API."
+        }
+        
+    except Exception as e:
+        logger.error("DuckDuckGo fallback failed: %s", e)
+        return {
+            "success": False,
+            "data": {"web": []},
+            "message": f"Web search unavailable: {str(e)}. Configure a search API via 'prometheus setup tools'."
+        }
 
 
 def web_search_tool(query: str, limit: int = 5) -> str:
@@ -1170,7 +1280,7 @@ def web_search_tool(query: str, limit: int = 5) -> str:
     }
 
     try:
-        from prometheus.tools.interrupt import is_interrupted
+        from prometheus.tools.security.interrupt import is_interrupted
 
         if is_interrupted():
             return tool_error("Interrupted", success=False)
@@ -1214,26 +1324,24 @@ def web_search_tool(query: str, limit: int = 5) -> str:
             _debug.save()
             return result_json
 
+        # Firecrawl backend
         logger.info("Searching the web for: '%s' (limit: %d)", query, limit)
-
-        response = _get_firecrawl_client().search(query=query, limit=limit)
-
-        web_results = _extract_web_search_results(response)
-        results_count = len(web_results)
-        logger.info("Found %d search results", results_count)
-
-        # Build response with just search metadata (URLs, titles, descriptions)
-        response_data = {"success": True, "data": {"web": web_results}}
-
-        # Capture debug information
+        
+        firecrawl_client = _get_firecrawl_client()
+        if firecrawl_client is None:
+            # No web backend configured, use terminal fallback
+            logger.info("No web backend configured, using terminal fallback search")
+            response_data = _fallback_terminal_search(query, limit)
+        else:
+            response = firecrawl_client.search(query=query, limit=limit)
+            web_results = _extract_web_search_results(response)
+            response_data = {"success": True, "data": {"web": web_results}}
+        
+        results_count = len(response_data.get("data", {}).get("web", []))
         debug_call_data["results_count"] = results_count
-
-        # Convert to JSON
+        
         result_json = json.dumps(response_data, indent=2, ensure_ascii=False)
-
         debug_call_data["final_response_size"] = len(result_json)
-
-        # Log debug information
         _debug.log_call("web_search_tool", debug_call_data)
         _debug.save()
 
@@ -1369,7 +1477,7 @@ async def web_extract_tool(
                 # Batch scraping adds complexity without much benefit for small numbers of URLs
                 results: list[dict[str, Any]] = []
 
-                from prometheus.tools.interrupt import is_interrupted as _is_interrupted
+                from prometheus.tools.security.interrupt import is_interrupted as _is_interrupted
 
                 for url in safe_urls:
                     if _is_interrupted():
@@ -1733,7 +1841,7 @@ async def web_crawl_tool(
                     ensure_ascii=False,
                 )
 
-            from prometheus.tools.interrupt import is_interrupted as _is_int
+            from prometheus.tools.security.interrupt import is_interrupted as _is_int
 
             if _is_int():
                 return tool_error("Interrupted", success=False)
@@ -1904,7 +2012,7 @@ async def web_crawl_tool(
         if instructions:
             logger.info("Instructions parameter ignored (not supported in crawl API)")
 
-        from prometheus.tools.interrupt import is_interrupted as _is_int
+        from prometheus.tools.security.interrupt import is_interrupted as _is_int
 
         if _is_int():
             return tool_error("Interrupted", success=False)
@@ -2303,7 +2411,7 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 WEB_SEARCH_SCHEMA = {
     "name": "web_search",

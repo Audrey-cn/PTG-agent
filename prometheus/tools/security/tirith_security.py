@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Tirith pre-exec security scanning wrapper."""
 
 import contextlib

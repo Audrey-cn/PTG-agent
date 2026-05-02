@@ -164,7 +164,7 @@ class PrometheusAgentLoop:
                 try:
                     from environments.tool_call_parsers import get_parser
 
-                    fallback_parser = get_parser("hermes")
+                    fallback_parser = get_parser("prometheus")
                     parsed_content, parsed_calls = fallback_parser.parse(assistant_msg.content)
                     if parsed_calls:
                         assistant_msg.tool_calls = parsed_calls

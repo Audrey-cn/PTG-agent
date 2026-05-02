@@ -1,7 +1,9 @@
 """
 Prometheus 史诗级配置系统
-借鉴 Hermes Agent 的完整架构
+借鉴 Prometheus Agent 的完整架构
 """
+
+from __future__ import annotations
 
 import contextlib
 import json
@@ -254,16 +256,16 @@ class PrometheusConfig:
 
     def validate(self) -> list[str]:
         """Validate config structure and values.
-        
+
         Returns:
             List of validation error messages (empty if valid).
         """
         errors = []
-        
+
         if not isinstance(self._config, dict):
             errors.append("Config must be a dictionary")
             return errors
-        
+
         model = self._config.get("model", {})
         if not isinstance(model, dict):
             errors.append("'model' section must be a dictionary")
@@ -276,7 +278,7 @@ class PrometheusConfig:
                 temp = model["temperature"]
                 if not isinstance(temp, (int, float)) or temp < 0 or temp > 2:
                     errors.append("'model.temperature' must be between 0 and 2")
-        
+
         display = self._config.get("display", {})
         if not isinstance(display, dict):
             errors.append("'display' section must be a dictionary")
@@ -285,7 +287,7 @@ class PrometheusConfig:
                 errors.append("'display.compact' must be a boolean")
             if "streaming" in display and not isinstance(display["streaming"], bool):
                 errors.append("'display.streaming' must be a boolean")
-        
+
         agent = self._config.get("agent", {})
         if not isinstance(agent, dict):
             errors.append("'agent' section must be a dictionary")
@@ -294,13 +296,13 @@ class PrometheusConfig:
                 errors.append("'agent.max_turns' must be an integer")
             if "gateway_timeout" in agent and not isinstance(agent["gateway_timeout"], int):
                 errors.append("'agent.gateway_timeout' must be an integer")
-        
+
         return errors
 
     @classmethod
     def add_change_listener(cls, callback):
         """Add a listener for config changes.
-        
+
         Args:
             callback: Function to call when config changes, receives (key, value)
         """
@@ -396,16 +398,14 @@ def get_env_value(name: str, default=None):
 
 def load_config() -> dict:
     """Load Prometheus configuration.
-    
+
     Deprecated: Use PrometheusConfig.load() instead.
     This function is kept for backward compatibility.
-    
+
     Returns:
         Configuration dictionary with all values.
     """
-    logger.debug(
-        "load_config() is deprecated. Use PrometheusConfig.load() instead."
-    )
+    logger.debug("load_config() is deprecated. Use PrometheusConfig.load() instead.")
     config = PrometheusConfig.load()
     return config.to_dict()
 
@@ -424,22 +424,20 @@ def cfg_get(config: dict, path: str, default=None):
 
 def save_config(config: dict) -> None:
     """Save configuration to file.
-    
+
     Deprecated: Use PrometheusConfig class instead.
     This function is kept for backward compatibility.
-    
+
     Args:
         config: Configuration dictionary to save.
     """
-    logger.debug(
-        "save_config() is deprecated. Use PrometheusConfig.save() instead."
-    )
+    logger.debug("save_config() is deprecated. Use PrometheusConfig.save() instead.")
     if isinstance(config, dict):
         if "_config_version" not in config:
             merged_config = DEFAULT_CONFIG.copy()
             merged_config.update(config)
             config = merged_config
-        
+
         cfg = PrometheusConfig(config_dict=config)
         cfg.save()
     else:
@@ -577,35 +575,35 @@ def read_raw_config() -> dict:
 
 def migrate_json_to_yaml() -> bool:
     """Migrate existing JSON config to YAML format.
-    
+
     Returns:
         True if migration was successful or not needed, False if migration failed.
     """
     config_path = get_config_path()
     if not config_path.exists():
         return True
-    
+
     try:
         with open(config_path, encoding="utf-8") as f:
             content = f.read()
-        
+
         try:
             config = json.loads(content)
         except json.JSONDecodeError:
             return True
-        
-        backup_path = config_path.with_suffix('.json.backup')
+
+        backup_path = config_path.with_suffix(".json.backup")
         if not backup_path.exists():
             config_path.rename(backup_path)
             logger.info("Backed up JSON config to %s", backup_path)
-        
-        with open(config_path, 'w', encoding='utf-8') as f:
+
+        with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
-        
+
         _secure_file(config_path)
         logger.info("Successfully migrated config from JSON to YAML")
         return True
-        
+
     except Exception as e:
         logger.error("Failed to migrate config: %s", e)
         return False

@@ -17,7 +17,7 @@ import time
 import urllib.parse
 import uuid
 from abc import ABC, abstractmethod
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -55,7 +55,7 @@ from prometheus.gateway.platforms.yuanbao_media import (
 )
 from prometheus.gateway.platforms.yuanbao_proto import (
     CMD_TYPE,
-    HERMES_INSTANCE_ID,
+    PROMETHEUS_INSTANCE_ID,
     WS_HEARTBEAT_FINISH,
     WS_HEARTBEAT_RUNNING,
     _fields_to_dict,
@@ -88,13 +88,13 @@ logger = logging.getLogger(__name__)
 # Version / platform constants (used in AUTH_BIND and sign-token headers)
 # ---------------------------------------------------------------------------
 try:
-    from prometheus.cli import __version__ as _HERMES_VERSION
+    from prometheus.cli import __version__ as _PROMETHEUS_VERSION
 except ImportError:
-    _HERMES_VERSION = "0.0.0"
+    _PROMETHEUS_VERSION = "0.0.0"
 
-_APP_VERSION = _HERMES_VERSION
-_BOT_VERSION = _HERMES_VERSION
-_YUANBAO_INSTANCE_ID = str(HERMES_INSTANCE_ID)  # single source: yuanbao_proto.HERMES_INSTANCE_ID
+_APP_VERSION = _PROMETHEUS_VERSION
+_BOT_VERSION = _PROMETHEUS_VERSION
+_YUANBAO_INSTANCE_ID = str(PROMETHEUS_INSTANCE_ID)  # single source: yuanbao_proto.PROMETHEUS_INSTANCE_ID
 _OPERATION_SYSTEM = sys.platform
 
 # ---------------------------------------------------------------------------

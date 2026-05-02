@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Profile management for multiple isolated Prometheus instances."""
 
 import contextlib

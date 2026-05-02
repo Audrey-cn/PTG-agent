@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """Delegate Tool -- Subagent Architecture."""
 
@@ -18,10 +20,9 @@ from concurrent.futures import (
 )
 from typing import Any
 
-from tools import file_state
-from toolsets import TOOLSETS
-
+from prometheus.tools import file_state
 from prometheus.tools.terminal_tool import set_approval_callback as _set_subagent_approval_cb
+from prometheus.toolsets import TOOLSETS
 from prometheus.utils import base_url_hostname, is_truthy_value
 
 DELEGATE_BLOCKED_TOOLS = frozenset(
@@ -304,7 +305,7 @@ def _is_mcp_toolset_name(name: str) -> bool:
     if str(name).startswith("mcp-"):
         return True
     try:
-        from prometheus.tools.registry import registry
+        from prometheus.tools.security.registry import registry
 
         target = registry.get_toolset_alias_target(str(name))
     except Exception:
@@ -1792,9 +1793,9 @@ def _load_config() -> dict:
     except Exception:
         pass
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        full = load_config()
+        full = PrometheusConfig.load()
         return full.get("delegation", {})
     except Exception:
         return {}
@@ -1957,7 +1958,7 @@ DELEGATE_TASK_SCHEMA = {
 }
 
 
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 registry.register(
     name="delegate_task",

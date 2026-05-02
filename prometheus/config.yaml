@@ -11,7 +11,7 @@ gene:
   mutation_rate: 0.1
 logging:
   backup_count: 3
-  file: ~/.hermes/tools/prometheus/prometheus.log
+  file: ~/.prometheus/tools/prometheus/prometheus.log
   level: INFO
   max_size_mb: 10
 memory:
@@ -28,11 +28,11 @@ model:
   provider: openrouter
   temperature: '0.9'
 paths:
-  data_dir: ~/.hermes/tools/prometheus/data
-  knowledge_dir: ~/.hermes/knowledge
-  seed_vault: ~/.hermes/seed-vault
-  skills_dir: ~/.hermes/skills
-  snapshot_dir: ~/.hermes/tools/prometheus/snapshots
+  data_dir: ~/.prometheus/tools/prometheus/data
+  knowledge_dir: ~/.prometheus/knowledge
+  seed_vault: ~/.prometheus/seed-vault
+  skills_dir: ~/.prometheus/skills
+  snapshot_dir: ~/.prometheus/tools/prometheus/snapshots
 reflection:
   daily_review_enabled: true
   enabled: true

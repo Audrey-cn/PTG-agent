@@ -8,7 +8,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 
-PROMETHEUS_HOME = os.path.expanduser("~/.hermes/tools/prometheus")
+PROMETHEUS_HOME = os.path.expanduser("~/.prometheus/tools/prometheus")
 ALLELES_DIR = os.path.join(PROMETHEUS_HOME, "genes", "alleles")
 ALLELES_CATALOG = os.path.join(ALLELES_DIR, "alleles_catalog.json")
 

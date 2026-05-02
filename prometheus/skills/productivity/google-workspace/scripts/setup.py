@@ -30,12 +30,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Ensure sibling modules (_hermes_home) are importable when run standalone.
+# Ensure sibling modules (_prometheus_home) are importable when run standalone.
 _SCRIPTS_DIR = str(Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from _hermes_home import display_hermes_home, get_prometheus_home
+from _prometheus_home import display_prometheus_home, get_prometheus_home
 
 PROMETHEUS_HOME = get_prometheus_home()
 TOKEN_PATH = PROMETHEUS_HOME / "google_token.json"
@@ -345,7 +345,7 @@ def exchange_auth_code(code: str):
     TOKEN_PATH.write_text(json.dumps(token_payload, indent=2))
     PENDING_AUTH_PATH.unlink(missing_ok=True)
     print(f"OK: Authenticated. Token saved to {TOKEN_PATH}")
-    print(f"Profile-scoped token location: {display_hermes_home()}/google_token.json")
+    print(f"Profile-scoped token location: {display_prometheus_home()}/google_token.json")
 
 
 def revoke():

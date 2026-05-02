@@ -1,6 +1,6 @@
 """
 Prometheus 交互式 REPL
-参考 Hermes 的设计实现
+参考 Prometheus 的设计实现
 """
 
 import json
@@ -225,8 +225,8 @@ Prometheus 命令帮助: {self._get_help_header()}
         for name in tool_names:
             toolset = registry.get_toolset_for_tool(name) or "default"
             if toolset not in tools_by_set:
-                tools_by_Set[toolset] = []
-            tools_by_Set[toolset].append(name)
+                tools_by_set[toolset] = []
+            tools_by_set[toolset].append(name)
 
         for toolset, names in sorted(tools_by_set.items()):
             emoji = ""

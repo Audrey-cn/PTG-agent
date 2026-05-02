@@ -7,13 +7,13 @@ import os
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 
-from storage import StateStore, StorageEngine
+from prometheus.storage import StateStore, StorageEngine
 
 # ═══════════════════════════════════════════
 #   配置
 # ═══════════════════════════════════════════
 
-REFLECTION_DIR = os.path.expanduser("~/.hermes/tools/prometheus/reflection")
+REFLECTION_DIR = os.path.expanduser("~/.prometheus/tools/prometheus/reflection")
 os.makedirs(REFLECTION_DIR, exist_ok=True)
 
 # 进化提案触发阈值

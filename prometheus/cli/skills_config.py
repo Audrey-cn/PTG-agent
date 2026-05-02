@@ -1,8 +1,10 @@
 """Skills configuration for Prometheus Agent."""
 
+from __future__ import annotations
+
 from prometheus.cli.colors import Colors, color
-from prometheus.cli.config import cfg_get, load_config, save_config
 from prometheus.cli.platforms import PLATFORMS as _PLATFORMS
+from prometheus.config import PrometheusConfig, save_config
 
 PLATFORMS = {k: info.label for k, info in _PLATFORMS.items() if k != "api_server"}
 
@@ -15,7 +17,7 @@ def get_disabled_skills(config: dict, platform: str | None = None) -> set[str]:
     global_disabled = set(skills_cfg.get("disabled", []))
     if platform is None:
         return global_disabled
-    platform_disabled = cfg_get(skills_cfg, "platform_disabled", platform)
+    platform_disabled = config.get("skills", {}).get("platform_disabled", {}).get(platform)
     if platform_disabled is None:
         return global_disabled
     return set(platform_disabled)
@@ -117,7 +119,7 @@ def skills_command(args=None):
     """Entry point for `prometheus skills`."""
     from prometheus.cli.curses_ui import curses_checklist
 
-    config = load_config()
+    config = PrometheusConfig.load().to_dict()
     skills = _list_all_skills()
 
     if not skills:

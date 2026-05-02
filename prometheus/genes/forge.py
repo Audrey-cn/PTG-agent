@@ -13,7 +13,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 PROMETHEUS_HOME = os.path.dirname(os.path.abspath(__file__))
-GENE_LAB = os.path.expanduser("~/.hermes/gene-lab")
+GENE_LAB = os.path.expanduser("~/.prometheus/gene-lab")
 os.makedirs(GENE_LAB, exist_ok=True)
 
 # =====================================================
@@ -360,7 +360,7 @@ def print_help():
     --name <名称>              批次名称
 
 示例:
-    python geneforge.py forge ~/.hermes/skills/teach-to-grow/teach-to-grow-core.ttg \\
+    python geneforge.py forge ~/.prometheus/skills/teach-to-grow/teach-to-grow-core.ttg \\
         --genes G100-writer,G101-vision,G200-network \\
         --mode power_set --max 20
 """)
@@ -423,7 +423,7 @@ def main():
         print("\n✅ 锻造完成!")
         print("  批次: {}".format(manifest["batch_id"]))
         print("  产出: {} 个变异体".format(manifest["variant_count"]))
-        print("  输出: ~/.hermes/gene-lab/{}/".format(manifest["batch_id"]))
+        print("  输出: ~/.prometheus/gene-lab/{}/".format(manifest["batch_id"]))
 
         # 展示前5个
         for v in manifest["variants"][:5]:

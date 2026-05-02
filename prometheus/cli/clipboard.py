@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Clipboard image extraction for macOS, Windows, Linux, and WSL2."""
 
 import base64

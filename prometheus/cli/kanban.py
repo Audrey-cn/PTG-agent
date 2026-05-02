@@ -24,7 +24,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from prometheus.cli.commands import kanban_db as kb
+import prometheus.cli.kanban_db as kb
 
 # ---------------------------------------------------------------------------
 # Small formatting helpers
@@ -120,9 +120,9 @@ def _check_dispatcher_presence() -> tuple[bool, str]:
 
     # Even if the gateway is up, dispatch_in_gateway may be off.
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config()
+        cfg = PrometheusConfig.load()
         dispatch_on = bool(cfg.get("kanban", {}).get("dispatch_in_gateway", True))
     except Exception:
         dispatch_on = True  # can't tell — assume default

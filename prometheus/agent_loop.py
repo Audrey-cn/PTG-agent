@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """Prometheus AIAgent - 完整 Agent 循环实现."""
 
@@ -17,11 +19,29 @@ try:
     from .context_compressor import CompressionStrategy, ContextCompressor
     from .memory_system import get_soul_path
     from .tools.security.registry import registry, tool_error, tool_result
+    from .display import (
+        KawaiiSpinner,
+        build_tool_preview,
+        get_tool_emoji,
+        get_cute_tool_message,
+    )
 except ImportError:
     from context_compressor import CompressionStrategy, ContextCompressor
     from memory_system import get_soul_path
 
-    from prometheus.tools.security.registry import registry, tool_error, tool_result
+    from prometheus.tools.security.registry import registry
+    try:
+        from prometheus.display import (
+            KawaiiSpinner,
+            build_tool_preview,
+            get_tool_emoji,
+            get_cute_tool_message,
+        )
+    except ImportError:
+        KawaiiSpinner = None
+        build_tool_preview = None
+        get_tool_emoji = None
+        get_cute_tool_message = None
 
 logger = logging.getLogger("prometheus.agent")
 
@@ -136,6 +156,7 @@ class AgentConfig:
     session_id: str = None
     skip_context_files: bool = False
     skip_memory: bool = False
+    streaming: bool = False
 
 
 @dataclass
@@ -218,6 +239,8 @@ class OpenAICompatTransport:
         tools: list = None,
         max_tokens: int = 8192,
         temperature: float = 0.7,
+        stream: bool = False,
+        stream_callback=None,
         **kwargs,
     ) -> dict:
         if self._client is None:
@@ -235,8 +258,68 @@ class OpenAICompatTransport:
             params["tools"] = tools
             params["tool_choice"] = "auto"
 
+        if stream:
+            params["stream"] = True
+            return self._stream_response(self._client.chat.completions.create(**params), stream_callback)
+        
         response = self._client.chat.completions.create(**params)
         return self._parse_response(response)
+
+    def _stream_response(self, stream, callback):
+        """处理流式响应"""
+        content = ""
+        tool_calls = []
+        current_tool_call = None
+        finish_reason = "stop"
+        usage = {}
+
+        for chunk in stream:
+            if hasattr(chunk, "choices") and chunk.choices:
+                delta = chunk.choices[0].delta
+                finish_reason = chunk.choices[0].finish_reason or finish_reason
+
+                # 处理文本内容
+                if hasattr(delta, "content") and delta.content:
+                    content += delta.content
+                    if callback:
+                        callback({"type": "content", "delta": delta.content, "content": content})
+
+                # 处理工具调用
+                if hasattr(delta, "tool_calls") and delta.tool_calls:
+                    for tc in delta.tool_calls:
+                        # 检查是否有 index 且 index 大于 0，或者没有 index 但是新的工具调用
+                        is_new_tool = (
+                            current_tool_call is None or 
+                            (tc.index is not None and tc.index > 0) or
+                            (tc.id and current_tool_call.get("id") != tc.id)
+                        )
+                        
+                        if is_new_tool:
+                            if current_tool_call:
+                                tool_calls.append(current_tool_call)
+                            current_tool_call = {
+                                "id": tc.id or "",
+                                "name": tc.function.name if hasattr(tc.function, "name") else "",
+                                "arguments": "",
+                            }
+                        
+                        if current_tool_call and hasattr(tc.function, "arguments") and tc.function.arguments:
+                            current_tool_call["arguments"] += tc.function.arguments
+
+        if current_tool_call:
+            tool_calls.append(current_tool_call)
+
+        result = {
+            "content": content,
+            "finish_reason": finish_reason,
+            "tool_calls": tool_calls,
+            "usage": usage,
+        }
+
+        if callback:
+            callback({"type": "done", "result": result})
+
+        return result
 
     def _parse_response(self, response) -> dict:
         if hasattr(response, "choices") and response.choices:
@@ -421,7 +504,7 @@ class AIAgent:
     """
     Prometheus AIAgent - 完整 Agent 实现
 
-    基于 Hermes run_agent.py 的核心架构，提供：
+    基于 Prometheus run_agent.py 的核心架构，提供：
     - 完整的工具调用循环
     - 多 Provider 支持 (OpenAI/Anthropic/Gemini)
     - 上下文压缩
@@ -434,10 +517,21 @@ class AIAgent:
         config: AgentConfig | None = None,
         system_prompt: str = "",
         callback: Callable = None,
+        stream_callback: Callable = None,
+        status_callback: Callable = None,
+        tool_start_callback: Callable = None,
+        tool_complete_callback: Callable = None,
+        thinking_callback: Callable = None,
     ):
         self.config = config or AgentConfig()
         self.system_prompt = system_prompt or self._load_default_system_prompt()
         self.callback = callback
+        self.stream_callback = stream_callback
+        self.status_callback = status_callback
+        self.tool_start_callback = tool_start_callback
+        self.tool_complete_callback = tool_complete_callback
+        self.thinking_callback = thinking_callback
+        self._ensure_tools_loaded()
 
         self._transport = TransportFactory.create(
             self.config.provider,
@@ -452,6 +546,72 @@ class AIAgent:
         self._compressor = ContextCompressor()
         self._interrupt_requested = False
         self._budget_grace_call = True
+        self._current_status = "idle"
+
+    _tools_loaded = False
+    _session_logger = None
+
+    @classmethod
+    def _get_session_logger(cls):
+        """Get or create session logger."""
+        if cls._session_logger is None:
+            try:
+                from prometheus.checkpoint_system import get_session_logger
+                cls._session_logger = get_session_logger()
+            except Exception:
+                cls._session_logger = None
+        return cls._session_logger
+
+    @classmethod
+    def _ensure_tools_loaded(cls):
+        """Trigger tool module imports so that registry.register() calls execute."""
+        if cls._tools_loaded:
+            return
+        cls._tools_loaded = True
+        _core_modules = [
+            "prometheus.tools.file.file_tools",
+            "prometheus.tools.file.file_operations",
+            "prometheus.tools.devops.memory_tool",
+            "prometheus.tools.devops.todo_tool",
+            "prometheus.tools.devops.clarify_tool",
+            "prometheus.tools.devops.send_message_tool",
+            "prometheus.tools.devops.kanban_tools",
+            "prometheus.tools.devops.skill_manager_tool",
+            "prometheus.tools.devops.homeassistant_tool",
+            "prometheus.tools.devops.delegate_tool",
+            "prometheus.tools.browser.browser_tool",
+            "prometheus.tools.browser.browser_cdp_tool",
+            "prometheus.tools.browser.browser_dialog_tool",
+            "prometheus.tools.browser.browser_supervisor",
+            "prometheus.tools.cron.cron",
+            "prometheus.tools.cron.cronjob_tools",
+            "prometheus.tools.web.web_tools",
+            "prometheus.tools.web.session_search_tool",
+            "prometheus.tools.security.approval",
+            "prometheus.tools.security.budget_config",
+            "prometheus.tools.security.interrupt",
+            "prometheus.tools.security.path_security",
+            "prometheus.tools.security.process_registry",
+            "prometheus.tools.security.tool_result_storage",
+            "prometheus.tools.security.tool_output_limits",
+            "prometheus.tools.security.url_safety",
+            "prometheus.tools.terminal_tool",
+            "prometheus.tools.snapshot_tools",
+            "prometheus.tools.evolution_tools",
+            "prometheus.tools.chronicler_tools",
+            "prometheus.tools.image_generation_tool",
+            "prometheus.tools.vision_tools",
+            "prometheus.tools.platform.yuanbao_tools",
+            "prometheus.tools.platform.feishu_doc_tool",
+            "prometheus.tools.platform.feishu_drive_tool",
+        ]
+        import importlib
+
+        for mod in _core_modules:
+            try:
+                importlib.import_module(mod)
+            except Exception:
+                pass
 
     def _load_default_system_prompt(self) -> str:
         soul_path = get_soul_path()
@@ -485,6 +645,15 @@ You are helpful, precise, and follow the user's instructions carefully."""
         entry = registry.get(tool_name)
 
         if entry is None:
+            # Log failed tool lookup
+            logger = self._get_session_logger()
+            if logger:
+                logger.log_event("tool_call_error",
+                    tool_name=tool_name,
+                    args=self._truncate_args(tool_args),
+                    error=f"Unknown tool: {tool_name}",
+                    session_id=self._session_id,
+                )
             return ToolCallResult(
                 tool_name=tool_name,
                 tool_args=tool_args,
@@ -502,6 +671,20 @@ You are helpful, precise, and follow the user's instructions carefully."""
             else:
                 result_str = str(result)
 
+            # Log successful tool call
+            logger = self._get_session_logger()
+            if logger:
+                # Extract key info from result
+                result_summary = self._summarize_result(result_str)
+                logger.log_event("tool_call",
+                    tool_name=tool_name,
+                    args=self._truncate_args(tool_args),
+                    success=True,
+                    duration_ms=round(duration_ms, 1),
+                    result_summary=result_summary,
+                    session_id=self._session_id,
+                )
+
             return ToolCallResult(
                 tool_name=tool_name,
                 tool_args=tool_args,
@@ -511,6 +694,18 @@ You are helpful, precise, and follow the user's instructions carefully."""
             )
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
+            
+            # Log tool error
+            logger = self._get_session_logger()
+            if logger:
+                logger.log_event("tool_call_error",
+                    tool_name=tool_name,
+                    args=self._truncate_args(tool_args),
+                    error=str(e),
+                    duration_ms=round(duration_ms, 1),
+                    session_id=self._session_id,
+                )
+
             return ToolCallResult(
                 tool_name=tool_name,
                 tool_args=tool_args,
@@ -520,12 +715,43 @@ You are helpful, precise, and follow the user's instructions carefully."""
                 duration_ms=duration_ms,
             )
 
+    def _truncate_args(self, args: dict, max_length: int = 200) -> dict:
+        """Truncate argument values for logging."""
+        truncated = {}
+        for key, value in args.items():
+            str_value = str(value)
+            if len(str_value) > max_length:
+                truncated[key] = str_value[:max_length] + "..."
+            else:
+                truncated[key] = value
+        return truncated
+
+    def _summarize_result(self, result_str: str, max_length: int = 500) -> str:
+        """Summarize result for logging."""
+        if len(result_str) <= max_length:
+            return result_str
+        
+        try:
+            data = json.loads(result_str)
+            if isinstance(data, dict):
+                summary = {}
+                for key, value in data.items():
+                    str_value = str(value)
+                    if len(str_value) > 200:
+                        summary[key] = str_value[:200] + "..."
+                    else:
+                        summary[key] = value
+                return json.dumps(summary, ensure_ascii=False)
+        except (json.JSONDecodeError, TypeError):
+            pass
+        
+        return result_str[:max_length] + "..."
+
     def _format_tool_call_message(self, tc: dict, result: ToolCallResult) -> dict:
-        """格式化工具调用消息"""
+        """格式化工具调用结果消息"""
         return {
             "role": "tool",
             "tool_call_id": tc.get("id", f"call_{tc.get('name', 'unknown')}"),
-            "name": tc.get("name"),
             "content": result.result if result.success else f"Error: {result.error}",
         }
 
@@ -543,10 +769,24 @@ You are helpful, precise, and follow the user's instructions carefully."""
                 ).strip()
                 break
 
-        msg = {"role": "assistant", "content": content}
+        tool_calls = response.get("tool_calls")
 
-        if response.get("tool_calls"):
-            msg["tool_calls"] = response["tool_calls"]
+        # 当包含 tool_calls 时，content 必须为 None 以符合 OpenAI API 规范
+        if tool_calls:
+            # 转换为 OpenAI API 标准格式
+            formatted_tool_calls = []
+            for tc in tool_calls:
+                formatted_tool_calls.append({
+                    "id": tc.get("id", ""),
+                    "type": "function",
+                    "function": {
+                        "name": tc.get("name", ""),
+                        "arguments": tc.get("arguments", "{}"),
+                    },
+                })
+            msg = {"role": "assistant", "content": None, "tool_calls": formatted_tool_calls}
+        else:
+            msg = {"role": "assistant", "content": content if content else None}
 
         if reasoning:
             msg["reasoning"] = reasoning
@@ -617,9 +857,19 @@ You are helpful, precise, and follow the user's instructions carefully."""
         if system_message:
             messages.insert(1, {"role": "system", "content": system_message})
 
+        # Log conversation start
+        logger = self._get_session_logger()
+        if logger:
+            logger.log_event("conversation_start",
+                user_message=user_message[:500],
+                session_id=self._session_id,
+                history_length=len(effective_history) if effective_history else 0,
+            )
+
         api_call_count = 0
         iteration = 0
         tool_defs = self._get_tool_definitions()
+        use_stream = self.config.streaming or getattr(self.config, "stream", False)
 
         while (
             api_call_count < self.config.max_iterations and self._budget.remaining > 0
@@ -631,15 +881,55 @@ You are helpful, precise, and follow the user's instructions carefully."""
             iteration += 1
 
             try:
+                # 更新状态为思考中
+                self._current_status = "thinking"
+                if self.status_callback:
+                    self.status_callback({"status": "thinking", "iteration": iteration})
+
+                # Log API call start
+                api_logger = self._get_session_logger()
+                api_start_time = time.time()
+                if api_logger:
+                    api_logger.log_event("api_call",
+                        model=self.config.model,
+                        iteration=iteration,
+                        message_count=len(messages),
+                        has_tools=bool(tool_defs),
+                        session_id=self._session_id,
+                    )
+
+                # 流式回调
+                def stream_handler(event):
+                    if self.stream_callback:
+                        self.stream_callback(event)
+
                 response = self._transport.create_completion(
                     messages=messages,
                     model=self.config.model,
                     tools=tool_defs if tool_defs else None,
                     max_tokens=self.config.max_tokens,
                     temperature=self.config.temperature,
+                    stream=use_stream,
+                    stream_callback=stream_handler,
                 )
+                
+                # Log API call completion
+                api_duration = time.time() - api_start_time
+                if api_logger:
+                    api_logger.log_event("api_call_complete",
+                        model=self.config.model,
+                        iteration=iteration,
+                        duration_ms=round(api_duration * 1000, 1),
+                        has_tool_calls=bool(response.get("tool_calls")),
+                        tool_call_count=len(response.get("tool_calls", [])),
+                        content_length=len(response.get("content", "")),
+                        session_id=self._session_id,
+                    )
             except Exception as e:
                 logger.error(f"API call failed: {e}")
+                self._current_status = "error"
+                if self.status_callback:
+                    self.status_callback({"status": "error", "error": str(e)})
                 return AgentResponse(
                     content=f"API call failed: {e}",
                     finish_reason="error",
@@ -665,6 +955,21 @@ You are helpful, precise, and follow the user's instructions carefully."""
                     logger.warning(f"Callback failed: {e}")
 
             if not response.get("tool_calls"):
+                self._current_status = "idle"
+                if self.status_callback:
+                    self.status_callback({"status": "idle"})
+                
+                # Log conversation end
+                end_logger = self._get_session_logger()
+                if end_logger:
+                    end_logger.log_event("conversation_end",
+                        final_content=response.get("content", "")[:500],
+                        finish_reason=response.get("finish_reason", "stop"),
+                        api_call_count=api_call_count,
+                        iteration=iteration,
+                        session_id=self._session_id,
+                    )
+                
                 if self._trajectory:
                     self._trajectory.save(self._session_id)
                 return AgentResponse(
@@ -674,6 +979,7 @@ You are helpful, precise, and follow the user's instructions carefully."""
                     session_id=self._session_id,
                 )
 
+            # 处理工具调用
             for tc in response["tool_calls"]:
                 tc_name = tc.get("name", "")
                 tc_args = {}
@@ -682,7 +988,49 @@ You are helpful, precise, and follow the user's instructions carefully."""
                 except json.JSONDecodeError:
                     tc_args = {"raw": tc.get("arguments", "")}
 
+                # 更新状态为工具调用中
+                self._current_status = f"calling_tool:{tc_name}"
+                if self.status_callback:
+                    self.status_callback({
+                        "status": "calling_tool",
+                        "tool_name": tc_name,
+                        "tool_args": tc_args,
+                    })
+
+                # 工具开始回调 - 显示 KawaiiSpinner
+                tool_start_time = time.time()
+                if self.tool_start_callback:
+                    self.tool_start_callback({
+                        "tool_name": tc_name,
+                        "tool_args": tc_args,
+                    })
+                elif KawaiiSpinner:
+                    preview = build_tool_preview(tc_name, tc_args) if build_tool_preview else ""
+                    spinner_msg = f"calling {tc_name}"
+                    if preview:
+                        spinner_msg = f"calling {tc_name}: {preview}"
+                    _spinner = KawaiiSpinner(spinner_msg)
+                    _spinner.start()
+
+                # 执行工具
                 result = self._execute_tool(tc_name, tc_args)
+                tool_duration = time.time() - tool_start_time
+
+                # 工具完成回调
+                if self.tool_complete_callback:
+                    self.tool_complete_callback({
+                        "tool_name": tc_name,
+                        "tool_args": tc_args,
+                        "result": result.result,
+                        "success": result.success,
+                        "duration": tool_duration,
+                    })
+                elif KawaiiSpinner:
+                    if '_spinner' in locals():
+                        _spinner.stop()
+                        tool_msg = get_cute_tool_message(tc_name, tc_args, tool_duration, result.result) if get_cute_tool_message else f"done {tc_name} ({tool_duration:.1f}s)"
+                        print(tool_msg)
+
                 tool_msg = self._format_tool_call_message(tc, result)
                 messages.append(tool_msg)
 
@@ -708,6 +1056,10 @@ You are helpful, precise, and follow the user's instructions carefully."""
         if self._trajectory:
             self._trajectory.save(self._session_id)
 
+        self._current_status = "idle"
+        if self.status_callback:
+            self.status_callback({"status": "idle"})
+
         final_content = messages[-1].get("content", "") if messages else ""
         return AgentResponse(
             content=final_content,
@@ -728,12 +1080,20 @@ def create_agent(
     provider: str = "openai",
     api_key: str = "",
     base_url: str = "",
-    max_iterations: int = 90,
+    max_iterations: int = None,
     system_prompt: str = "",
     save_trajectories: bool = False,
     **kwargs,
 ) -> AIAgent:
     """创建 Agent 实例的便捷函数"""
+    if max_iterations is None:
+        try:
+            from prometheus.config import PrometheusConfig
+            config_obj = PrometheusConfig.load()
+            max_iterations = config_obj.get("agent.max_turns", 90)
+        except Exception:
+            max_iterations = 90
+    
     config = AgentConfig(
         model=model or os.environ.get("OPENAI_MODEL", "gpt-4"),
         provider=provider,

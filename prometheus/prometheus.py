@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """╔══════════════════════════════════════════════════════════════╗."""
 
@@ -568,7 +570,7 @@ def cmd_lexicon(seed_path: str):
 def cmd_vault():
     """种子仓库管理"""
     seeds = []
-    for root, _dirs, files in os.walk(os.path.expanduser("~/.hermes")):
+    for root, _dirs, files in os.walk(os.path.expanduser("~/.prometheus")):
         for f in files:
             if f.endswith(".ttg"):
                 seeds.append(os.path.join(root, f))
@@ -1064,7 +1066,7 @@ def _update_genealogy(content, gene_id, action):
     tag = "gene_insertion" if action == "insert" else "gene_removal"
 
     entry = '      - {g: 2, v: "MUTATION", ep: "Y' + str(now.year)
-    entry += "-D" + str(now.timetuple().tm_yday) + '", env: "HERMES-' + env_hash
+    entry += "-D" + str(now.timetuple().tm_yday) + '", env: "prometheus-' + env_hash
     entry += '", tags: ["' + tag + '", "gene_edit"], by: "PROMETHEUS"'
     entry += ', p: "TTG@L1-G1-ORIGIN-FB1F3A11"}\n'
 
@@ -1191,7 +1193,7 @@ class PrometheusAPI:
     def vault(self) -> list:
         """扫描种子仓库"""
         seeds = []
-        for root, _dirs, files in os.walk(os.path.expanduser("~/.hermes")):
+        for root, _dirs, files in os.walk(os.path.expanduser("~/.prometheus")):
             for f in files:
                 if f.endswith(".ttg"):
                     seeds.append(
@@ -1396,7 +1398,7 @@ class PrometheusAPI:
             combinations: "power_set" | "all" | "single"
             ordering: 是否排列基因顺序
             max_variants: 最大变异体数量
-            output_dir: 输出目录（默认 ~/.hermes/gene-lab/）
+            output_dir: 输出目录（默认 ~/.prometheus/gene-lab/）
             batch_name: 批次名称
 
         Returns:
@@ -1803,9 +1805,9 @@ class SeedGardener:
 
     # 默认搜索路径提示（由环境配置覆盖）
     DEFAULT_SEARCH_HINTS = [
-        "~/.hermes/skills/",  # Hermes技能目录
-        "~/.hermes/seed-vault/",  # 种子仓库
-        "~/.hermes/tools/prometheus/",  # 框架自身
+        "~/.prometheus/skills/",  # Prometheus技能目录
+        "~/.prometheus/seed-vault/",  # 种子仓库
+        "~/.prometheus/tools/prometheus/",  # 框架自身
     ]
 
     def __init__(self, search_paths=None):
@@ -1944,7 +1946,7 @@ class SeedGardener:
                 info["generation"] = int(m.group(1))
 
             # variant
-            m = re.search(r'veariant:\s*"([^"]*)"', content)
+            m = re.search(r'variant:\s*(\S+)', content)
             if m:
                 info["variant"] = m.group(1)
 
@@ -2302,7 +2304,7 @@ def main():
             if not seed_arg:
                 # 默认使用始祖种子
                 seed_arg = os.path.expanduser(
-                    "~/.hermes/skills/teach-to-grow/teach-to-grow-core.ttg"
+                    "~/.prometheus/skills/teach-to-grow/teach-to-grow-core.ttg"
                 )
 
             sid = save_snapshot(seed_arg, note)
@@ -2505,7 +2507,7 @@ def main():
             print("❌ {}".format(result["error"]))
         else:
             print(
-                "✅ 锻造完成! {} 个变异体 → ~/.hermes/gene-lab/{}/".format(
+                "✅ 锻造完成! {} 个变异体 → ~/.prometheus/gene-lab/{}/".format(
                     result["variant_count"], result["batch_id"]
                 )
             )

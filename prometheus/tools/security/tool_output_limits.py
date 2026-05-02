@@ -21,9 +21,9 @@ def _coerce_positive_int(value: Any, default: int) -> int:
 
 def get_tool_output_limits() -> dict[str, int]:
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config() or {}
+        cfg = PrometheusConfig.load()
         section = cfg.get("tool_output") if isinstance(cfg, dict) else None
         if not isinstance(section, dict):
             section = {}

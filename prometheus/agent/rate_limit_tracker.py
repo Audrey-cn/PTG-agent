@@ -3,7 +3,7 @@
 import logging
 import threading
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from prometheus_time import now as prometheus_now

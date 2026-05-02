@@ -8,7 +8,7 @@ import os
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-PROMETHEUS_HOME = os.path.expanduser("~/.hermes/tools/prometheus")
+PROMETHEUS_HOME = os.path.expanduser("~/.prometheus/tools/prometheus")
 IMMUNE_DIR = os.path.join(PROMETHEUS_HOME, "immune_memory")
 
 os.makedirs(IMMUNE_DIR, exist_ok=True)

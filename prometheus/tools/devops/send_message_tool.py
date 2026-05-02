@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Send Message Tool -- cross-channel messaging via platform APIs."""
 
 import asyncio
@@ -188,7 +190,7 @@ def _handle_send(args):
                 }
             )
 
-    from prometheus.tools.interrupt import is_interrupted
+    from prometheus.tools.security.interrupt import is_interrupted
 
     if is_interrupted():
         return tool_error("Interrupted")
@@ -1741,7 +1743,7 @@ async def _send_yuanbao(chat_id, message, media_files=None):
 
 
 # --- Registry ---
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 registry.register(
     name="send_message",

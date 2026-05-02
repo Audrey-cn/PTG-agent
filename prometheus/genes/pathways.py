@@ -7,7 +7,7 @@ import os
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 
-PROMETHEUS_HOME = os.path.expanduser("~/.hermes/tools/prometheus")
+PROMETHEUS_HOME = os.path.expanduser("~/.prometheus/tools/prometheus")
 PATHWAYS_DIR = os.path.join(PROMETHEUS_HOME, "pathways")
 PATHWAYS_CATALOG = os.path.join(PATHWAYS_DIR, "pathways_catalog.json")
 PATHWAYS_LOG = os.path.join(PATHWAYS_DIR, "pathways_log.json")

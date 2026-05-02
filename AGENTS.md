@@ -35,7 +35,7 @@
 3. 功能与叙事基因分离
 4. 碳基依赖级不可变基因
 5. 一切皆种子
-6. 新模块与 Hermes 重叠时优先集成已有能力
+6. 新模块与 Prometheus 重叠时优先集成已有能力
 
 ---
 
@@ -47,7 +47,7 @@
 - `soul_orchestrator.py` - SOUL 指挥中心（皮肤、模型、个性）
 - `evolution_guard.py` - 进化守护者（触发条件、提案、追踪）
 
-### Integration（与 Hermes 深度融合）
+### Integration（与 Prometheus 深度融合）
 - `prometheus_mode.py` - 模式切换与上下文增强
 - `tool_hooks.py` - 工具调用基因影响钩子
 

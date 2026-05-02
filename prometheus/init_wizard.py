@@ -62,7 +62,7 @@ PROVIDER_DEFAULTS = {
     "openrouter": {"base_url": "https://openrouter.ai/api/v1", "model": "openai/gpt-4o"},
     "nous": {
         "base_url": "https://inference-api.nousresearch.com/v1",
-        "model": "hermes-3-llama-3.2-3b",
+        "model": "prometheus-3-llama-3.2-3b",
     },
     "ai-gateway": {"base_url": "https://ai-gateway.vercel.sh/v1", "model": "gpt-4o"},
     "anthropic": {"base_url": "https://api.anthropic.com/v1", "model": "claude-sonnet-4-20250514"},

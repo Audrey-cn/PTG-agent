@@ -112,9 +112,9 @@ def prefers_gateway(config_section: str) -> bool:
     Reads ``<section>.use_gateway`` from config.yaml.  Never raises.
     """
     try:
-        from prometheus.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        section = (load_config() or {}).get(config_section)
+        section = (PrometheusConfig.load().to_dict() or {}).get(config_section)
         if isinstance(section, dict):
             return is_truthy_value(section.get("use_gateway"), default=False)
     except Exception:

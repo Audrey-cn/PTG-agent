@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Browser-use cloud browser provider."""
 
 import contextlib

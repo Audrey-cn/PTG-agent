@@ -410,9 +410,9 @@ def _resolve_config_gates() -> Set[str]:
     if not gated:
         return set()
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config()
+        cfg = PrometheusConfig.load()
     except Exception:
         return set()
     result: Set[str] = set()
@@ -1163,8 +1163,6 @@ class SlashCommandCompleter(Completer):
     def _personality_completions(sub_text: str, sub_lower: str):
         """Yield completions for /personality from configured personalities."""
         try:
-            from prometheus.cli.config import load_config
-
             personalities = load_config().get("agent", {}).get("personalities", {})
             if "none".startswith(sub_lower) and sub_lower != "none":
                 yield Completion(

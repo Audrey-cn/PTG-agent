@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """Session Search Tool - Long-Term Conversation Recall."""
 
@@ -17,9 +19,9 @@ MAX_SUMMARY_TOKENS = 10000
 def _get_session_search_max_concurrency(default: int = 3) -> int:
     """Read auxiliary.session_search.max_concurrency with sane bounds."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        config = load_config()
+        config = PrometheusConfig.load()
     except ImportError:
         return default
     aux = config.get("auxiliary", {}) if isinstance(config, dict) else {}
@@ -546,7 +548,7 @@ SESSION_SEARCH_SCHEMA = {
 }
 
 
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 registry.register(
     name="session_search",

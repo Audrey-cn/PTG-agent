@@ -19,6 +19,19 @@ except ImportError:
 __version__ = "0.8.0"
 __codename__ = "Prometheus"
 
+TIPS = [
+    "Type /help to see all available commands",
+    "Try /doctor to check system health",
+    "Use /skin to switch themes (default/zeus/athena/hades)",
+    "Press Ctrl+D to exit the REPL",
+    "Use /tools to list all available tools",
+    "Try /seed list to see your saved seeds",
+    "Use /memory recall to search your memories",
+    "Type /status to see system status",
+    "Use /config show to view your configuration",
+    "Try /skills to list available skill workflows",
+]
+
 
 @dataclass(frozen=True)
 class CommandDef:
@@ -124,6 +137,8 @@ def _get_term_width() -> int:
 
 def build_welcome_banner(console=None) -> str:
     """构建欢迎 banner 并返回字符串"""
+    import random
+    
     lines = []
     lines.append("=" * 70)
     lines.append("")
@@ -141,6 +156,25 @@ def build_welcome_banner(console=None) -> str:
     lines.append("  [bold #FFD700]Prometheus[/] · [dim]Teach-To-Grow[/]")
     lines.append(f"  [dim]Version:[/] [bold]{__version__}[/] · [dim]Epic Chronicler[/]")
     lines.append("  [dim]Founder:[/] Audrey · 001X")
+    
+    # 获取工具数量
+    try:
+        from prometheus.tools.registry import registry
+        tool_count = len(registry.get_all_tool_names())
+        lines.append(f"  [dim]Tools:[/] [bold]{tool_count}[/] loaded")
+    except Exception:
+        pass
+    
+    # 获取当前模型和 provider
+    try:
+        from prometheus.config import PrometheusConfig
+        config = PrometheusConfig.load()
+        model_name = config.get("model.name", "gpt-4")
+        provider = config.get("model.provider", "openai")
+        lines.append(f"  [dim]Model:[/] [bold]{model_name}[/] ([dim]{provider}[/])")
+    except Exception:
+        pass
+    
     lines.append("")
 
     categories = get_commands_by_category()
@@ -156,8 +190,9 @@ def build_welcome_banner(console=None) -> str:
             lines.append(f"    ... (+{len(commands) - 6} more)")
         lines.append("")
 
-    lines.append("  [dim]Tip:[/] Run [bold]/help[/] for interactive commands")
-    lines.append("  [dim]Tip:[/] Run [bold]ptg doctor[/] to check system health")
+    # 随机 Tip
+    tip = random.choice(TIPS)
+    lines.append(f"  [dim]Tip:[/] {tip}")
     lines.append("")
     lines.append("=" * 70)
 

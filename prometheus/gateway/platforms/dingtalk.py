@@ -7,7 +7,7 @@ import os
 import re
 import traceback
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 try:
@@ -809,7 +809,7 @@ class DingTalkAdapter(BasePlatformAdapter):
 
         payload = {
             "msgtype": "markdown",
-            "markdown": {"title": "Hermes", "text": normalized},
+            "markdown": {"title": "Prometheus", "text": normalized},
         }
 
         try:

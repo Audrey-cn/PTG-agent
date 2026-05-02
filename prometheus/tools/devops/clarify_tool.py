@@ -109,7 +109,7 @@ CLARIFY_SCHEMA = {
 }
 
 
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 registry.register(
     name="clarify",

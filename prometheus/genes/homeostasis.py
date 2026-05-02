@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any
 
-PROMETHEUS_HOME = os.path.expanduser("~/.hermes/tools/prometheus")
+PROMETHEUS_HOME = os.path.expanduser("~/.prometheus/tools/prometheus")
 HOMEOSTASIS_DIR = os.path.join(PROMETHEUS_HOME, "homeostasis")
 
 os.makedirs(HOMEOSTASIS_DIR, exist_ok=True)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """Skill Manager Tool -- Agent-Managed Skill Creation & Editing."""
 
@@ -10,7 +12,6 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from prometheus.cli.config import cfg_get
 from prometheus.constants_core import display_prometheus_home, get_prometheus_home
 from prometheus.utils import atomic_replace
 
@@ -33,10 +34,10 @@ def _guard_agent_created_enabled() -> bool:
     on via `prometheus config set skills.guard_agent_created true`.
     """
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config()
-        return bool(cfg_get(cfg, "skills", "guard_agent_created", default=False))
+        cfg = PrometheusConfig.load()
+        return bool(cfg.get("skills.guard_agent_created", default=False))
     except Exception:
         return False
 
@@ -256,7 +257,7 @@ def _validate_file_path(file_path: str) -> str | None:
     Validate a file path for write_file/remove_file.
     Must be under an allowed subdirectory and not escape the skill dir.
     """
-    from prometheus.tools.path_security import has_traversal_component
+    from prometheus.tools.security.path_security import has_traversal_component
 
     if not file_path:
         return "file_path is required."
@@ -280,7 +281,7 @@ def _validate_file_path(file_path: str) -> str | None:
 
 def _resolve_skill_target(skill_dir: Path, file_path: str) -> tuple[Path | None, str | None]:
     """Resolve a supporting-file path and ensure it stays within the skill directory."""
-    from prometheus.tools.path_security import validate_within_dir
+    from prometheus.tools.security.path_security import validate_within_dir
 
     target = skill_dir / file_path
     error = validate_within_dir(target, skill_dir)
@@ -456,7 +457,7 @@ def _patch_skill(
 
     content = target.read_text(encoding="utf-8")
 
-    from prometheus.tools.fuzzy_match import fuzzy_find_and_replace
+    from prometheus.tools.security.fuzzy_match import fuzzy_find_and_replace
 
     new_content, match_count, _strategy, match_error = fuzzy_find_and_replace(
         content, old_string, new_string, replace_all
@@ -465,7 +466,7 @@ def _patch_skill(
         preview = content[:500] + ("..." if len(content) > 500 else "")
         err_msg = match_error
         try:
-            from prometheus.tools.fuzzy_match import format_no_match_hint
+            from prometheus.tools.security.fuzzy_match import format_no_match_hint
 
             err_msg += format_no_match_hint(match_error, match_count, old_string, content)
         except Exception:
@@ -809,7 +810,7 @@ SKILL_MANAGE_SCHEMA = {
 }
 
 
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 registry.register(
     name="skill_manage",

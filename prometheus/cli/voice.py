@@ -44,9 +44,9 @@ def _debug(msg: str) -> None:
 def _beeps_enabled() -> bool:
     """CLI parity: voice.beep_enabled in config.yaml (default True)."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        voice_cfg = load_config().get("voice", {})
+        voice_cfg = PrometheusConfig.load().get("voice", {})
         if isinstance(voice_cfg, dict):
             return bool(voice_cfg.get("beep_enabled", True))
     except Exception:

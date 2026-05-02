@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """Transcription Tools Module."""
 
@@ -12,11 +14,11 @@ from typing import Any
 from urllib.parse import urljoin
 
 from prometheus.tools.managed_tool_gateway import resolve_managed_tool_gateway
-from prometheus.tools.tool_backend_helpers import (
+from prometheus.tools.security.tool_backend_helpers import (
     managed_nous_tools_enabled,
     resolve_openai_audio_api_key,
 )
-from prometheus.tools.utils import is_truthy_value
+from prometheus.utils import is_truthy_value
 
 logger = logging.getLogger(__name__)
 
@@ -101,9 +103,10 @@ _local_model_name: str | None = None
 def _load_stt_config() -> dict:
     """Load the ``stt`` section from user config, falling back to defaults."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        return load_config().get("stt", {})
+        config = PrometheusConfig.load()
+        return config.get("transcription", {})
     except Exception:
         return {}
 

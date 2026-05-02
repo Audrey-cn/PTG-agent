@@ -399,7 +399,7 @@ async def send_dm(
 # Registry registration
 # ---------------------------------------------------------------------------
 
-from prometheus.tools.registry import registry, tool_result  # noqa: E402
+from prometheus.tools.security.registry import registry, tool_result  # noqa: E402
 
 
 def _check_yuanbao():

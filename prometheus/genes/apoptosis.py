@@ -10,9 +10,9 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from genes.bank import GeneBank
-from genes.immune_surveillance import Antigen, ImmuneSurveillance
-from storage import StorageEngine
+from prometheus.genes.bank import GeneBank
+from prometheus.genes.immune_surveillance import Antigen, ImmuneSurveillance
+from prometheus.storage import StorageEngine
 
 
 class ApoptosisStage(Enum):

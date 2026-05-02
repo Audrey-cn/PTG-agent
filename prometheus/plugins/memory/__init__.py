@@ -261,9 +261,9 @@ class _ProviderCollector:
 def _get_active_memory_provider() -> str | None:
     """Read the active memory provider name from config.yaml."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        config = load_config()
+        config = PrometheusConfig.load().to_dict()
         memory_config = config.get("memory", {})
         if isinstance(memory_config, dict):
             return memory_config.get("provider") or None

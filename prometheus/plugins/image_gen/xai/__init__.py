@@ -31,7 +31,7 @@ from prometheus.agent.image_gen_provider import (
     save_b64_image,
     success_response,
 )
-from prometheus.tools.xai_http import hermes_xai_user_agent
+from prometheus.tools.xai_http import prometheus_xai_user_agent
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +79,9 @@ DEFAULT_RESOLUTION = "1k"
 def _load_xai_config() -> dict[str, Any]:
     """Read ``image_gen.xai`` from config.yaml."""
     try:
-        from prometheus.cli.config import load_config
+        from prometheus.config import PrometheusConfig
 
-        cfg = load_config()
+        cfg = PrometheusConfig.load()
         section = cfg.get("image_gen") if isinstance(cfg, dict) else None
         xai_section = section.get("xai") if isinstance(section, dict) else None
         return xai_section if isinstance(xai_section, dict) else {}
@@ -189,7 +189,7 @@ class XAIImageGenProvider(ImageGenProvider):
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "User-Agent": hermes_xai_user_agent(),
+            "User-Agent": prometheus_xai_user_agent(),
         }
 
         base_url = (os.getenv("XAI_BASE_URL") or "https://api.x.ai/v1").strip().rstrip("/")

@@ -5,7 +5,7 @@ import os
 import shlex
 import uuid
 
-from prometheus.tools.budget_config import (
+from prometheus.tools.security.budget_config import (
     DEFAULT_BUDGET,
     DEFAULT_PREVIEW_SIZE_CHARS,
     BudgetConfig,

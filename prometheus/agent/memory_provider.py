@@ -36,7 +36,7 @@ class MemoryProvider(ABC):
         May create resources, establish connections, start background threads.
 
         kwargs always include:
-          - hermes_home (str): The active PROMETHEUS_HOME directory path.
+          - prometheus_home (str): The active PROMETHEUS_HOME directory path.
           - platform (str): "cli", "telegram", "discord", "cron", etc.
 
         kwargs may also include:

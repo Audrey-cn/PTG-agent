@@ -1,25 +1,22 @@
+from __future__ import annotations
+
 """Rich-based TUI chat session for Prometheus.
 
 Activate with: prometheus --tui  or  prometheus chat --tui
 """
 
 import json
-import os
 import sys
-import textwrap
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 from prometheus.interactive_tui import RICH_AVAILABLE, Colors, Colors256, console
 
 if RICH_AVAILABLE:
     from rich.box import HEAVY, ROUNDED
-    from rich.layout import Layout
     from rich.live import Live
     from rich.markdown import Markdown
     from rich.panel import Panel
-    from rich.rule import Rule
     from rich.table import Table
     from rich.text import Text
 
@@ -38,7 +35,7 @@ class ChatMessage:
 
     def __post_init__(self):
         if not self.timestamp:
-            self.timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
+            self.timestamp = datetime.now(UTC).strftime("%H:%M:%S")
 
 
 def render_user_message(message: ChatMessage) -> Panel:
@@ -99,7 +96,10 @@ def render_system_message(message: str) -> Panel:
 
 
 def render_status_bar(session_name: str, model: str, msg_count: int):
-    left = Text(f" {session_name} ", style=f"bold white on {Colors256.PURPLE.replace(chr(27) + '[', '').replace('m', '').split(';')[-1] if ';' in Colors256.PURPLE else ''}")
+    left = Text(
+        f" {session_name} ",
+        style=f"bold white on {Colors256.PURPLE.replace(chr(27) + '[', '').replace('m', '').split(';')[-1] if ';' in Colors256.PURPLE else ''}",
+    )
     mid = Text(f" {model} ", style="dim")
     right = Text(f" {msg_count} messages ", style="dim")
     return left
@@ -202,9 +202,7 @@ def run_tui_chat(
         system_prompt=system_prompt,
     )
     session.display_header()
-    session.add_system_message(
-        "Type your message and press Enter.  Type /help for commands."
-    )
+    session.add_system_message("Type your message and press Enter.  Type /help for commands.")
 
     while True:
         try:

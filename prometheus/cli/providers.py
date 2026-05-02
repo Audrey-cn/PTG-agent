@@ -111,7 +111,7 @@ PROVIDER_DEFAULT_MODELS: Dict[str, str] = {
     "github_copilot": "gpt-4o",
     "github_copilot_acp": "gpt-4o",
     "huggingface": "meta-llama/Llama-3.3-70B-Instruct",
-    "nous_portal": "nous-hermes-2",
+    "nous_portal": "nous-prometheus-2",
     "nvidia_nim": "meta/llama-3.1-405b-instruct",
     "qwen_oauth": "qwen-max",
     "xiaomi_mimo": "mimo-7b",

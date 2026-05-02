@@ -39,6 +39,48 @@ def is_truthy_value(value) -> bool:
     return bool(value)
 
 
+def env_var_enabled(name: str) -> bool:
+    """Check if an environment variable is set to a truthy value.
+
+    Args:
+        name: The environment variable name.
+
+    Returns:
+        True if the env var exists and has a truthy value.
+    """
+    val = os.environ.get(name, "")
+    return is_truthy_value(val)
+
+
+def atomic_replace(path: str, content: str) -> None:
+    """Atomically replace file content.
+
+    Args:
+        path: File path to replace.
+        content: New file content.
+    """
+    import tempfile
+
+    path = str(path)
+    dir_name = os.path.dirname(path) or "."
+
+    # Write to temp file first
+    fd, tmp_path = tempfile.mkstemp(dir=dir_name, prefix=".tmp_")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(content)
+
+        # Atomically replace the target file
+        os.replace(tmp_path, path)
+    except Exception:
+        # Clean up temp file on error
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
 def base_url_hostname(base_url: str) -> str:
     """Extract hostname from a base URL.
 

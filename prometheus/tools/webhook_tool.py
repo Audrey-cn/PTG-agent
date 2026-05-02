@@ -6,7 +6,7 @@ import json
 import logging
 import threading
 from dataclasses import dataclass
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
 
@@ -116,7 +116,6 @@ class WebhookTool:
 
     def _get_timestamp(self) -> str:
         """获取当前时间戳"""
-        from datetime import datetime
 
         return datetime.now(UTC).isoformat()
 

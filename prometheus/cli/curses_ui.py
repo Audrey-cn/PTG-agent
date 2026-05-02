@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Shared curses-based UI components for Prometheus CLI."""
 
 import contextlib

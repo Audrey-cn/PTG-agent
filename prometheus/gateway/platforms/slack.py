@@ -520,7 +520,7 @@ class SlackAdapter(BasePlatformAdapter):
                     r"^/(?:" + "|".join(_re.escape(n) for n in _slash_names) + r")$"
                 )
             else:  # pragma: no cover - registry always non-empty
-                _slash_pattern = _re.compile(r"^/hermes$")
+                _slash_pattern = _re.compile(r"^/prometheus$")
 
             @self._app.command(_slash_pattern)
             async def handle_prometheus_command(ack, command):
@@ -726,7 +726,7 @@ class SlackAdapter(BasePlatformAdapter):
         """Whether top-level Slack DMs get per-message session threads.
 
         Defaults to ``True`` so each visible DM reply thread is isolated as its
-        own Hermes session — matching the per-thread behavior channels already
+        own Prometheus session — matching the per-thread behavior channels already
         have.  Set ``platforms.slack.extra.dm_top_level_threads_as_sessions``
         to ``false`` in config.yaml to revert to the legacy behavior where all
         top-level DMs share one continuous session.
@@ -2556,9 +2556,9 @@ class SlackAdapter(BasePlatformAdapter):
         Discord and Telegram model. The slash name itself is the command;
         any text after it is the argument list.
 
-        The legacy ``/hermes <subcommand> [args]`` form is preserved for
+        The legacy ``/prometheus <subcommand> [args]`` form is preserved for
         backward compatibility with older workspace manifests and for users
-        who want a single entry point for free-form questions (``/hermes
+        who want a single entry point for free-form questions (``/prometheus
         what's the weather`` — non-slash text is treated as a regular
         message).
         """
@@ -2572,8 +2572,8 @@ class SlackAdapter(BasePlatformAdapter):
         if team_id and channel_id:
             self._channel_team[channel_id] = team_id
 
-        if slash_name in ("hermes", ""):
-            # Legacy /hermes <subcommand> [args] routing + free-form questions.
+        if slash_name in ("prometheus", ""):
+            # Legacy /prometheus <subcommand> [args] routing + free-form questions.
             # Empty slash_name falls into this branch for backward compat
             # with any caller that didn't populate command["command"].
             from prometheus.cli.commands import slack_subcommand_map

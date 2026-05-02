@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Welcome banner, ASCII art, skills summary, and update check for the CLI."""
 
 import json

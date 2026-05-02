@@ -21,7 +21,7 @@ env:
   terminal_timeout: 120
   terminal_lifetime: 3600
   tool_pool_size: 32
-  tool_call_parser: hermes
+  tool_call_parser: prometheus
 
 server:
   type: openai

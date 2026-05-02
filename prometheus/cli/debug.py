@@ -1,5 +1,7 @@
 """``prometheus debug`` — debug tools for Prometheus Agent."""
 
+from __future__ import annotations
+
 import contextlib
 import io
 import json
@@ -63,7 +65,7 @@ def _save_pending(entries: list[dict]) -> None:
         pass
 
 
-def _record_pending(urls: List[str], delay_seconds: int = _AUTO_DELETE_SECONDS) -> None:
+def _record_pending(urls: list[str], delay_seconds: int = _AUTO_DELETE_SECONDS) -> None:
     """Record *urls* for deletion at ``now + delay_seconds``.
 
     Only paste.rs URLs are recorded (dpaste.com auto-expires).  Entries
@@ -74,7 +76,7 @@ def _record_pending(urls: List[str], delay_seconds: int = _AUTO_DELETE_SECONDS) 
         return
 
     entries = _load_pending()
-    by_url: Dict[str, float] = {e["url"]: float(e["expire_at"]) for e in entries}
+    by_url: dict[str, float] = {e["url"]: float(e["expire_at"]) for e in entries}
     expire_at = time.time() + delay_seconds
     for u in paste_rs_urls:
         by_url[u] = max(expire_at, by_url.get(u, 0.0))
@@ -82,7 +84,7 @@ def _record_pending(urls: List[str], delay_seconds: int = _AUTO_DELETE_SECONDS) 
     _save_pending(merged)
 
 
-def _sweep_expired_pastes(now: float | None = None) -> Tuple[int, int]:
+def _sweep_expired_pastes(now: float | None = None) -> tuple[int, int]:
     """Synchronously DELETE any pending pastes whose ``expire_at`` has passed.
 
     Returns ``(deleted, remaining)``.  Best-effort: failed deletes stay in
@@ -185,7 +187,7 @@ def delete_paste(url: str) -> bool:
         return 200 <= resp.status < 300
 
 
-def _schedule_auto_delete(urls: List[str], delay_seconds: int = _AUTO_DELETE_SECONDS):
+def _schedule_auto_delete(urls: list[str], delay_seconds: int = _AUTO_DELETE_SECONDS):
     """Record *urls* for deletion ``delay_seconds`` from now.
 
     Previously this spawned a detached Python subprocess per call that slept
@@ -270,7 +272,7 @@ def upload_to_pastebin(content: str, expiry_days: int = 7) -> str:
 
     Returns the paste URL on success, raises on total failure.
     """
-    errors: List[str] = []
+    errors: list[str] = []
 
     try:
         return _upload_paste_rs(content)
@@ -394,7 +396,7 @@ def _capture_log_snapshot(
         return LogSnapshot(path=log_path, tail_text=f"(error reading: {exc})", full_text=None)
 
 
-def _capture_default_log_snapshots(log_lines: int) -> Dict[str, LogSnapshot]:
+def _capture_default_log_snapshots(log_lines: int) -> dict[str, LogSnapshot]:
     """Capture all logs used by debug-share exactly once."""
     errors_lines = min(log_lines, 100)
     return {
@@ -427,7 +429,7 @@ def collect_debug_report(
     *,
     log_lines: int = 200,
     dump_text: str = "",
-    log_snapshots: Dict[str, LogSnapshot] | None = None,
+    log_snapshots: dict[str, LogSnapshot] | None = None,
 ) -> str:
     """Build the summary debug report: system dump + log tails.
 
@@ -511,8 +513,8 @@ def run_debug_share(args):
         return
 
     print("Uploading...")
-    urls: Dict[str, str] = {}
-    failures: List[str] = []
+    urls: dict[str, str] = {}
+    failures: list[str] = []
 
     try:
         urls["Report"] = upload_to_pastebin(report, expiry_days=expiry)

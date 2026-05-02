@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 #!/usr/bin/env python3
 """Browser Tool Module."""
 
@@ -30,14 +32,14 @@ except Exception:
     check_website_access = lambda url: None  # noqa: E731 — fail-open if policy module unavailable
 
 try:
-    from prometheus.tools.url_safety import is_safe_url as _is_safe_url
+    from prometheus.tools.security.url_safety import is_safe_url as _is_safe_url
 except Exception:
     _is_safe_url = lambda url: False  # noqa: E731 — fail-closed: block all if safety module unavailable
 from prometheus.tools.browser_providers.base import CloudBrowserProvider
 from prometheus.tools.browser_providers.browser_use import BrowserUseProvider
 from prometheus.tools.browser_providers.browserbase import BrowserbaseProvider
 from prometheus.tools.browser_providers.firecrawl import FirecrawlProvider
-from prometheus.tools.tool_backend_helpers import normalize_browser_cloud_provider
+from prometheus.tools.security.tool_backend_helpers import normalize_browser_cloud_provider
 
 try:
     from prometheus.tools.browser_camofox import is_camofox_mode as _is_camofox_mode
@@ -1018,7 +1020,7 @@ def _run_browser_command(
         logger.warning("browser command blocked: %s", hint)
         return {"success": False, "error": hint}
 
-    from prometheus.tools.interrupt import is_interrupted
+    from prometheus.tools.security.interrupt import is_interrupted
 
     if is_interrupted():
         return {"success": False, "error": "Interrupted"}
@@ -1866,10 +1868,10 @@ def browser_vision(question: str, annotate: bool = False, task_id: str | None = 
         vision_timeout = 120.0
         vision_temperature = 0.1
         try:
-            from prometheus.cli.config import load_config
+            from prometheus.config import PrometheusConfig
 
-            _cfg = load_config()
-            _vision_cfg = cfg_get(_cfg, "auxiliary", "vision", default={})
+            _cfg = PrometheusConfig.load()
+            _vision_cfg = _cfg.get("auxiliary.vision", default={})
             _vt = _vision_cfg.get("timeout")
             if _vt is not None:
                 vision_timeout = float(_vt)
@@ -2198,7 +2200,7 @@ if __name__ == "__main__":
     print("  snapshot = browser_snapshot(task_id='my_task')")
 
 
-from prometheus.tools.registry import registry, tool_error
+from prometheus.tools.security.registry import registry, tool_error
 
 _BROWSER_SCHEMA_MAP = {s["name"]: s for s in BROWSER_TOOL_SCHEMAS}
 

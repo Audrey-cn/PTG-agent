@@ -1,153 +1,111 @@
+"""Shared file safety rules used by both tools and ACP shims."""
+
 from __future__ import annotations
 
 import os
-import re
 from pathlib import Path
-
-DANGEROUS_PATTERNS: list[str] = [
-    r"rm\s+-rf",
-    r"rm\s+-fr",
-    r"sudo\s+",
-    r"chmod\s+777",
-    r"chmod\s+-R\s+777",
-    r"mkfs",
-    r"dd\s+if=",
-    r">\s*/dev/sd",
-    r"curl\s+.*\|\s*bash",
-    r"wget\s+.*\|\s*sh",
-    r"eval\s+",
-    r"exec\s+",
-    r">\s*/dev/null\s*2>&1",
-    r":()\s*{\s*:\|:&\s*}\s*;:",
-    r"fork\s*bomb",
-]
-
-DANGEROUS_PATHS: list[str] = [
-    "/",
-    "/etc",
-    "/usr",
-    "/bin",
-    "/sbin",
-    "/root",
-    "/home",
-    "/var",
-    "/sys",
-    "/proc",
-    "/dev",
-    "~/.ssh",
-    "~/.gnupg",
-    "~/.config",
-    "~/.aws",
-    "~/.kube",
-]
-
-_SAFE_EXTENSIONS: Set[str] = {
-    ".txt",
-    ".md",
-    ".json",
-    ".yaml",
-    ".yml",
-    ".toml",
-    ".py",
-    ".js",
-    ".ts",
-    ".tsx",
-    ".jsx",
-    ".go",
-    ".rs",
-    ".java",
-    ".kt",
-    ".swift",
-    ".c",
-    ".cpp",
-    ".h",
-    ".hpp",
-    ".html",
-    ".css",
-    ".scss",
-    ".less",
-    ".xml",
-    ".sql",
-    ".sh",
-    ".bash",
-    ".zsh",
-    ".fish",
-    ".csv",
-    ".tsv",
-    ".log",
-}
-
-_COMPILED_PATTERNS: list[re.Pattern] = [re.compile(p, re.IGNORECASE) for p in DANGEROUS_PATTERNS]
+from typing import Optional
 
 
-def is_dangerous_command(command: str) -> Tuple[bool, str]:
-    if not command or not command.strip():
-        return False, ""
-    for pattern in _COMPILED_PATTERNS:
-        if pattern.search(command):
-            return True, f"Command matches dangerous pattern: {pattern.pattern}"
-    return False, ""
-
-
-def is_dangerous_path(path: str) -> Tuple[bool, str]:
-    if not path:
-        return False, ""
-    expanded = os.path.expanduser(path)
+def _prometheus_home_path() -> Path:
+    """Resolve the active PROMETHEUS_HOME (profile-aware) without circular imports."""
     try:
-        resolved = os.path.abspath(os.path.realpath(expanded))
-    except (OSError, ValueError):
-        resolved = os.path.abspath(expanded)
-    normalized = os.path.normpath(resolved)
-    for dangerous in DANGEROUS_PATHS:
-        d_expanded = os.path.expanduser(dangerous)
-        d_normalized = os.path.normpath(os.path.abspath(d_expanded))
-        if normalized == d_normalized or normalized.startswith(d_normalized + os.sep):
-            return True, f"Path is in protected directory: {dangerous}"
-    return False, ""
+        from prometheus.prometheus_constants import get_prometheus_home
+        return get_prometheus_home()
+    except Exception:
+        return Path(os.path.expanduser("~/.prometheus"))
 
 
-def check_file_operation(operation: str, path: str, content: str | None = None) -> Tuple[bool, str]:
-    if operation not in ("read", "write", "delete", "execute"):
-        return False, f"Unknown operation: {operation}"
-    is_dangerous, reason = is_dangerous_path(path)
-    if is_dangerous:
-        return False, reason
-    if operation == "write" and content:
-        cmd_dangerous, cmd_reason = is_dangerous_command(content)
-        if cmd_dangerous:
-            return False, f"Content contains dangerous command: {cmd_reason}"
-    if operation == "execute":
-        cmd_dangerous, cmd_reason = is_dangerous_command(path)
-        if cmd_dangerous:
-            return False, cmd_reason
-    return True, ""
+def build_write_denied_paths(home: str) -> set[str]:
+    """Return exact sensitive paths that must never be written."""
+    prometheus_home = _prometheus_home_path()
+    return {
+        os.path.realpath(p)
+        for p in [
+            os.path.join(home, ".ssh", "authorized_keys"),
+            os.path.join(home, ".ssh", "id_rsa"),
+            os.path.join(home, ".ssh", "id_ed25519"),
+            os.path.join(home, ".ssh", "config"),
+            str(prometheus_home / ".env"),
+            os.path.join(home, ".bashrc"),
+            os.path.join(home, ".zshrc"),
+            os.path.join(home, ".profile"),
+            os.path.join(home, ".bash_profile"),
+            os.path.join(home, ".zprofile"),
+            os.path.join(home, ".netrc"),
+            os.path.join(home, ".pgpass"),
+            os.path.join(home, ".npmrc"),
+            os.path.join(home, ".pypirc"),
+            "/etc/sudoers",
+            "/etc/passwd",
+            "/etc/shadow",
+        ]
+    }
 
 
-def sanitize_path(path: str) -> str:
-    if not path:
-        return ""
-    expanded = os.path.expanduser(path)
+def build_write_denied_prefixes(home: str) -> list[str]:
+    """Return sensitive directory prefixes that must never be written."""
+    return [
+        os.path.realpath(p) + os.sep
+        for p in [
+            os.path.join(home, ".ssh"),
+            os.path.join(home, ".aws"),
+            os.path.join(home, ".gnupg"),
+            os.path.join(home, ".kube"),
+            "/etc/sudoers.d",
+            "/etc/systemd",
+            os.path.join(home, ".docker"),
+            os.path.join(home, ".azure"),
+            os.path.join(home, ".config", "gh"),
+        ]
+    ]
+
+
+def get_safe_write_root() -> Optional[str]:
+    """Return the resolved PROMETHEUS_WRITE_SAFE_ROOT path, or None if unset."""
+    root = os.getenv("PROMETHEUS_WRITE_SAFE_ROOT", "")
+    if not root:
+        return None
     try:
-        resolved = os.path.abspath(os.path.realpath(expanded))
-    except (OSError, ValueError):
-        resolved = os.path.abspath(expanded)
-    normalized = os.path.normpath(resolved)
-    is_dangerous, reason = is_dangerous_path(normalized)
-    if is_dangerous:
-        raise ValueError(f"Path is not safe: {reason}")
-    return normalized
+        return os.path.realpath(os.path.expanduser(root))
+    except Exception:
+        return None
 
 
-def is_safe_extension(path: str) -> bool:
-    ext = Path(path).suffix.lower()
-    return ext in _SAFE_EXTENSIONS
+def is_write_denied(path: str) -> bool:
+    """Return True if path is blocked by the write denylist or safe root."""
+    home = os.path.realpath(os.path.expanduser("~"))
+    resolved = os.path.realpath(os.path.expanduser(str(path)))
+
+    if resolved in build_write_denied_paths(home):
+        return True
+    for prefix in build_write_denied_prefixes(home):
+        if resolved.startswith(prefix):
+            return True
+
+    safe_root = get_safe_write_root()
+    if safe_root and not (resolved == safe_root or resolved.startswith(safe_root + os.sep)):
+        return True
+
+    return False
 
 
-def validate_file_path(path: str, must_exist: bool = False) -> Tuple[bool, str]:
-    try:
-        sanitized = sanitize_path(path)
-    except ValueError as e:
-        return False, str(e)
-    if must_exist and not os.path.exists(sanitized):
-        return False, f"File does not exist: {sanitized}"
-    return True, sanitized
+def get_read_block_error(path: str) -> Optional[str]:
+    """Return an error message when a read targets internal Prometheus cache files."""
+    resolved = Path(path).expanduser().resolve()
+    prometheus_home = _prometheus_home_path().resolve()
+    blocked_dirs = [
+        prometheus_home / "skills" / ".hub" / "index-cache",
+        prometheus_home / "skills" / ".hub",
+    ]
+    for blocked in blocked_dirs:
+        try:
+            resolved.relative_to(blocked)
+        except ValueError:
+            continue
+        return (
+            f"Access denied: {path} is an internal Prometheus cache file "
+            "and cannot be read directly to prevent prompt injection. "
+            "Use the skills_list or skill_view tools instead."
+        )
+    return None

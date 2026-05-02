@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from prometheus.cli.config import get_env_path, get_project_root, get_prometheus_home, load_config
+from prometheus.config import PrometheusConfig, get_env_path, get_project_root, get_prometheus_home
 from prometheus.constants_core import display_prometheus_home
 
 
@@ -196,7 +196,7 @@ def run_dump(args):
     commit = _get_git_commit(project_root)
 
     try:
-        config = load_config()
+        config = PrometheusConfig.load().to_dict()
     except Exception:
         config = {}
 

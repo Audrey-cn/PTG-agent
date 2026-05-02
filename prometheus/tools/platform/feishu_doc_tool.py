@@ -4,7 +4,7 @@ import json
 import logging
 import threading
 
-from prometheus.tools.registry import registry, tool_error, tool_result
+from prometheus.tools.security.registry import registry, tool_error, tool_result
 
 logger = logging.getLogger(__name__)
 

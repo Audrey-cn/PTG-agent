@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """``prometheus logs`` — view and filter Prometheus log files."""
 
 import re

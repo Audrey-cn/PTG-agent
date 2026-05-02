@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 import contextlib
 
-from prometheus_time import now as _prometheus_now
+from prometheus.time_core import now as _prometheus_now
 
 from prometheus.utils import atomic_replace
 
