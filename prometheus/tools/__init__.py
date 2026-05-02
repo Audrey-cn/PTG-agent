@@ -207,6 +207,9 @@ _LAZY_MAP = {
     "web_fetch": ("prometheus.tools.web.web_tools", "web_fetch"),
     "web_search": ("prometheus.tools.web.web_tools", "web_search"),
     "xai_http_tool": ("prometheus.tools.web.xai_http", "xai_http_tool"),
+    # search
+    "intelligent_search": ("prometheus.tools.search.search_tool", "intelligent_search"),
+    "search_statistics": ("prometheus.tools.search.search_tool", "search_statistics"),
     # submodules
     "browser_providers": ("prometheus.tools.browser", "providers"),
     "environments": ("prometheus.tools", "environments"),
@@ -247,6 +250,7 @@ _TOOL_MODULES = [
     "prometheus.tools.file.file_state",
     "prometheus.tools.web.web_tools",
     "prometheus.tools.web.session_search_tool",
+    "prometheus.tools.search.search_tool",
     "prometheus.tools.devops.mcp_tool",
     "prometheus.tools.devops.memory_tool",
     "prometheus.tools.devops.send_message_tool",

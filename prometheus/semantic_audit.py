@@ -1,5 +1,7 @@
 """语义审核引擎 — Semantic Audit Engine."""
 
+from __future__ import annotations
+
 import json
 import os
 import re

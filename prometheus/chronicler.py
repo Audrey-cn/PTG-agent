@@ -1,5 +1,7 @@
 """编史官 — Chronicler."""
 
+from __future__ import annotations
+
 import datetime
 import os
 import re
@@ -90,16 +92,51 @@ class TraceReport:
 
 
 @dataclass
+class KnowledgeMarker:
+    """显式知识标记"""
+    marker_type: str
+    priority: str
+    text: str
+    source_line: int
+    timestamp: str = ""
+
+
+@dataclass
 class AppendResult:
     appended: bool = False
     location: str = ""
     generation: str = ""
     narrative: str = ""
     error: str | None = None
+    markers_extracted: list[KnowledgeMarker] = field(default_factory=list)
 
 
 class Chronicler:
     """编史官 — 史诗叙事官"""
+
+    LEARNING_MARKERS = {
+        "[learning]": ("P1", "学习"),
+        "[insight]": ("P2", "洞察"),
+        "[tip]": ("P2", "技巧"),
+        "[lesson]": ("P1", "教训"),
+        "[发现]": ("P2", "发现"),
+        "[TODO]": ("P3", "待办"),
+        "[FIXME]": ("P1", "修复"),
+        "[NOTE]": ("P3", "笔记"),
+        "[warning]": ("P2", "警告"),
+        "[important]": ("P1", "重要"),
+    }
+
+    LEARNING_PATTERNS = [
+        ("P1", re.compile(r"(?:学习|学会|学到)[:：]\s*(.+)", re.I), "学习收获"),
+        ("P1", re.compile(r"(?:教训|踩坑|坑)[:：]\s*(.+)", re.I), "踩坑教训"),
+        ("P1", re.compile(r"(?:经验)[:：]\s*(.+)", re.I), "经验总结"),
+        ("P2", re.compile(r"(?:新发现|发现)[:：]\s*(.+)", re.I), "新发现"),
+        ("P2", re.compile(r"(?:tip|hint|技巧)[:：]\s*(.+)", re.I), "技巧提示"),
+        ("P2", re.compile(r"(?:注意)[:：]\s*(.+)", re.I), "注意事项"),
+        ("P3", re.compile(r"(?:TODO|FIXME|NOTE)[:：]\s*(.+)", re.I), "TODO项"),
+        ("P3", re.compile(r"(?:改进|后续)[:：]\s*(.+)", re.I), "改进建议"),
+    ]
 
     def __init__(self):
         self.engine = SemanticAuditEngine()
@@ -171,6 +208,46 @@ class Chronicler:
             raw_evidence=classification.evidence,
         )
 
+    def extract_markers(self, content: str) -> list[KnowledgeMarker]:
+        """从内容中提取显式知识标记"""
+        markers = []
+        now = datetime.datetime.now().isoformat()
+        lines = content.splitlines()
+
+        for line_num, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            for marker, (priority, mtype) in self.LEARNING_MARKERS.items():
+                if marker.lower() in stripped.lower():
+                    clean = re.sub(r"\[[^\]]+\]", "", stripped).strip()
+                    if clean and len(clean) > 2:
+                        markers.append(KnowledgeMarker(
+                            marker_type=mtype,
+                            priority=priority,
+                            text=clean,
+                            source_line=line_num,
+                            timestamp=now,
+                        ))
+                    break
+
+            for priority, pattern, mtype in self.LEARNING_PATTERNS:
+                match = pattern.search(stripped)
+                if match:
+                    text = match.group(1).strip()
+                    if text and len(text) > 2:
+                        markers.append(KnowledgeMarker(
+                            marker_type=mtype,
+                            priority=priority,
+                            text=text,
+                            source_line=line_num,
+                            timestamp=now,
+                        ))
+                    break
+
+        return markers
+
     def append(self, seed_path: str, narrative: str, author: str = "Audrey · 001X") -> AppendResult:
         """
         附史模式：在种子的谱系上追加史诗叙事
@@ -179,6 +256,7 @@ class Chronicler:
         - 在 evolution_chronicle 尾部追加新一代
         - 若无族谱结构，创建 prometheus_chronicle 段
         - 记录：操作者、时间、叙事、增强标签
+        - 提取知识标记并保存到结果中
         """
         if not os.path.exists(seed_path):
             return AppendResult(appended=False, error="文件不存在")
@@ -191,6 +269,8 @@ class Chronicler:
                 content = f.read()
         except Exception as e:
             return AppendResult(appended=False, error=f"读取失败: {e}")
+
+        markers = self.extract_markers(content)
 
         if anchor.has_evolution_chronicle:
             content, gen = self._append_to_evolution_chronicle(content, anchor, narrative, author)
@@ -211,6 +291,7 @@ class Chronicler:
             location=location,
             generation=str(gen),
             narrative=narrative,
+            markers_extracted=markers,
         )
 
     def chronicle(self, seed_path: str, narrative: str | None = None) -> dict[str, Any]:
