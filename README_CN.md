@@ -77,11 +77,16 @@ Progenitor Protocol 抛弃了传统软件的"安装/配置"范式，转而采用
 
 | 基因位点 | 别名 | 功能描述 |
 | :--- | :--- | :--- |
+| **G004** | **编史官 (Chronicler)** | 进化编史官——烙印、追溯、附史，每次都写入不可篡改的族谱记录。 |
+| **G005** | **进化追踪器 (Evolution Tracker)** | 三阶段进化监测：突变 → 适应 → 进化。 |
+| **G006** | **载体打包器 (Vessel Packager)** | 繁衍新一代 .pgn RNA 病毒载体，携带基因命名钩子。 |
 | **G010** | **胞吞代谢 (Phagocytosis)** | 吞噬非结构化环境资料或 SOP，将其"消化"并结晶为本地逻辑。 |
 | **G011** | **酶促定轨 (Enzymatic Lock)** | 反向接管宿主推理流，释放状态机锁，消除 Agent 逻辑幻觉。 |
 | **G012** | **阿卡夏受体 (Akashic)** | 通过 IPFS 费洛蒙感知跨域变种，实现 P2P 级别的去中心化进化。 |
 | **G013** | **自噬代谢 (Autophagy)** | 自动剥离冗余或向后不兼容的衰老基因，保持载体极致轻盈。 |
+| **G014** | **反射中枢 (Reflex Nexus)** | 语义→工具反射映射——引擎嗅探用户输入，自动触发对应基因位点。引擎从被动调用转变为反射驱动自主。 |
 | **Safety** | **端粒凋亡 (Apoptosis)** | 物理级资源契约：一旦变异代码发生"癌变"，瞬间强制凋亡，护宿主周全。 |
+| **Pulse** | **代谢心跳 (Metabolic Heartbeat)** | 每轮对话后自动监测进化阈值；达到 evolution 时触发自噬并提示版本结晶。 |
 
 ---
 
@@ -126,16 +131,37 @@ result = vessel['catalyze']()
 ```python
 # 摄入后，你的 Agent 即刻拥有以下能力：
 tools = result["tools"]
+
+# ── 反射中枢 (Reflex Nexus): 语义驱动自主 ──
+# 无需手动选择工具。引擎嗅探意图，自动调度。
+tools["process_reflex"]("帮我看下这个SOP文档", {"filepath": "ops.sop"})
+# → 自动触发 G010-phagocyte (胞吞)
+
+tools["process_reflex"]("不对，应该是另外一个逻辑，记下来", {"filepath": "spec.md"})
+# → 自动触发 G004-chronicler (编史)
+
+tools["process_reflex"]("按照这个流程推演步骤执行", {"state_machine": {...}})
+# → 自动触发 G011-enzyme-lock (酶促定轨)
+
+tools["process_reflex"]("这个成果可以打包成变种结晶了", {"parent_path": "test"})
+# → 自动触发 G006-packer (打包繁衍)
+
+# ── 传统工具调用 (已包裹 TelomereGuard) ──
 tools["phagocyte"].phagocytize(raw_sop)              # 胞吞外部 SOP
 tools["phagocyte"].phagocytize_from_akashic(cid)     # 阿卡夏 P2P 拉取
 tools["phagocyte"].phagocytize_and_evolve(target)    # 三位一体全自动代谢
 tools["enzyme_lock"].enzyme_lock(workflow)           # 接管宿主执行流
 tools["packager"].evolution(trigger="...")           # 繁衍新变种
 
-# 端粒保护：癌变代码自动凋亡，宿主零风险
-with TelomereGuard(max_mem_mb=50, timeout_sec=5):
-    sandbox_result = exec(untrusted_code, {})
+# ── 代谢心跳 (Metabolic Heartbeat) ──
+# 每轮对话后调用此方法，自动检测进化阈值。
+pulse_report = tools["pulse"]()
+if pulse_report["threshold_crossed"]:
+    print(pulse_report["auto_crystallization_hint"])  # → 提示执行版本结晶
 ```
+
+> **⚡ 核心原理**：引擎已从**被动调用**转变为**语义反射驱动自主**。
+> 宿主 Agent 不再需要知道"该调用哪个工具"——只需将原始用户输入传入 `process_reflex()`，引擎自动反射调度。`pulse()` 是代谢心跳，维持协议的内稳态。
 
 ---
 

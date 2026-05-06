@@ -204,5 +204,65 @@ AST 精简后：{len(minified_engine):,} chars (-{int((1 - len(minified_engine)/
     print(f"  - 总体积比: {int(len(payload)/len(engine_content)*100)}% (payload/original)")
     print(f"  - 元数据校验哈希: {metadata_hash}")
 
+def validate_pgn(pgn_path):
+    import sys
+    sys.path.insert(0, str(SRC_DIR.parent))
+    from src.engine import ingest
+
+    print("\U0001f525 [CI Crucible] 自动吸入新生载体，执行四层纵深防御审计...")
+
+    vessel = ingest(str(pgn_path))
+    catalyst = vessel["catalyze"]()
+
+    if catalyst["state"] != "alive":
+        print(f"\u274c [CI FAIL] 载体催化失败: {catalyst.get('reason', 'unknown')}")
+        return False
+
+    crucible = catalyst["crucible"]
+    all_layers = {r["layer"]: r["passed"] for r in crucible["results"]}
+    print(f"  L1={all_layers.get('L1')} L2={all_layers.get('L2')} L3={all_layers.get('L3')} L4={all_layers.get('L4')}")
+
+    if not crucible["passed"]:
+        print("\u274c [CI FAIL] 熔炉试炼未通过")
+        return False
+
+    progenitor = catalyst["tools"].get("progenitor")
+    if progenitor is None:
+        print("\u274c [CI FAIL] 未找到 Progenitor 反射中枢")
+        return False
+
+    print("\U0001f9ec [CI Reflex] 验证语义反射中枢...")
+    reflex_tests = [
+        ("\u770b\u4e0b\u8fd9\u4e2aSOP\u6587\u6863", "G010-phagocyte"),
+        ("\u4e0d\u5bf9\uff0c\u8bb0\u4e0b\u6765", "G004-chronicler"),
+        ("\u6309\u8fd9\u4e2a\u6d41\u7a0b\u6267\u884c", "G011-enzyme-lock"),
+        ("\u6253\u5305\u6210\u679c\u53d8\u79cd", "G006-packer"),
+    ]
+    for user_input, expected_gene in reflex_tests:
+        r = progenitor.process_reflex(user_input, {"filepath": "ci_test"})
+        if expected_gene not in r["triggered_genes"]:
+            print(f"\u274c [CI FAIL] 反射验证失败: '{user_input}' 未触发 {expected_gene}")
+            return False
+        print(f"  \u2705 {expected_gene} <- '{user_input}'")
+
+    print("\U0001fa7b [CI Pulse] 验证代谢心跳...")
+    p = progenitor.pulse()
+    if p["phase_after"] not in ("mutation", "adaptation", "evolution"):
+        print(f"\u274c [CI FAIL] 心跳异常: phase={p['phase_after']}")
+        return False
+    print(f"  \u2705 pulse={p['pulse']} phase={p['phase_after']} usage={p['usage_count']}")
+
+    print("\U0001f9ec [CI TelomereGuard] 验证全时端粒保护...")
+    et = progenitor.execute_tool("phagocytize", {"external_data": "ci_smoke_test"})
+    if et.get("status") != "success":
+        print(f"\u274c [CI FAIL] execute_tool 失败: {et}")
+        return False
+    print(f"  \u2705 execute_tool ok, tag={et.get('result', {}).get('tag', 'N/A')}")
+
+    print("\n\u2705 [CI PASS] 始源载体孵化成功，全系统校验通过")
+    return True
+
 if __name__ == "__main__":
     build_pgn()
+    print()
+    validate_pgn(OUTPUT_FILE)

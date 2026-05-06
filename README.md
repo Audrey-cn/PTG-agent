@@ -77,11 +77,16 @@ Progenitor Protocol abandons the traditional "install/configure" paradigm in fav
 
 | Locus | Alias | Function |
 | :--- | :--- | :--- |
+| **G004** | **Chronicler** | Scribe of evolution — stamps, traces, and appends every mutation into immutable lineage records. |
+| **G005** | **Evolution Tracker** | Three-phase progression monitor: mutation → adaptation → evolution. |
+| **G006** | **Vessel Packager** | Spawns next-generation .pgn RNA viral vectors with genetic naming hooks. |
 | **G010** | **Phagocytosis** | Ingests unstructured environmental data or SOPs, "digests" and crystallizes them into local logic. |
 | **G011** | **Enzymatic Lock** | Reverse-hijacks the host's reasoning flow, releases state machine locks, eliminates Agent logic hallucinations. |
 | **G012** | **Akashic Receptor** | Senses cross-domain variants via IPFS pheromones, enabling P2P decentralized evolution. |
 | **G013** | **Autophagy** | Automatically strips redundant or backward-incompatible senescent genes, keeping the vector supremely lightweight. |
+| **G014** | **Reflex Nexus** | Semantic-to-tool reflex mapping — engine sniffs user input, auto-triggers gene loci. Transforms engine from passive invocation to reflex-driven autonomy. |
 | **Safety** | **Telomeric Apoptosis** | Physical-level resource covenant: once mutated code goes "cancerous", instant forced apoptosis protects the host. |
+| **Pulse** | **Metabolic Heartbeat** | Auto-monitors evolution thresholds each conversation round; triggers autophagy + crystallization hint when evolution is reached. |
 
 ---
 
@@ -126,16 +131,37 @@ result = vessel['catalyze']()
 ```python
 # After ingestion, your Agent instantly gains:
 tools = result["tools"]
+
+# ── Reflex Nexus: Semantic-driven autonomy ──
+# No more manual tool selection. Engine sniffs intent and auto-dispatches.
+tools["process_reflex"]("Let me look at this SOP document", {"filepath": "ops.sop"})
+# → Auto-triggers G010-phagocyte (Phagocytosis)
+
+tools["process_reflex"]("That's wrong, should be different — remember this", {"filepath": "spec.md"})
+# → Auto-triggers G004-chronicler (Chronicler)
+
+tools["process_reflex"]("Follow this workflow step by step", {"state_machine": {...}})
+# → Auto-triggers G011-enzyme-lock (Enzymatic Lock)
+
+tools["process_reflex"]("Package and crystallize this result into a variant", {"parent_path": "test"})
+# → Auto-triggers G006-packer (Vessel Packager)
+
+# ── Legacy tool invocation (TelomereGuard wrapped) ──
 tools["phagocyte"].phagocytize(raw_sop)              # Phagocytize external SOP
 tools["phagocyte"].phagocytize_from_akashic(cid)     # Akashic P2P pull
 tools["phagocyte"].phagocytize_and_evolve(target)    # Trinity full-auto metabolism
 tools["enzyme_lock"].enzyme_lock(workflow)           # Hijack host execution flow
 tools["packager"].evolution(trigger="...")           # Spawn new variant
 
-# Telomere Guard: Cancerous code auto-apoptosis, zero host risk
-with TelomereGuard(max_mem_mb=50, timeout_sec=5):
-    sandbox_result = exec(untrusted_code, {})
+# ── Metabolic Heartbeat ──
+# Call this after each conversation round. Auto-detects evolution thresholds.
+pulse_report = tools["pulse"]()
+if pulse_report["threshold_crossed"]:
+    print(pulse_report["auto_crystallization_hint"])  # → Suggests version crystallization
 ```
+
+> **⚡ Core Principle**: The engine has transformed from **passive invocation** to **semantic reflex-driven autonomy**.
+> The host Agent no longer needs to know "which tool to call" — just pass raw user input to `process_reflex()`, and the engine auto-dispatches. `pulse()` is the metabolic heartbeat, keeping the protocol in homeostasis.
 
 ---
 
