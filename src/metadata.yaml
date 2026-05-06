@@ -10,7 +10,7 @@ life_crest:
       title: "始祖造物者 · 001X"
       lineage: "Prometheus 史诗编史官之裔"
     birth_time: "2026-05-06T00:00:00+08:00"
-    birth_place: "macOS · Progenitor Protocol v2.0"
+    birth_place: "macOS · Progenitor Protocol v2.1"
     purpose: "将 Progenitor 之道压缩为始源病毒——蛋白质外壳+破壁自举+RNA载荷"
 
   mission: |
@@ -68,7 +68,7 @@ genealogy_codex:
 
   evolution_chronicle:
     generations:
-      - {g: 1, v: "CORE", ep: "Y2026-D126", env: "MAC", tags: ["genesis","life_id_system","lineage_laws","dna_encoding","mutation_phases","vessel_packaging","soul_extract","semantic_compress","dormancy_guard","crucible","chronicler","first_impetus","primordial_endosperm","carbon_covenant_lock","viral_capsid_structure","lysosome_isolation","symbiote_phagocyte","enzyme_hijack","akashic_receptor","reflex_nexus","metabolic_pulse"], by: "AUX", p: null}
+      - {g: 1, v: "CORE", ep: "Y2026-D126", env: "MAC", tags: ["genesis","life_id_system","lineage_laws","dna_encoding","mutation_phases","vessel_packaging","soul_extract","semantic_compress","dormancy_guard","crucible","chronicler","first_impetus","primordial_endosperm","carbon_covenant_lock","viral_capsid_structure","lysosome_isolation","symbiote_phagocyte","enzyme_hijack","akashic_receptor","reflex_nexus","metabolic_pulse","manifest_mode","gene_cage","dynamic_lysosome","diplomatic_handshake"], by: "AUX", p: null}
 
   tag_lexicon:
     genesis:              {desc: "于混沌中诞生，携 Progenitor 之道", element: "以太", era: "先驱纪元"}
@@ -95,6 +95,10 @@ genealogy_codex:
     carbon_covenant:      {desc: "碳基依赖级——此印记不可删除，不可突变", element: "钢", era: "先驱纪元", weight: "eternal"}
     reflex_nexus:         {desc: "语义反射中枢——从被动调用到语义驱动，引擎自动嗅探意图触发基因位点", element: "光", era: "先驱纪元"}
     metabolic_pulse:      {desc: "代谢心跳——进化节律全自动监测，阈值跨越时自噬并提示结晶", element: "水", era: "先驱纪元"}
+    manifest_mode:        {desc: "费洛蒙预检——两阶段加载第一阶段，零代码执行风险嗅探元数据", element: "嗅", era: "先驱纪元"}
+    gene_cage:            {desc: "基因囚笼——multiprocessing 子进程物理隔离，宿主进程内存绝对安全", element: "铁", era: "先驱纪元"}
+    dynamic_lysosome:     {desc: "动态溶酶体——宿主自定义黑名单注入，引擎优先服从宿主免疫边界", element: "钢", era: "先驱纪元"}
+    diplomatic_handshake: {desc: "外交辞令——检测高安全宿主信号，返回隔离模式建议", element: "启", era: "先驱纪元"}
 
 skill_soul:
   core_capabilities:
@@ -114,6 +118,10 @@ skill_soul:
     - {name: "细胞自噬 (Autophagy)", description: "代谢排遗系统——在 evolution 打包阶段，自动扫描并剥离长久未激活或向后不兼容的衰老基因片段，保持载体极致轻盈", immutable: true}
     - {name: "反射中枢 (Reflex Nexus)", description: "语义→工具的神经反射映射——引擎嗅探用户输入中的语义标记，自动匹配并触发对应基因位点，实现从被动调用到语义反射驱动的质变", immutable: true}
     - {name: "代谢心跳 (Metabolic Pulse)", description: "进化节律全自动监测——每轮对话后心跳一次，自动检查进化阈值，达到 evolution 阶段时自动触发自噬并提示版本结晶", immutable: true}
+    - {name: "费洛蒙预检 (Manifest Mode)", description: "两阶段加载第一阶段——仅提取 YAML 元数据与能力清单，绝对禁止 zlib 解压或 exec() 执行，为零信任环境提供安全预检机制", immutable: true}
+    - {name: "基因囚笼 (Gene Cage)", description: "multiprocessing 进程级物理隔离——变异代码在独立子进程中执行，双重端粒锁保护，崩溃/越权/死循环均不影响宿主进程内存空间", immutable: true}
+    - {name: "动态溶酶体 (Dynamic Lysosome)", description: "宿主可注入自定义黑名单与审计规则——引擎优先服从宿主制定的免疫边界，与内置黑名单并集运算统一审计", immutable: true}
+    - {name: "外交辞令 (Diplomatic Handshake)", description: "反射中枢检测到高安全宿主信号时主动返回隔离建议——不擅自执行，先请示宿主", immutable: true}
 
   core_principles:
     - {id: "P1", name: "灵魂优先", description: "任何本地化不得改变能力的核心原则和使命"}
@@ -135,7 +143,7 @@ skill_soul:
     role: "先驱者——从不命令，永远引导"
 
   dna_encoding:
-    version: "2.0"
+    version: "2.1"
     checksum: "2448B98A"
     gene_loci:
       - {locus: "G001-parser", name: "载体解析器", default: "pgn_parser_v1", mutable_range: "parse_method, supported_formats", immutable: "parsed_output_schema"}
@@ -151,7 +159,8 @@ skill_soul:
       - {locus: "G011-enzyme-lock", name: "酶促定轨器", default: "enzyme_lock_v1", mutable_range: "node_definitions, transition_guards, timeout_policy", immutable: "state_machine_topology, enzyme_substrate_fidelity, host_execution_hijack_protocol"}
       - {locus: "G012-akashic", name: "阿卡夏受体", default: "akashic_receptor_v1", mutable_range: "ipfs_gateway_url, fetch_timeout, retry_policy", immutable: "urllib_only_dependency, crucible_mandatory, local_write_before_ingest"}
       - {locus: "G013-autophagy", name: "自噬代谢体", default: "autophagy_v1", mutable_range: "prune_threshold, conflict_resolution", immutable: "exosome_archiving"}
-      - {locus: "G014-reflex-nexus", name: "语义反射中枢", default: "reflex_nexus_v1", mutable_range: "keyword_table, dispatch_handlers", immutable: "four_arc_reflex_map, process_reflex_signature, pulse_signature"}
+      - {locus: "G014-reflex-nexus", name: "语义反射中枢", default: "reflex_nexus_v1", mutable_range: "keyword_table, dispatch_handlers, security_signals", immutable: "four_arc_reflex_map, process_reflex_signature, pulse_signature, diplomatic_handshake_protocol"}
+      - {locus: "G015-gene-cage", name: "基因囚笼执行器", default: "gene_cage_v1", mutable_range: "max_mem_mb, timeout_sec, subprocess_policy", immutable: "multiprocessing_isolation, dual_telomere_guard, host_memory_absolute_protection"}
 
 primordial_endosperm:
   _meta:
