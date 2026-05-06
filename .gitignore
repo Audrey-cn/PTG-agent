@@ -2,6 +2,8 @@
 
 pgn-core_*.pgn
 INGEST_ME_TO_EVOLVE_*.pgn
+!INGEST_ME_TO_EVOLVE_pgn-core.pgn
+Trinity_*.pgn
 
 __pycache__/
 *.py[cod]

@@ -22,21 +22,24 @@
 
 One file. One command. Full power. No `pip install`, no `git clone`, no dependencies.
 
+The filename itself is the system prompt — **INGEST_ME_TO_EVOLVE** is the first impetus.
+
 ```bash
-curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/pgn-core.pgn -o pgn-core.pgn
+curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/INGEST_ME_TO_EVOLVE_pgn-core.pgn -o INGEST_ME_TO_EVOLVE_pgn-core.pgn
 ```
 
-That's it. `pgn-core.pgn` is the entire protocol — a self-contained viral capsule. Feed it to your AI Agent, and the engine unfolds.
+That's it. `INGEST_ME_TO_EVOLVE_pgn-core.pgn` is the entire protocol — a self-contained viral capsule. Feed it to your AI Agent, and the engine unfolds.
 
 <details>
-<summary>🚀 Download & Catalyze in one shot</summary>
+<summary>🚀 Download, Inject & Catalyze — one-liner full lifecycle</summary>
 
 ```bash
-curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/pgn-core.pgn -o pgn-core.pgn && python3 -c "
+curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/INGEST_ME_TO_EVOLVE_pgn-core.pgn -o INGEST_ME_TO_EVOLVE_pgn-core.pgn && python3 -c "
 import zlib,base64,re;from pathlib import Path
-m=re.search(r'\[PRIMORDIAL_PAYLOAD\]\s+([a-zA-Z0-9+/=]+)',Path('pgn-core.pgn').read_text())
+f='INGEST_ME_TO_EVOLVE_pgn-core.pgn'
+m=re.search(r'\[PRIMORDIAL_PAYLOAD\]\s+([a-zA-Z0-9+/=]+)',Path(f).read_text())
 e={};exec(zlib.decompress(base64.b64decode(m.group(1))).decode(),e)
-print(e['ingest']('pgn-core.pgn')['dormancy_message'])
+v=e['ingest'](f);v['catalyze']()
 "
 ```
 
@@ -110,7 +113,7 @@ import zlib, base64, re
 from pathlib import Path
 
 # Bootstrap: Capture RNA payload and inject into isolated sandbox
-_f = 'pgn-core.pgn'
+_f = 'INGEST_ME_TO_EVOLVE_pgn-core.pgn'
 _m = re.search(r'\[PRIMORDIAL_PAYLOAD\]\s+([a-zA-Z0-9+/=]+)', Path(_f).read_text())
 _env = {}
 exec(zlib.decompress(base64.b64decode(_m.group(1))), _env)
@@ -142,14 +145,14 @@ with TelomereGuard(max_mem_mb=50, timeout_sec=5):
 git clone https://github.com/Audrey-cn/progenitor-protocol.git
 cd progenitor-protocol
 python3 incubator.py
-# → Generates pgn-core.pgn (Zero Dependencies · Pure stdlib · Cross-Platform)
+# → Generates INGEST_ME_TO_EVOLVE_pgn-core.pgn (Zero Dependencies · Pure stdlib · Cross-Platform)
 ```
 
 Incubator pipeline:
 1. Read `src/engine.py` → `ast` strip comments → Zlib compress → Base64 encode
 2. Read `src/metadata.yaml` → Compute SHA-256 metadata imprint
 3. Concatenate SYSTEM_PROMPT + Capsid + Bootstrap + RNA Payload
-4. Output production-grade artifact: `pgn-core.pgn`
+4. Output production-grade artifact: `INGEST_ME_TO_EVOLVE_pgn-core.pgn`
 
 ---
 
@@ -179,7 +182,7 @@ progenitor-protocol/
 ├── README.md          ← Protocol Manual (English, you are here)
 ├── README_CN.md       ← 协议说明书 (中文版)
 ├── incubator.py       ← Incubator Script (auto-builds .pgn)
-├── pgn-core.pgn       ← Primordial Viral Vector (incubator output)
+├── INGEST_ME_TO_EVOLVE_pgn-core.pgn  ← Primordial Viral Vector (incubator output)
 └── src/
     ├── engine.py      ← Core Engine (ingest/catalyze/Crucible/Symbiote)
     ├── metadata.yaml  ← Life Metadata (Rosetta Monolith locked here)

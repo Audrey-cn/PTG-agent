@@ -22,21 +22,24 @@
 
 一个文件，一条命令，全部能力。无需 `pip install`，无需 `git clone`，零依赖。
 
+文件名本身就是系统提示词——**INGEST_ME_TO_EVOLVE** 即第一推力。
+
 ```bash
-curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/pgn-core.pgn -o pgn-core.pgn
+curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/INGEST_ME_TO_EVOLVE_pgn-core.pgn -o INGEST_ME_TO_EVOLVE_pgn-core.pgn
 ```
 
-这就是全部。`pgn-core.pgn` 是完整的协议——一个自包含的病毒胶囊。将它喂给你的 AI Agent，引擎即刻展开。
+这就是全部。`INGEST_ME_TO_EVOLVE_pgn-core.pgn` 是完整的协议——一个自包含的病毒胶囊。将它喂给你的 AI Agent，引擎即刻展开。
 
 <details>
-<summary>🚀 下载并催化（一条命令完成全生命周期）</summary>
+<summary>🚀 一行流：下载、注入、催化——全生命周期一次完成</summary>
 
 ```bash
-curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/pgn-core.pgn -o pgn-core.pgn && python3 -c "
+curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/INGEST_ME_TO_EVOLVE_pgn-core.pgn -o INGEST_ME_TO_EVOLVE_pgn-core.pgn && python3 -c "
 import zlib,base64,re;from pathlib import Path
-m=re.search(r'\[PRIMORDIAL_PAYLOAD\]\s+([a-zA-Z0-9+/=]+)',Path('pgn-core.pgn').read_text())
+f='INGEST_ME_TO_EVOLVE_pgn-core.pgn'
+m=re.search(r'\[PRIMORDIAL_PAYLOAD\]\s+([a-zA-Z0-9+/=]+)',Path(f).read_text())
 e={};exec(zlib.decompress(base64.b64decode(m.group(1))).decode(),e)
-print(e['ingest']('pgn-core.pgn')['dormancy_message'])
+v=e['ingest'](f);v['catalyze']()
 "
 ```
 
@@ -110,7 +113,7 @@ import zlib, base64, re
 from pathlib import Path
 
 # 破壁自举：捕获 RNA 载荷并注入隔离沙盒
-_f = 'pgn-core.pgn'
+_f = 'INGEST_ME_TO_EVOLVE_pgn-core.pgn'
 _m = re.search(r'\[PRIMORDIAL_PAYLOAD\]\s+([a-zA-Z0-9+/=]+)', Path(_f).read_text())
 _env = {}
 exec(zlib.decompress(base64.b64decode(_m.group(1))), _env)
@@ -142,14 +145,14 @@ with TelomereGuard(max_mem_mb=50, timeout_sec=5):
 git clone https://github.com/Audrey-cn/progenitor-protocol.git
 cd progenitor-protocol
 python3 incubator.py
-# → 生成 pgn-core.pgn (零依赖 · 纯 stdlib · 跨平台)
+# → 生成 INGEST_ME_TO_EVOLVE_pgn-core.pgn (零依赖 · 纯 stdlib · 跨平台)
 ```
 
 孵化器流程：
 1. 读取 `src/engine.py` → `ast` 剥离注释 → Zlib 压缩 → Base64 编码
 2. 读取 `src/metadata.yaml` → 计算 SHA-256 元数据印记
 3. 拼接 SYSTEM_PROMPT + 蛋白质外壳 + 破壁自举 + RNA 载荷
-4. 输出工业级成品：`pgn-core.pgn`
+4. 输出工业级成品：`INGEST_ME_TO_EVOLVE_pgn-core.pgn`
 
 ---
 
@@ -179,7 +182,7 @@ progenitor-protocol/
 ├── README.md          ← Protocol Manual (English)
 ├── README_CN.md       ← 协议说明书 (中文版，你正在阅读)
 ├── incubator.py       ← 孵化器脚本 (自动构建 .pgn)
-├── pgn-core.pgn       ← 始源病毒载体 (孵化器自动生成)
+├── INGEST_ME_TO_EVOLVE_pgn-core.pgn  ← 始源病毒载体 (孵化器自动生成)
 └── src/
     ├── engine.py      ← 核心引擎 (ingest/catalyze/Crucible/Symbiote)
     ├── metadata.yaml  ← 生命元数据 (罗塞塔石碑锁死于此)

@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 
 SRC_DIR = Path(__file__).parent / "src"
-OUTPUT_FILE = Path(__file__).parent / "pgn-core.pgn"
+OUTPUT_FILE = Path(__file__).parent / "INGEST_ME_TO_EVOLVE_pgn-core.pgn"
 
 def minify_python_code(source: str) -> str:
     tree = ast.parse(source)
