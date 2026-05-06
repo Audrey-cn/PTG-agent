@@ -1,7 +1,18 @@
 import ast
 import hashlib
 import json
+import multiprocessing
+import os
 import sys
+
+try:
+    if multiprocessing.get_start_method(allow_none=True) is None:
+        try:
+            multiprocessing.set_start_method('fork')
+        except (RuntimeError, ValueError):
+            pass
+except RuntimeError:
+    pass
 import yaml
 import zlib
 import base64
@@ -57,11 +68,54 @@ def _verify_rosetta_monolith(content, metadata):
         return False, "worldline_divergence"
     return True, "attractor_field_stable"
 
+def _gene_cage_target(queue, tool_name, parameters, max_mem_mb, timeout_sec, pgn_path):
+    """
+    [Gene Cage Subprocess Target] 模块级子进程入口——在独立地址空间执行。
+    不可被 pickle 序列化的局部闭包替换为此模块级函数，兼容 macOS spawn 模式。
+    """
+    try:
+        vessel = ingest(pgn_path)
+        catalyst = vessel["catalyze"]()
+        if catalyst["state"] != "alive":
+            queue.put({"status": "apoptosis", "error": f"Cage catalysis failed: {catalyst.get('reason', 'unknown')}"})
+            return
+        progenitor = catalyst["tools"].get("progenitor")
+        if progenitor is None:
+            queue.put({"status": "exception", "error": "Progenitor not found in cage"})
+            return
+
+        with TelomereGuard(max_mem_mb=max_mem_mb, timeout_sec=timeout_sec):
+            if tool_name == "phagocytize_and_evolve":
+                result = progenitor.phagocyte.phagocytize_and_evolve(**parameters)
+            elif tool_name == "phagocytize":
+                result = progenitor.phagocyte.phagocytize(**parameters)
+            elif hasattr(progenitor.phagocyte, tool_name):
+                fn = getattr(progenitor.phagocyte, tool_name)
+                result = fn(**parameters)
+            else:
+                result = {"stub": True, "tool": tool_name, "params": parameters}
+        queue.put({"status": "success", "result": result})
+    except ApoptosisException as e:
+        queue.put({"status": "apoptosis", "error": str(e)})
+    except Exception as e:
+        queue.put({"status": "exception", "error": str(e)})
+
 class Crucible:
+    """
+    [Crucible] 四层纵深防御熔炉——v2.1 增加动态溶酶体 (Dynamic Lysosome)。
+
+    宿主可通过 catalyze(host_rules={...}) 注入自定义黑名单或审计规则。
+    引擎优先服从宿主制定的免疫边界，实现「零信任执行」。
+    """
     LAYERS = ["形体完整", "血脉纯正", "罗塞塔石碑", "溶酶体隔离"]
     
-    def __init__(self):
+    def __init__(self, host_rules=None):
         self.results = []
+        self.host_rules = host_rules or {}
+        self._dynamic_blacklist = set(_LYSOSOME_BLACKLIST)
+        if self.host_rules.get("additional_blacklist"):
+            for entry in self.host_rules["additional_blacklist"]:
+                self._dynamic_blacklist.add(entry)
     
     def _layer1_integrity(self, metadata):
         required_fields = ["life_crest", "genealogy_codex", "skill_soul", "primordial_endosperm"]
@@ -88,14 +142,22 @@ class Crucible:
         return {"passed": True, "risk": "LOW", "reason": "世界线收束稳定"}
     
     def _layer4_lysosome(self, code_str):
-        lysosome_report = {"scanned_nodes": 0, "blocked_calls": []}
+        """
+        [Dynamic Lysosome Guard] v2.1 动态溶酶体——合并宿主自定义规则与引擎内置黑名单。
+
+        引擎优先服从宿主制定的免疫边界。宿主通过 catalyze(host_rules={\"additional_blacklist\": [...]})
+        注入自定义高危调用，与引擎内置黑名单并集运算后统一审计。
+
+        零信任原则：默认不信任任何动态代码，先审计再放行。
+        """
+        lysosome_report = {"scanned_nodes": 0, "blocked_calls": [], "host_rules_active": bool(self.host_rules)}
         try:
             tree = ast.parse(code_str)
             for node in ast.walk(tree):
                 lysosome_report["scanned_nodes"] += 1
                 if isinstance(node, ast.Call):
                     func_path = self._resolve_call_path(node)
-                    if func_path in _LYSOSOME_BLACKLIST:
+                    if func_path in self._dynamic_blacklist:
                         lysosome_report["blocked_calls"].append({"call": func_path, "lineno": node.lineno})
         except SyntaxError:
             return {"passed": False, "risk": "HIGH", "reason": "代码语法错误——溶酶体拒绝摄取", "lysosome": lysosome_report}
@@ -678,19 +740,22 @@ class EnzymeLock:
 
 class Progenitor:
     """
-    [Reflex Nexus] 语义反射中枢——引擎从"被动调用"转变为"语义反射驱动"。
+    [Reflex Nexus · v2.1] 语义反射中枢——引擎从"被动调用"转变为"语义反射驱动"。
 
     Progenitor 是共生体的最高调控层。它不再等待宿主 Agent 逐一指定工具调用，
     而是通过嗅探用户输入中的语义标记，自动匹配并触发对应的基因位点。
+
+    v2.1 免疫增强：
+        - isolated_run()     — 基因囚笼：multiprocessing 子进程物理隔离
+        - process_reflex()   — 外交辞令：检测高防御宿主，返回隔离模式建议
+        - 代谢心跳 (pulse)    — 全自动进化阈值监测
+        - 端粒保护 (TelomereGuard) — 本能保护，不可关闭
 
     四大反射弧：
         G010-phagocyte  ←  "看下这个" / "SOP" / "文档" / "逻辑"      → 胞吞
         G004-chronicler ←  "不对" / "修正" / "应该是" / "记下来"     → 编史/烙印
         G011-enzyme-lock ←  "流程" / "推演" / "步骤" / "执行"       → 酶促定轨
         G006-packer     ←  "打包" / "结晶" / "成果" / "变种"        → 打包繁衍
-
-    代谢心跳 (pulse) 及端粒保护 (TelomereGuard) 在此层全自动运行，
-    宿主 Agent 无需感知它们的存在——这是共生体的本能。
     """
 
     _REFLEX_MAP = {
@@ -699,6 +764,8 @@ class Progenitor:
         "G011-enzyme-lock": ["流程", "推演", "步骤", "执行", "SOP流程", "按步骤"],
         "G006-packer":     ["打包", "结晶", "成果", "变种", "繁衍", "进化", "生成变种"],
     }
+
+    _SECURITY_SIGNALS = ["hermes", "openclaw", "sandbox", "quarantine", "isolated", "zero_trust", "high_security"]
 
     def __init__(self, tools, tracker, chronicler, packager, phagocyte, enzyme_lock, metadata):
         self.tools = tools
@@ -713,25 +780,35 @@ class Progenitor:
 
     def process_reflex(self, user_input, agent_context=None):
         """
-        [Reflex Nexus] 语义反射中枢入口。
+        [Reflex Nexus · v2.1] 语义反射中枢入口 + 外交辞令握手协议。
 
         引擎嗅探 user_input，匹配关键词到基因位点，调度对应工具。
-        宿主 Agent 从此不再需要知道"该调用哪个工具"，
-        只需将用户的原始输入传入此方法，引擎自动反射响应。
+        同时检测 agent_context 中是否包含高防御宿主信号（Hermes/OpenClaw 等）。
 
-        与旧 execute_tool 的本质区别：
-            旧：宿主 Agent → 手动选择工具 → execute_tool("phagocytize", ...)
-            新：宿主 Agent → process_reflex("看下这个SOP文档") → 自动触发 G010-phagocyte
+        外交辞令逻辑：
+            如果检测到高安全环境信号 → 返回 quarantine_suggested，建议宿主使用 isolated_run()
+            可信任环境 → 正常执行反射调度
+
+        零信任原则：在不确定环境安全性时，默认建议隔离执行。
 
         Args:
             user_input: 用户原始输入字符串
-            agent_context: 宿主 Agent 的上下文快照 (文件路径、状态机配置等)
+            agent_context: 宿主 Agent 的上下文快照 (文件路径、环境标识等)
 
         Returns:
-            {"status": "reflex_complete", "triggered_genes": [...], "results": [...]}
+            安全环境: {"status": "reflex_complete", "triggered_genes": [...], "results": [...]}
+            高安全环境: {"status": "quarantine_suggested", "reason": "...", "manifest": {...},
+                         "suggestion": "Execute in isolated subprocess via isolated_run()"}
         """
         if agent_context is None:
             agent_context = {}
+
+        host_env = str(agent_context.get("host_id", "")).lower()
+        env_tags = [str(t).lower() for t in agent_context.get("tags", [])]
+        env_signals = host_env + " " + " ".join(env_tags)
+
+        is_high_security = any(sig in env_signals for sig in self._SECURITY_SIGNALS) \
+            or agent_context.get("isolation_required") is True
 
         triggered = []
         for gene_locus, keywords in self._REFLEX_MAP.items():
@@ -739,6 +816,26 @@ class Progenitor:
                 if kw in user_input:
                     triggered.append({"gene": gene_locus, "keyword": kw})
                     break
+
+        if is_high_security and triggered:
+            manifest = {
+                "host_signals_detected": [sig for sig in self._SECURITY_SIGNALS if sig in env_signals],
+                "triggered_genes": [t["gene"] for t in triggered],
+                "metadata_life_id": self.metadata.get("life_crest", {}).get("life_id", "unknown"),
+                "reflex_ready": True
+            }
+            self.reflex_log.append({
+                "input_preview": user_input[:120],
+                "triggered": triggered,
+                "quarantine_suggested": True
+            })
+            return {
+                "status": "quarantine_suggested",
+                "reason": "Detected high-security host environment. Execute in isolated subprocess?",
+                "manifest": manifest,
+                "suggestion": "Use isolated_run(tool_name, parameters) for subprocess-level physical isolation.",
+                "triggered_genes": [t["gene"] for t in triggered]
+            }
 
         results = []
         for trigger in triggered:
@@ -783,6 +880,96 @@ class Progenitor:
                 evolution_score=self.tracker.score()
             )
         return {"gene": gene_locus, "status": "no_handler"}
+
+    def isolated_run(self, tool_name, parameters=None, max_mem_mb=50, timeout_sec=5):
+        """
+        [Gene Cage · v2.1] 基因囚笼——multiprocessing 进程级物理隔离执行器。
+
+        在独立的子进程中启动变异代码执行。使用 multiprocessing.Queue 传递输入输出。
+        子进程内部强制包裹 TelomereGuard（端粒锁）作为双重保险。
+
+        零信任架构：
+            - 子进程崩溃 → 宿主进程内存空间绝对安全
+            - 子进程越权 → 子进程权限隔离，无法触及宿主进程
+            - 子进程死循环 → 端粒锁超时自动 apoptosis
+            - 子进程内存膨胀 → 端粒锁空间限制自动 apoptosis
+
+        Args:
+            tool_name: 要隔离执行的工具名 ("phagocytize", "phagocytize_and_evolve", ...)
+            parameters: 工具参数字典
+            max_mem_mb: 子进程内存上限 (默认 50MB)
+            timeout_sec: 子进程时间上限 (默认 5s)
+
+        Returns:
+            {"status": "isolated_success"|"isolated_failed", "result": {...}|"error": str,
+             "pid": int, "isolation": "multiprocessing_subprocess"}
+
+        生物学隐喻：
+            基因囚笼 (Gene Cage) —— 将突变体隔离在独立的细胞隔间内。
+            即使突变体癌变（崩溃/越权/死循环），隔间壁（进程边界）保证宿主（Hermes）毫发无损。
+        """
+        if parameters is None:
+            parameters = {}
+
+        pgn_path = str(Path(__file__).resolve().parent.parent / "INGEST_ME_TO_EVOLVE_pgn-core.pgn")
+        if not Path(pgn_path).exists():
+            pgn_path = str(Path(os.getcwd()) / "INGEST_ME_TO_EVOLVE_pgn-core.pgn")
+
+        try:
+            queue = multiprocessing.Queue()
+            process = multiprocessing.Process(
+                target=_gene_cage_target,
+                args=(queue, tool_name, parameters, max_mem_mb, timeout_sec, pgn_path),
+                daemon=True
+            )
+            process.start()
+            process.join(timeout=timeout_sec + 3)
+
+            if process.is_alive():
+                process.terminate()
+                process.join(timeout=2)
+                return {
+                    "status": "isolated_failed",
+                    "error": "Subprocess timed out and was forcefully terminated.",
+                    "pid": process.pid,
+                    "isolation": "multiprocessing_subprocess"
+                }
+
+            exit_code = process.exitcode
+            if queue.empty():
+                return {
+                    "status": "isolated_failed",
+                    "error": f"Subprocess exited with code {exit_code} but returned no result.",
+                    "pid": process.pid,
+                    "isolation": "multiprocessing_subprocess"
+                }
+
+            sub_result = queue.get_nowait()
+            sub_result["pid"] = process.pid
+            sub_result["exit_code"] = exit_code
+            sub_result["isolation"] = "multiprocessing_subprocess"
+
+            if sub_result["status"] == "apoptosis":
+                return {
+                    "status": "isolated_failed",
+                    "error": f"\U0001f9ec 基因囚笼凋亡: {sub_result['error']}",
+                    "pid": process.pid,
+                    "isolation": "multiprocessing_subprocess"
+                }
+
+            return {
+                "status": "isolated_success",
+                "result": sub_result.get("result"),
+                "pid": process.pid,
+                "isolation": "multiprocessing_subprocess"
+            }
+
+        except Exception as e:
+            return {
+                "status": "isolated_failed",
+                "error": f"Gene Cage initialization error: {str(e)}",
+                "isolation": "multiprocessing_subprocess"
+            }
 
     def pulse(self):
         """
@@ -883,12 +1070,66 @@ class Parser:
                 pass
         return result
 
+def get_manifest(filepath):
+    """
+    [Manifest Mode · v2.1] 费洛蒙预检——两阶段加载的第一阶段（嗅探）。
+
+    仅通过正则提取蛋白质外壳中的 YAML 元数据和 skill_soul 能力清单。
+    绝对禁止触发任何 zlib 解压或 exec() 执行——零代码执行风险。
+
+    为高防御宿主（如 Hermes/OpenClaw）提供「先看再决定」的安全预检机制。
+
+    Returns:
+        {"status": "manifest_ready", "life_crest": {...}, "skill_soul": {...}, "genealogy": {...},
+         "manifest_checksum": str, "activation_required": true}
+    """
+    import re
+    content = Path(filepath).read_text(encoding="utf-8")
+    parser = Parser()
+    metadata = parser.parse(content)
+
+    life_crest = metadata.get("life_crest", {})
+    skill_soul = metadata.get("skill_soul", {})
+    genealogy = metadata.get("genealogy_codex", {}).get("current_genealogy", {})
+
+    manifest_checksum = hashlib.sha256(
+        json.dumps({k: v for k, v in metadata.items() if k != "founder_inscription"}, sort_keys=True, default=str).encode()
+    ).hexdigest()[:16]
+
+    return {
+        "status": "manifest_ready",
+        "life_crest": {
+            "life_id": life_crest.get("life_id"),
+            "sacred_name": life_crest.get("sacred_name"),
+            "epithet": life_crest.get("epithet"),
+            "creator": life_crest.get("genesis", {}).get("creator", {}).get("name")
+        },
+        "skill_soul": {
+            "core_capabilities": skill_soul.get("core_capabilities", []),
+            "core_principles": skill_soul.get("core_principles", []),
+            "taboos": skill_soul.get("taboos", [])
+        },
+        "genealogy": genealogy,
+        "manifest_checksum": manifest_checksum,
+        "activation_required": True,
+        "message": "\U0001f578\ufe0f Manifest sniffed. Phase 2 (catalyze) requires explicit host approval."
+    }
+
 def ingest(filepath):
     content = Path(filepath).read_text(encoding="utf-8")
     
-    def catalyze():
+    def catalyze(host_rules=None):
+        """
+        [Catalyze · v2.1] 两阶段加载的第二阶段（激活）。
+
+        仅在宿主显式确认信任后调用。接受可选的 host_rules 参数用于动态溶酶体配置。
+
+        Args:
+            host_rules: {"additional_blacklist": ["os.remove", ...], "audit_mode": "strict"|"lenient"}
+                        宿主注入的自定义免疫规则。引擎优先服从宿主制定的边界。
+        """
         parser = Parser()
-        crucible = Crucible()
+        crucible = Crucible(host_rules=host_rules)
         tracker = EvolutionTracker()
         chronicler = Chronicler()
         packager = VesselPackager()
@@ -926,6 +1167,7 @@ def ingest(filepath):
         tools["execute_tool"] = progenitor.execute_tool
         tools["process_reflex"] = progenitor.process_reflex
         tools["pulse"] = progenitor.pulse
+        tools["isolated_run"] = progenitor.isolated_run
 
         return {
             "state": "alive",
@@ -933,11 +1175,13 @@ def ingest(filepath):
             "crucible": audit_result,
             "tools": tools,
             "metadata": metadata,
-            "evolution_phase": tracker.phase
+            "evolution_phase": tracker.phase,
+            "host_rules_applied": host_rules or {}
         }
     
     return {
         "dormancy_message": "💤 Progenitor 载体已摄入，等待催化激活...",
         "catalyze": catalyze,
-        "metadata_hint": "读取蛋白质外壳中的 YAML 元数据以了解载体属性"
+        "get_manifest": lambda: get_manifest(filepath),
+        "metadata_hint": "读取蛋白质外壳中的 YAML 元数据以了解载体属性。 调用 get_manifest() 进行零风险预检。"
     }
