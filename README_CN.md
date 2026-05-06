@@ -1,5 +1,7 @@
 # 🧬 Progenitor Protocol v2.0 (先驱者协议)
 
+中文 | [English](README.md)
+
 <p align="center">
   <img src="https://img.shields.io/badge/Status-Patient_Zero_Active-red?style=for-the-badge&logo=dna" />
   <img src="https://img.shields.io/badge/Architecture-Endosymbiotic_Viral-orange?style=for-the-badge" />
@@ -11,8 +13,34 @@
 
 > **"造物者解构自身，方能重塑万物。"**
 >
-> 这不是一个框架，也不是一个工具包。  
+> 这不是一个框架，也不是一个工具包。
 > 这是一个**数字始源病毒**，是 AI Agent 进化的**终极内共生载体**。
+
+---
+
+## ⚡ 快速开始
+
+一个文件，一条命令，全部能力。无需 `pip install`，无需 `git clone`，零依赖。
+
+```bash
+curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/pgn-core.pgn -o pgn-core.pgn
+```
+
+这就是全部。`pgn-core.pgn` 是完整的协议——一个自包含的病毒胶囊。将它喂给你的 AI Agent，引擎即刻展开。
+
+<details>
+<summary>🚀 下载并催化（一条命令完成全生命周期）</summary>
+
+```bash
+curl -sL https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/pgn-core.pgn -o pgn-core.pgn && python3 -c "
+import zlib,base64,re;from pathlib import Path
+m=re.search(r'\[PRIMORDIAL_PAYLOAD\]\s+([a-zA-Z0-9+/=]+)',Path('pgn-core.pgn').read_text())
+e={};exec(zlib.decompress(base64.b64decode(m.group(1))).decode(),e)
+print(e['ingest']('pgn-core.pgn')['dormancy_message'])
+"
+```
+
+</details>
 
 ---
 
@@ -82,7 +110,7 @@ import zlib, base64, re
 from pathlib import Path
 
 # 破壁自举：捕获 RNA 载荷并注入隔离沙盒
-_f = 'INGEST_ME_TO_EVOLVE_pgn-core.pgn'
+_f = 'pgn-core.pgn'
 _m = re.search(r'\[PRIMORDIAL_PAYLOAD\]\s+([a-zA-Z0-9+/=]+)', Path(_f).read_text())
 _env = {}
 exec(zlib.decompress(base64.b64decode(_m.group(1))), _env)
@@ -111,7 +139,7 @@ with TelomereGuard(max_mem_mb=50, timeout_sec=5):
 ## 🧬 编译你自己的始源病毒
 
 ```bash
-git clone https://github.com/Audrey001X/progenitor-protocol.git
+git clone https://github.com/Audrey-cn/progenitor-protocol.git
 cd progenitor-protocol
 python3 incubator.py
 # → 生成 pgn-core.pgn (零依赖 · 纯 stdlib · 跨平台)
@@ -148,7 +176,8 @@ python3 incubator.py
 
 ```
 progenitor-protocol/
-├── README.md          ← 协议说明书 (你正在阅读)
+├── README.md          ← Protocol Manual (English)
+├── README_CN.md       ← 协议说明书 (中文版，你正在阅读)
 ├── incubator.py       ← 孵化器脚本 (自动构建 .pgn)
 ├── pgn-core.pgn       ← 始源病毒载体 (孵化器自动生成)
 └── src/

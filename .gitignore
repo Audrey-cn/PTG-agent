@@ -1,0 +1,20 @@
+# --- Progenitor Protocol Metabolic Waste ---
+
+pgn-core_*.pgn
+INGEST_ME_TO_EVOLVE_*.pgn
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+.venv/
+venv/
+ENV/
+.env
+.DS_Store
+*.log
+*.tmp
+
+.trae/
+.vscode/
+.idea/
