@@ -284,8 +284,15 @@ class Chronicler:
         return {"action": "append", "filepath": filepath, "content_length": len(content)}
 
 class VesselPackager:
+    INGEST_PREFIX = "INGEST_ME_TO_EVOLVE_"
+
     def __init__(self):
         self.dormant_lineage = {}
+
+    @classmethod
+    def _format_vessel_filename(cls, variant_name: str) -> str:
+        clean_name = variant_name.replace(cls.INGEST_PREFIX, "")
+        return f"{cls.INGEST_PREFIX}{clean_name}.pgn"
 
     def _autophagy_prune(self, active_genome: dict) -> dict:
         """
@@ -316,7 +323,7 @@ class VesselPackager:
         prune_report = self._autophagy_prune({})
         return {
             "status": "packaged",
-            "filename": f"INGEST_ME_TO_EVOLVE_{skill_name}.pgn",
+            "filename": self._format_vessel_filename(skill_name),
             "parent": parent_path,
             "skill_name": skill_name,
             "innovations": innovations,
@@ -340,16 +347,22 @@ class VesselPackager:
             "checksum": hashlib.sha256(code.encode()).hexdigest()[:16]
         }
 
-    def evolution(self, trigger: str, enable_autophagy: bool = True) -> dict:
+    def evolution(self, trigger: str, enable_autophagy: bool = True, variant_name: str = None) -> dict:
         """
         [Evolution Reproduction] 进化繁衍——触发新一代 .pgn 载体生成。
 
         当 enable_autophagy=True 时，自动调用自噬修剪，剥离冗余基因，
         保留核心代谢通路，将产物以 Trinity 命名写入本地。
+
+        variant_name: 可选变种名，如 "Trinity_CosmeticSOP"。
+                      若未指定，自动生成 "Trinity_{tag}" 格式。
+                      输出文件名始终携带 INGEST_ME_TO_EVOLVE_ 前缀。
         """
         import time
         tag = hashlib.sha256(f"{trigger}{time.time()}".encode()).hexdigest()[:12]
-        filename = f"INGEST_ME_TO_EVOLVE_Trinity_{tag}.pgn"
+        if variant_name is None:
+            variant_name = f"Trinity_{tag}"
+        filename = self._format_vessel_filename(variant_name)
         prune_report = self._autophagy_prune({}) if enable_autophagy else {"pruned": [], "retained": [], "exosome": {}}
         return {
             "status": "evolved",
@@ -411,7 +424,7 @@ class Phagocyte:
         import urllib.request
         import urllib.error
         gateway_url = f"https://ipfs.io/ipfs/{cid_hash}"
-        local_path = f"INGEST_ME_TO_EVOLVE_AKASHIC_{cid_hash[:8]}.pgn"
+        local_path = VesselPackager._format_vessel_filename(f"AKASHIC_{cid_hash[:8]}")
 
         print(f"\U0001f578\ufe0f [阿卡夏受体] 正在感知星际菌丝网络...\n   锁定基因序列: {cid_hash}")
 
@@ -536,9 +549,11 @@ class Phagocyte:
 
         # ── [Phase E] 打包繁衍 ──
         print("\U0001f9ec [Phase E: 排遗与繁衍] 提纯完毕，结晶新一代 Progenitor 变种...")
+        variant_name = self._extract_variant_name(external_target)
         evo = self.packager.evolution(
             trigger=f"phagocytosis_{external_target[:40]}",
-            enable_autophagy=True
+            enable_autophagy=True,
+            variant_name=variant_name
         )
         lineagelog.append({"phase": "E.reproduction", "filename": evo["filename"], "tag": evo["tag"]})
         print(f"\U0001f9ec {evo['message']}")
@@ -580,6 +595,30 @@ class Phagocyte:
             f'result = {{"repaired": True, "previous_error": "{error_message[:60]}", "status": "stub_repair"}}\n'
             f'print("Simulated Repair Execution")\n'
         )
+
+    def _extract_variant_name(self, external_target: str) -> str:
+        """
+        从外部目标提取有意义的变种名，用于进化繁衍时的文件命名。
+        
+        支持从 URL、CID、原始文本中提取名称：
+        - GitHub URL: 提取路径中的文件名
+        - IPFS CID: 使用 CID 前缀
+        - 原始文本: 使用文本哈希前缀
+        
+        Returns:
+            变种名，如 "Trinity_CosmeticSOP"
+        """
+        import re
+        match = re.search(r'\/([^\/]+)\.(pgn|md|txt|sop)$', external_target)
+        if match:
+            base_name = match.group(1)
+            return f"Trinity_{base_name}"
+        if external_target.startswith("Qm") or len(external_target) == 46:
+            return f"Trinity_AKASHIC_{external_target[:8]}"
+        if len(external_target) <= 32 and external_target.replace("_", "").isalnum():
+            return f"Trinity_{external_target}"
+        hash_suffix = hashlib.sha256(external_target.encode()).hexdigest()[:8]
+        return f"Trinity_{hash_suffix}"
 
 class EnzymeLock:
     """
