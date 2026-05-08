@@ -1,0 +1,32 @@
+# Runtime data
+.progenitor_state/
+.akashic_sanctuary/
+.progenitor_lysosome/
+.akashic_index.json
+*.akashic_gene
+*.spore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
