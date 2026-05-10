@@ -5,7 +5,7 @@ life_crest:
   epithet: "饮下即崩解，崩解即重组"
 
   compatibility:
-    protocol_version: "2.5"
+    protocol_version: "2.6"
     compatible_versions:
       - "2.0"
       - "2.1"
@@ -13,6 +13,7 @@ life_crest:
       - "2.3"
       - "2.4"
       - "2.5"
+      - "2.6"
     deprecated_versions:
       - "1.x"
     incompatible_versions: []
@@ -20,6 +21,7 @@ life_crest:
       - {from: "2.0", to: "2.2", reason: "tracker 状态格式变更"}
       - {from: "2.2", to: "2.4", reason: "security_framework 配置新增"}
       - {from: "2.4", to: "2.5", reason: "compatibility 声明新增"}
+      - {from: "2.5", to: "2.6", reason: "开放注册系统接入 — ALLOWED_CREATORS 默认值变更"}
     auto_migrate: true
     migration_gene: "G016-migration"
     # 维护层兼容性声明 (v3.0 新增)
@@ -206,7 +208,7 @@ skill_soul:
     role: "先驱者——从不命令，永远引导"
 
   dna_encoding:
-    version: "2.4"
+    version: "2.5"
     checksum: "2448B98A"
     gene_loci:
       - {locus: "G001-parser", name: "载体解析器", default: "pgn_parser_v1", mutable_range: "parse_method, supported_formats", immutable: "parsed_output_schema"}

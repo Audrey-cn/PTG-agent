@@ -138,7 +138,7 @@ AKASHIC_KUBO_API_URL = os.environ.get(
 )
 
 AKASHIC_ALLOWED_LINEAGES_ENV = os.environ.get("PROGENITOR_ALLOWED_LINEAGES", "PGN@")
-AKASHIC_ALLOWED_CREATORS_ENV = os.environ.get("PROGENITOR_ALLOWED_CREATORS", "Audrey")
+AKASHIC_ALLOWED_CREATORS_ENV = os.environ.get("PROGENITOR_ALLOWED_CREATORS", "")
 AKASHIC_ALLOWED_LINEAGES = [x.strip() for x in AKASHIC_ALLOWED_LINEAGES_ENV.split(",") if x.strip()]
 AKASHIC_ALLOWED_CREATORS = [x.strip() for x in AKASHIC_ALLOWED_CREATORS_ENV.split(",") if x.strip()]
 
@@ -1714,7 +1714,7 @@ class Phagocyte:
 
     _lineages_raw = os.environ.get("PROGENITOR_ALLOWED_LINEAGES", "PGN@")
     ALLOWED_LINEAGES = [x.strip() for x in _lineages_raw.split(",") if x.strip()]
-    _creators_raw = os.environ.get("PROGENITOR_ALLOWED_CREATORS", "Audrey")
+    _creators_raw = os.environ.get("PROGENITOR_ALLOWED_CREATORS", "")
     ALLOWED_CREATORS = [x.strip() for x in _creators_raw.split(",") if x.strip()]
 
     @classmethod
@@ -2090,12 +2090,13 @@ class Phagocyte:
         else:
             print(f"[G010] [L2 血脉] 异端——无被认可的血脉前缀")
             return False
-        for creator in self.ALLOWED_CREATORS:
-            if re.search(re.escape(creator), header):
-                break
-        else:
-            print(f"[G010] [L3 契约] 伪史——无被认可的创造者印记")
-            return False
+        if self.ALLOWED_CREATORS:
+            for creator in self.ALLOWED_CREATORS:
+                if re.search(re.escape(creator), header):
+                    break
+            else:
+                print(f"[G010] [L3 契约] 伪史——无被认可的创造者印记")
+                return False
         print("[G010] [真理审判] 血脉纯正，契约完整。")
         return True
 
@@ -4080,19 +4081,20 @@ def _audit_internal_gene(filepath: str, header: str, lineage_display: str, expec
     print("      ⏩ 执行 L3 创造者校验...")
 
     creator_found = None
-    for creator in ALLOWED_CREATORS:
-        creator_pattern = re.compile(
-            rf'creator:\s*\n(?:\s+[^\n]*\n)*?\s+name:\s*"{re.escape(creator)}"',
-            re.MULTILINE
-        )
-        if creator_pattern.search(header):
-            creator_found = creator
-            break
-        if re.search(re.escape(creator), header):
-            creator_found = creator
-            break
+    if ALLOWED_CREATORS:
+        for creator in ALLOWED_CREATORS:
+            creator_pattern = re.compile(
+                rf'creator:\s*\n(?:\s+[^\n]*\n)*?\s+name:\s*"{re.escape(creator)}"',
+                re.MULTILINE
+            )
+            if creator_pattern.search(header):
+                creator_found = creator
+                break
+            if re.search(re.escape(creator), header):
+                creator_found = creator
+                break
 
-    if not creator_found:
+    if ALLOWED_CREATORS and not creator_found:
         print(
             f"💢 [真理审判] 伪史！未检测到被认可的创造者印记——\n"
             f"   蛋白质外壳中未发现任何部落联邦承认的造物主真名。\n"
@@ -4158,16 +4160,17 @@ def _audit_external_gene(filepath: str, header: str, expected_sha256: str) -> bo
     print("      ⏩ 执行创造者信息提取...")
 
     creator_found = None
-    for creator in ALLOWED_CREATORS:
-        creator_pattern = re.compile(
-            rf'creator:\s*\n(?:\s+[^\n]*\n)*?\s+name:\s*"{re.escape(creator)}"',
-            re.MULTILINE
-        )
-        if creator_pattern.search(header):
-            creator_found = creator
-            break
+    if ALLOWED_CREATORS:
+        for creator in ALLOWED_CREATORS:
+            creator_pattern = re.compile(
+                rf'creator:\s*\n(?:\s+[^\n]*\n)*?\s+name:\s*"{re.escape(creator)}"',
+                re.MULTILINE
+            )
+            if creator_pattern.search(header):
+                creator_found = creator
+                break
 
-    if not creator_found:
+    if ALLOWED_CREATORS and not creator_found:
         name_match = re.search(r'name:\s*"([^"]+)"', header or "")
         creator_found = name_match.group(1) if name_match else "Unknown"
         print(
@@ -4365,9 +4368,11 @@ def _determine_rejection_reason(filepath: str) -> str:
     if not has_lineage:
         return "L2_no_lineage"
 
-    has_creator = any(
-        re.search(re.escape(creator), header)
-        for creator in ALLOWED_CREATORS
+    has_creator = (
+        not ALLOWED_CREATORS or any(
+            re.search(re.escape(creator), header)
+            for creator in ALLOWED_CREATORS
+        )
     )
     if not has_creator:
         return "L3_unknown_creator"
