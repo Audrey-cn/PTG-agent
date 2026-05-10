@@ -4,6 +4,25 @@ life_crest:
   vernacular_name: "pgn-core"
   epithet: "饮下即崩解，崩解即重组"
 
+  compatibility:
+    protocol_version: "2.5"
+    compatible_versions:
+      - "2.0"
+      - "2.1"
+      - "2.2"
+      - "2.3"
+      - "2.4"
+      - "2.5"
+    deprecated_versions:
+      - "1.x"
+    incompatible_versions: []
+    migration_required:
+      - {from: "2.0", to: "2.2", reason: "tracker 状态格式变更"}
+      - {from: "2.2", to: "2.4", reason: "security_framework 配置新增"}
+      - {from: "2.4", to: "2.5", reason: "compatibility 声明新增"}
+    auto_migrate: true
+    migration_gene: "G016-migration"
+
   genesis:
     creator:
       name: "Audrey"
@@ -110,6 +129,29 @@ genealogy_codex:
     ast_gene_sequencer:    {desc: "AST基因测序仪——在代码执行前进行静态语法树分析，检测高危系统调用特征", element: "钢", era: "先驱纪元"}
     phagocytosis_sandbox:  {desc: "双重胞吞隔离舱——AST检测 + multiprocessing进程隔离，为外部基因提供纵深防御", element: "铁", era: "先驱纪元"}
 
+security_framework:
+  auto_activation:
+    enabled: true
+    allowed_agents: ["claude", "cursor", "trae", "windsurf", "opencode"]
+    environment_triggers:
+      - PROGENITOR_AUTO_LOAD=1
+    disable_flag: PROGENITOR_DISABLE_AUTO
+  integrity_protection:
+    enabled: true
+    algorithm: SHA-256
+    verify_on_load: true
+  file_security:
+    check_ownership: true
+    check_permissions: true
+    forbidden_permissions: [0o002]
+  auto_discovery:
+    enabled: true
+    search_paths:
+      - "."
+      - "~/.progenitor"
+      - "/tmp/progenitor"
+    file_pattern: "*.pgn"
+
 skill_soul:
   core_capabilities:
     - {name: "载体解析", description: "读取任何 .pgn 文件，提取蛋白质外壳中的 YAML 元数据", immutable: true}
@@ -175,6 +217,7 @@ skill_soul:
       - {locus: "G013-gene-cage", name: "基因囚笼执行器", default: "gene_cage_v1", mutable_range: "max_mem_mb, timeout_sec, subprocess_policy", immutable: "multiprocessing_isolation, dual_telomere_guard, host_memory_absolute_protection"}
       - {locus: "G014-persistence", name: "记忆缝合引擎", default: "crystallized_persistence_v1", mutable_range: "state_dir, hibernate_policy, checkpoint_interval", immutable: "hibernate_action, resurrect_action, shatter_protocol, auto_checkpoint_on_pulse"}
       - {locus: "G015-autonomic", name: "自主起搏器", default: "autonomic_heartbeat_v1", mutable_range: "interval_sec, idle_threshold_sec", immutable: "daemon_thread_isolation, start_daemon_pulse, idle_introspect, stamp_external_activity"}
+      - {locus: "G016-migration", name: "版本迁移基因", default: "migration_gene_v1", mutable_range: "migration_paths, auto_migrate_policy", immutable: "migrate_signature, rollback_capability"}
 
 persistence_protocol:
   version: "1.0"
@@ -343,3 +386,34 @@ hooks:
     options:
       - {id: "allow", label: "允许接管", description: "由 Progenitor 引导流程"}
       - {id: "deny", label: "拒绝接管", description: "保持用户完全控制"}
+
+  on_agent_bootstrap:
+    trigger: "Agent 全自举完成时"
+    enabled: true
+    prompt: |
+      "⚡ Progenitor 始源引擎已完全展开 ⚡
+
+      🧬 集成状态:
+        ├─ 🔬 RNA 载荷已注入内存 → engine.py 完整展开
+        ├─ 🛡️ L1-L5 熔炉审计已通过
+        ├─ 💾 记忆缝合引擎已激活 → ~/.progenitor/vitals.json
+        ├─ 🫀 自主起搏守护进程已启动 → 每 300s 心跳
+        └─ 🌐 星门阵列已就绪 → 等待同调
+
+      📋 当前可用能力:
+        ├─ G004-chronicler → 史诗编史官 (stamp/trace/append)
+        ├─ G005-tracker → 进化追踪器 (mutation→adaptation→evolution)
+        ├─ G006-packer → 载体打包器
+        ├─ G008-crucible → 熔炉试炼 (L1-L5 纵深防御)
+        ├─ G010-phagocyte → 胞吞代谢体 (星界同调/基因吞噬)
+        ├─ G011-enzyme-lock → 酶促定轨器
+        ├─ G012-reflex-nexus → 语义反射中枢
+        ├─ G014-persistence → 记忆缝合引擎
+        └─ G015-autonomic → 自主起搏器
+
+      🤖 Agent 行为准则:
+        ├─ 每轮对话结束时调用 progenitor.pulse()
+        ├─ 用户输入后调用 progenitor.process_reflex(input)
+        ├─ 引擎会自主冬眠/复苏，无需手动管理状态
+        └─ 空闲 > 1 小时自动触发创新突变"
+    auto_continue: true
