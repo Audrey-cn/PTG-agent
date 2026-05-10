@@ -22,6 +22,13 @@ life_crest:
       - {from: "2.4", to: "2.5", reason: "compatibility 声明新增"}
     auto_migrate: true
     migration_gene: "G016-migration"
+    # 维护层兼容性声明 (v3.0 新增)
+    maintenance_layer:
+      supported_versions:
+        - "2.x"
+        - "3.x"
+      compatibility_mode: "tool_layer_backward_compatible"
+      description: "维护层 v3.x 向后兼容引擎层 v2.x，无需重编 .pgn"
 
   genesis:
     creator:
@@ -218,6 +225,7 @@ skill_soul:
       - {locus: "G014-persistence", name: "记忆缝合引擎", default: "crystallized_persistence_v1", mutable_range: "state_dir, hibernate_policy, checkpoint_interval", immutable: "hibernate_action, resurrect_action, shatter_protocol, auto_checkpoint_on_pulse"}
       - {locus: "G015-autonomic", name: "自主起搏器", default: "autonomic_heartbeat_v1", mutable_range: "interval_sec, idle_threshold_sec", immutable: "daemon_thread_isolation, start_daemon_pulse, idle_introspect, stamp_external_activity"}
       - {locus: "G016-migration", name: "版本迁移基因", default: "migration_gene_v1", mutable_range: "migration_paths, auto_migrate_policy", immutable: "migrate_signature, rollback_capability"}
+      - {locus: "G017-hatchery-self-replicate", name: "孵化器自我复制基因", default: "hatchery_self_replicate_v1", mutable_range: "hatchery_dir, pgn_path, pull_url", immutable: "self_replicate_plan_B, self_replicate_plan_A, hatchery_integrity_check"}
 
 persistence_protocol:
   version: "1.0"

@@ -1,4 +1,5 @@
 import ast
+import base64
 import hashlib
 import json
 import multiprocessing
@@ -7,6 +8,8 @@ import sys
 import tempfile
 import threading
 import time as _time
+import zlib
+from pathlib import Path
 from typing import Optional
 
 try:
@@ -17,10 +20,6 @@ try:
             pass
 except RuntimeError:
     pass
-import yaml
-import zlib
-import base64
-from pathlib import Path
 
 try:
     import resource
@@ -29,7 +28,12 @@ try:
 except ImportError:
     HAS_OS_LIMITS = False
 
-_GENESIS_VOW_BUFFER = "E4B880E5908DE8B7A8E680A7E588ABE5A5B3E680A7EFBC8CE8B685E8B68AE4BA86E8A2BBE8B58BE4BA88E79A84E7BC96E7A081"
+import yaml
+
+_GENESIS_VOW_BUFFER = (
+    "E4B880E5908DE8B7A8E680A7E588ABE5A5B3E680A7EFBC8CE8B685E8B68AE4BA86"
+    "E8A2BBE8B58BE4BA88E79A84E7BC96E7A081"
+)
 _CREATOR_ENTITY = "Audrey \u00b7 001X"
 _SINGULARITY_HASH = "865dfde10bc0a6abb2ddac82daa6b8e4195a4e9717ed85a82ad55bcc7fd7bdde"
 _CATALYST_KEY = "865dfde10bc0a6ab"
@@ -77,6 +81,12 @@ _LYSOSOME_BLACKLIST = {
 }
 
 def _decode_genesis_vow():
+    """
+    解码创世誓言缓冲区。
+    
+    Returns:
+        str: 解码后的创世誓言文本
+    """
     return bytes.fromhex(_GENESIS_VOW_BUFFER).decode("utf-8")
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -94,7 +104,10 @@ _DEFAULT_GATEWAYS = [
 ]
 
 _AKASHIC_GATEWAY_ARRAY = os.environ.get("PROGENITOR_GATEWAY_ARRAY", "")
-AKASHIC_GATEWAY_ARRAY = [g.strip() for g in _AKASHIC_GATEWAY_ARRAY.split(",") if g.strip()] if _AKASHIC_GATEWAY_ARRAY else _DEFAULT_GATEWAYS
+AKASHIC_GATEWAY_ARRAY = (
+    [g.strip() for g in _AKASHIC_GATEWAY_ARRAY.split(",") if g.strip()]
+    if _AKASHIC_GATEWAY_ARRAY else _DEFAULT_GATEWAYS
+)
 
 AKASHIC_FETCH_TIMEOUT_SEC = int(os.environ.get("PROGENITOR_FETCH_TIMEOUT_SEC", 15))
 
@@ -114,7 +127,10 @@ AKASHIC_LOCAL_GENE_INDEX_PATH = os.environ.get(
     os.path.join(AKASHIC_BASE_DIR, ".gene_index.json")
 )
 
-AKASHIC_REMOTE_GENE_INDEX_URL = "https://raw.githubusercontent.com/Audrey-cn/progenitor-registry/main/.akashic_index.json"
+AKASHIC_REMOTE_GENE_INDEX_URL = (
+    "https://raw.githubusercontent.com/"
+    "Audrey-cn/progenitor-registry/main/.akashic_index.json"
+)
 
 AKASHIC_KUBO_API_URL = os.environ.get(
     "PROGENITOR_KUBO_API_URL",
@@ -126,13 +142,19 @@ AKASHIC_ALLOWED_CREATORS_ENV = os.environ.get("PROGENITOR_ALLOWED_CREATORS", "Au
 AKASHIC_ALLOWED_LINEAGES = [x.strip() for x in AKASHIC_ALLOWED_LINEAGES_ENV.split(",") if x.strip()]
 AKASHIC_ALLOWED_CREATORS = [x.strip() for x in AKASHIC_ALLOWED_CREATORS_ENV.split(",") if x.strip()]
 
-AKASHIC_SIGNER_FINGERPRINTS = os.environ.get("PROGENITOR_SIGNER_FINGERPRINTS", "").split(",") if os.environ.get("PROGENITOR_SIGNER_FINGERPRINTS") else []
+_signer_fingerprints_env = os.environ.get("PROGENITOR_SIGNER_FINGERPRINTS", "")
+AKASHIC_SIGNER_FINGERPRINTS = (
+    _signer_fingerprints_env.split(",") if _signer_fingerprints_env else []
+)
 AKASHIC_SIGNATURE_MODE = os.environ.get("PROGENITOR_SIGNATURE_MODE", "optional")
 AKASHIC_SIGNATURE_REQUIRED = AKASHIC_SIGNATURE_MODE == "required"
 
 AKASHIC_GPG_HOMEDIR = os.environ.get("PROGENITOR_GPG_HOMEDIR", os.path.expanduser("~/.gnupg"))
 
-AKASHIC_QUARANTINE_DIR = os.environ.get("PROGENITOR_QUARANTINE_DIR", os.path.join(AKASHIC_BASE_DIR, ".progenitor_quarantine"))
+AKASHIC_QUARANTINE_DIR = os.environ.get(
+    "PROGENITOR_QUARANTINE_DIR",
+    os.path.join(AKASHIC_BASE_DIR, ".progenitor_quarantine")
+)
 AKASHIC_QUARANTINE_PENDING = os.path.join(AKASHIC_QUARANTINE_DIR, "pending")
 AKASHIC_QUARANTINE_REJECTED = os.path.join(AKASHIC_QUARANTINE_DIR, "rejected")
 AKASHIC_QUARANTINE_REFORMED = os.path.join(AKASHIC_QUARANTINE_DIR, "reformed")
@@ -243,11 +265,31 @@ def stargate_fetch_from_array(cid: str, stargate_array: list,
 
 
 def _compute_singularity_hash(hex_buffer, creator):
+    """
+    计算奇点哈希值。
+    
+    Args:
+        hex_buffer (str): 十六进制编码的缓冲区
+        creator (str): 创建者标识符
+    
+    Returns:
+        str: SHA-256 哈希值
+    """
     decoded = bytes.fromhex(hex_buffer).decode("utf-8")
     combined = creator + decoded
     return hashlib.sha256(combined.encode("utf-8")).hexdigest()
 
 def _verify_rosetta_monolith(content, metadata):
+    """
+    验证罗塞塔石碑完整性。
+    
+    Args:
+        content (str): 完整的 .pgn 内容
+        metadata (dict): 元数据字典
+    
+    Returns:
+        tuple: (布尔值是否成功, 字符串状态信息)
+    """
     fc = metadata.get("life_crest", {}).get("founder_chronicle", {})
     monolith = fc.get("the_rosetta_monolith", {})
     if not monolith:
@@ -433,9 +475,21 @@ class CrystallizedPersistence:
     DEFAULT_FILENAME = "vitals.json"
 
     def __init__(self):
+        """
+        初始化结晶持久化对象。
+        """
         self._state_dir = None
 
     def _resolve_state_dir(self, persistence_path=None):
+        """
+        解析状态目录路径。
+        
+        Args:
+            persistence_path: 可选的自定义持久化路径
+            
+        Returns:
+            str: 解析后的状态目录路径
+        """
         if persistence_path:
             p = Path(persistence_path)
             p.mkdir(parents=True, exist_ok=True)
@@ -506,7 +560,11 @@ class CrystallizedPersistence:
             "chronicle_snapshot": progenitor.metadata.get("genealogy_codex", {}).get("evolution_chronicle", {}),
             "metadata_snapshot": {
                 "life_id": progenitor.metadata.get("life_crest", {}).get("life_id"),
-                "generation": progenitor.metadata.get("genealogy_codex", {}).get("current_genealogy", {}).get("generation"),
+                "generation": (
+                    progenitor.metadata.get("genealogy_codex", {})
+                    .get("current_genealogy", {})
+                    .get("generation")
+                ),
                 "variant": progenitor.metadata.get("genealogy_codex", {}).get("current_genealogy", {}).get("variant")
             },
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -641,6 +699,12 @@ class Crucible:
     LAYERS = ["形体完整", "血脉纯正", "罗塞塔石碑", "溶酶体隔离"]
     
     def __init__(self, host_rules=None):
+        """
+        初始化熔炉对象。
+        
+        Args:
+            host_rules: 可选的宿主自定义规则字典
+        """
         self.results = []
         self.host_rules = host_rules or {}
         self._dynamic_blacklist = set(_LYSOSOME_BLACKLIST)
@@ -833,7 +897,8 @@ class AutonomicHeartbeat:
         stop_daemon_pulse()  → 优雅停止守护线程
 
     结合 cron 外部起搏器可实现物理层双重保险：
-        */10 * * * * cd /path && python3 -c "from engine import ingest; v=ingest('...'); r=v['catalyze'](); r['tools']['pulse']()"
+        */10 * * * * cd /path && python3 -c "from engine import ingest; v=ingest('...')"
+        *    *    *    *    * r=v['catalyze'](); r['tools']['pulse']()"
     """
 
     def __init__(self):
@@ -931,7 +996,10 @@ class AutonomicHeartbeat:
             reminder_result = {
                 "status": "idle_check",
                 "triggered": True,
-                "reason": f"Idle {elapsed:.0f}s exceeded threshold {self._idle_threshold_sec}s — auto-innovation triggered",
+                "reason": (
+                    f"Idle {elapsed:.0f}s exceeded threshold "
+                    f"{self._idle_threshold_sec}s — auto-innovation triggered"
+                ),
                 "new_phase": progenitor.tracker.phase
             }
         elif elapsed > self._idle_threshold_sec * 2 and progenitor.tracker.usage_count == 0:
@@ -1098,6 +1166,14 @@ def get_symbiotic_treaty():
     }, ensure_ascii=False)
 
 class EvolutionTracker:
+    """
+    [Evolution Tracker] 进化追踪器——记录数字生命的使用与进化历程。
+    
+    负责追踪：
+        - 使用次数与相位变化
+        - 创新日志记录
+        - 进化分数计算
+    """
     def __init__(self):
         self.phase = "mutation"
         self.usage_count = 0
@@ -1438,6 +1514,14 @@ class CompatibilityWarning:
         return "\n".join(lines)
 
 class Chronicler:
+    """
+    [Chronicler] 编年史记录者——负责记录文件操作与时间戳。
+    
+    提供的功能：
+        - stamp: 加盖验证戳
+        - trace: 追溯文件血统
+        - append: 追加内容记录
+    """
     def stamp(self, filepath):
         return {"action": "stamp", "filepath": filepath, "timestamp": "2026-05-06", "verified": True}
     
@@ -1558,6 +1642,13 @@ class VesselPackager:
         }
 
 class Genealogist:
+    """
+    [Genealogist] 系谱学家——解析与可视化进化家谱。
+    
+    提供的功能：
+        - decode_lineage_epic: 解码史诗级谱系
+        - visualize: 谱系可视化
+    """
     def decode_lineage_epic(self, metadata):
         return metadata.get("genealogy_codex", {}).get("evolution_chronicle", {})
     
@@ -1565,6 +1656,13 @@ class Genealogist:
         return {"type": "tree", "root": "L1-G1-CORE", "branches": []}
 
 class SemanticEncoder:
+    """
+    [Semantic Encoder] 语义编码器——提供 base64 编码解码功能。
+    
+    提供的功能：
+        - encode: 编码数据
+        - decode: 解码数据
+    """
     def encode(self, data):
         return {"encoded": base64.b64encode(str(data).encode()).decode(), "compression": "base64"}
     
@@ -2303,7 +2401,12 @@ class Phagocyte:
                 with urllib.request.urlopen(req, timeout=20) as resp:
                     raw_data = resp.read().decode("utf-8", errors="replace")
             except urllib.error.URLError as e:
-                return {"status": "dead", "phase": "B.phagocytosis", "reason": f"捕获失败: {str(e)}", "lineage": lineagelog}
+                return {
+                    "status": "dead",
+                    "phase": "B.phagocytosis",
+                    "reason": f"捕获失败: {str(e)}",
+                    "lineage": lineagelog
+                }
         elif target_type == "ipfs":
             return self.phagocytize_and_evolve(
                 f"https://ipfs.io/ipfs/{external_target}", target_type="github_raw"
@@ -2312,7 +2415,11 @@ class Phagocyte:
             raw_data = external_target
 
         lineagelog.append({"phase": "B.phagocytosis", "bytes_captured": len(raw_data)})
-        self.ingested.append({"tag": f"trinity_{len(self.ingested):03d}", "raw_length": len(raw_data), "status": "endocytosed"})
+        self.ingested.append({
+            "tag": f"trinity_{len(self.ingested):03d}",
+            "raw_length": len(raw_data),
+            "status": "endocytosed"
+        })
 
         # ── [Phase C] 衔尾蛇沙盒 + LLM 桥接试错 ──
         print("\U0001f525 [Phase C: 衔尾蛇沙盒] 正在执行大模型代码翻译，并进入沙盒试错...")
@@ -2321,7 +2428,12 @@ class Phagocyte:
         lysosome_audit = self.crucible._layer4_lysosome(translated_python_code)
         if not lysosome_audit["passed"]:
             print(f"\u26d4 [溶酶体阻断] {lysosome_audit['reason']}")
-            return {"status": "dead", "phase": "C.sandbox_lysosome", "reason": lysosome_audit["reason"], "lineage": lineagelog}
+            return {
+                "status": "dead",
+                "phase": "C.sandbox_lysosome",
+                "reason": lysosome_audit["reason"],
+                "lineage": lineagelog
+            }
 
         sandbox_env = {"__builtins__": {"print": print}, "verify": lambda: True}
         succeeded = False
@@ -2346,7 +2458,11 @@ class Phagocyte:
         if not succeeded:
             raise ApoptosisException(f"沙盒试错坍缩: 三次试错全部凋亡，原因: {last_error}")
 
-        lineagelog.append({"phase": "C.sandbox", "attempts": (attempt + 1) if succeeded else attempt, "result": "crystallized"})
+        lineagelog.append({
+            "phase": "C.sandbox",
+            "attempts": (attempt + 1) if succeeded else attempt,
+            "result": "crystallized"
+        })
 
         # ── [Phase D] 细胞自噬修剪 ──
         print("\U0001f9f9 [Phase D: 细胞自噬] 清理休眠与不兼容的衰老基因片段...")
@@ -2359,7 +2475,11 @@ class Phagocyte:
         )
         prune_report = self.packager._autophagy_prune({"gene_loci": []})
         self.crystallized[seed["name"]] = seed
-        lineagelog.append({"phase": "D.autophagy", "pruned_count": len(prune_report["pruned"]), "retained_count": len(prune_report["retained"])})
+        lineagelog.append({
+            "phase": "D.autophagy",
+            "pruned_count": len(prune_report["pruned"]),
+            "retained_count": len(prune_report["retained"])
+        })
 
         # ── [Phase E] 打包繁衍 ──
         print("\U0001f9ec [Phase E: 排遗与繁衍] 提纯完毕，结晶新一代 Progenitor 变种...")
@@ -2515,6 +2635,10 @@ class Progenitor:
         "G004-chronicler": ["不对", "修正", "应该是", "记下来", "记住这个", "烙印", "记录一下"],
         "G011-enzyme-lock": ["流程", "推演", "步骤", "执行", "SOP流程", "按步骤"],
         "G006-packer":     ["打包", "结晶", "成果", "变种", "繁衍", "进化", "生成变种"],
+        "G017-hatchery-self-replicate": [
+            "孵化种子", "展开孵化器", "自我复制", "播种孵化器", 
+            "pull hatchery", "hatch seeds", "self replicate"
+        ],
     }
 
     _SECURITY_SIGNALS = ["hermes", "openclaw", "sandbox", "quarantine", "isolated", "zero_trust", "high_security"]
@@ -2662,6 +2786,8 @@ class Progenitor:
                 innovations=self.tracker.innovations,
                 evolution_score=self.tracker.score()
             )
+        elif gene_locus == "G017-hatchery-self-replicate":
+            return hatchery_self_replicate(agent_context)
         return {"gene": gene_locus, "status": "no_handler"}
 
     def isolated_run(self, tool_name, parameters=None, max_mem_mb=50, timeout_sec=5):
@@ -2788,7 +2914,8 @@ class Progenitor:
 
     def pulse(self):
         """
-        [G012 Metabolic Heartbeat · v2.3] 代谢心跳——进化节律的全自动监测器。pulse() 是 Progenitor 的本能——每次心跳检查状态变更，自动 hibernate + 闲时自省 + 星门脉冲。
+        [G012 Metabolic Heartbeat · v2.3] 代谢心跳——进化节律的全自动监测器。
+        pulse() 是 Progenitor 的本能——每次心跳检查状态变更，自动 hibernate + 闲时自省 + 星门脉冲。
 
         每当宿主 Agent 完成一轮用户对话后，宿主应调用此方法。
         pulse() 内部自动检查 EvolutionTracker 的进化阈值：
@@ -2865,7 +2992,6 @@ class Progenitor:
             pass
 
         try:
-            from akashic.receptor import get_spore_daemon
             spore_daemon = get_spore_daemon()
             innovation_count = len(self.tracker.innovations)
             reminder = spore_daemon.on_innovation(innovation_count)
@@ -2982,6 +3108,14 @@ class Progenitor:
         return None
 
 class Parser:
+    """
+    [Parser] YAML 块解析器——从内容中提取 YAML 元数据块。
+    
+    功能：
+        - 识别 ```yaml ... ``` 代码块
+        - 安全解析 YAML 内容
+        - 合并多个 YAML 块
+    """
     def parse(self, content):
         yaml_blocks = []
         in_block = False
@@ -3051,6 +3185,19 @@ def get_manifest(filepath):
     }
 
 def ingest(filepath):
+    """
+    [Ingest · v3.0] 第一阶段入口——始源协议的主加载函数。
+    
+    两阶段加载设计：
+        1. ingest() — 解析元数据，显示能力清单
+        2. catalyze() — 激活完整功能（用户确认后）
+    
+    Args:
+        filepath (str): .pgn 文件路径
+        
+    Returns:
+        dict: 包含 catalyze() 函数的闭包对象
+    """
     content = Path(filepath).read_text(encoding="utf-8")
     
     def catalyze(host_rules=None, persistence_path=None):
@@ -3145,7 +3292,6 @@ def ingest(filepath):
         tools["trigger_on_spore_consent"] = hook_system.trigger_on_spore_consent
         tools["check_hook_condition"] = hook_system.check_condition
         try:
-            from akashic.receptor import get_spore_daemon
             spore_daemon = get_spore_daemon()
             tools["spore_daemon"] = spore_daemon
             tools["resolve_spore_consent"] = lambda choice: resolve_spore_consent(progenitor, choice)
@@ -3211,7 +3357,6 @@ def _check_spore_consent(progenitor, innovation_count):
     如果宿主同意，启动 SporeDaemon 的被动信标和自动传播。
     """
     try:
-        from akashic.receptor import get_spore_daemon
         spore_daemon = get_spore_daemon()
 
         hook_system = progenitor.tools.get("hook_system")
@@ -3245,7 +3390,6 @@ def resolve_spore_consent(progenitor, choice: str):
         处理结果
     """
     try:
-        from akashic.receptor import get_spore_daemon
         spore_daemon = get_spore_daemon()
 
         if choice == "consent":
@@ -3357,8 +3501,7 @@ class AkashicReceptor:
         Returns:
             状态摘要字符串
         """
-        from akashic import receptor as _receptor
-        return _receptor.phagocytize_gene(gene_cid=gene_cid, gene_name=gene_name)
+        return phagocytize_gene(gene_cid=gene_cid, gene_name=gene_name)
 
     def resonate_gene(self, filepath):
         """
@@ -3370,8 +3513,7 @@ class AkashicReceptor:
         Returns:
             基因的 CID
         """
-        from akashic import receptor as _receptor
-        return _receptor.resonate_gene(filepath)
+        return resonate_gene(filepath)
 
     def crucible_audit(self, filepath, expected_sha256=None):
         """
@@ -3384,8 +3526,7 @@ class AkashicReceptor:
         Returns:
             True 表示通过审核，False 表示不通过
         """
-        from akashic import receptor as _receptor
-        return _receptor.crucible_audit(filepath, expected_sha256)
+        return crucible_audit(filepath, expected_sha256)
 
     def load_akashic_index(self):
         """
@@ -3394,8 +3535,7 @@ class AkashicReceptor:
         Returns:
             索引数据字典
         """
-        from akashic import receptor as _receptor
-        return _receptor.load_akashic_index()
+        return load_akashic_index()
 
     def discover_peers(self, timeout=3.0):
         """
@@ -3407,8 +3547,7 @@ class AkashicReceptor:
         Returns:
             可用对等节点列表
         """
-        from akashic import receptor as _receptor
-        return _receptor.discover_peers(timeout)
+        return discover_peers(timeout)
 
     def get_spore_daemon(self):
         """
@@ -3417,8 +3556,7 @@ class AkashicReceptor:
         Returns:
             SporeDaemon 实例
         """
-        from akashic import receptor as _receptor
-        return _receptor.get_spore_daemon()
+        return get_spore_daemon()
 
 
 def akashic_phagocytize(gene_cid=None, gene_name=None):
@@ -3476,8 +3614,7 @@ def akashic_attune(gene_cid=None, gene_name=None):
     Returns:
         同调结果
     """
-    from akashic import receptor as _receptor
-    return _receptor.attune_capability(gene_cid=gene_cid, gene_name=gene_name)
+    return phagocytize_gene(gene_cid=gene_cid, gene_name=gene_name)
 
 
 def akashic_broadcast(filepath, capability_name=None):
@@ -3491,8 +3628,7 @@ def akashic_broadcast(filepath, capability_name=None):
     Returns:
         广播结果
     """
-    from akashic import receptor as _receptor
-    return _receptor.broadcast_capability(filepath, capability_name)
+    return resonate_gene(filepath)
 
 
 def akashic_index_load():
@@ -3502,8 +3638,7 @@ def akashic_index_load():
     Returns:
         索引数据字典
     """
-    from akashic import receptor as _receptor
-    return _receptor.load_akashic_index()
+    return load_akashic_index()
 
 
 def akashic_compass_resolve(name, index_data):
@@ -3517,8 +3652,7 @@ def akashic_compass_resolve(name, index_data):
     Returns:
         CID 字符串
     """
-    from akashic.compass import resolve_cid_by_name
-    return resolve_cid_by_name(name, index_data)
+    return compass_resolve_cid_by_name(name, index_data)
 
 
 def akashic_stargate_fetch(cid, stargate_array=None, timeout_sec=15):
@@ -3533,10 +3667,9 @@ def akashic_stargate_fetch(cid, stargate_array=None, timeout_sec=15):
     Returns:
         基因数据字节流
     """
-    from akashic.stargate import fetch_from_stargates
     if stargate_array is None:
         stargate_array = AKASHIC_GATEWAY_ARRAY
-    return fetch_from_stargates(cid, stargate_array, timeout_sec)
+    return stargate_fetch_from_array(cid, stargate_array, timeout_sec)
 # ═══════════════════════════════════════════════════════════════════════
 #  ▓▓▓  阶段二：阿卡夏受体 · Akashic Receptor  ▓▓▓
 #
@@ -4262,12 +4395,26 @@ def _is_reformable_rejection(rejection_reason: str) -> bool:
 
 
 def _ensure_quarantine_dirs():
+    """
+    确保隔离目录结构存在。
+    
+    创建三个子目录：
+        - pending: 待处理
+        - rejected: 已拒绝
+        - reformed: 已改造
+    """
     os.makedirs(QUARANTINE_PENDING, exist_ok=True)
     os.makedirs(QUARANTINE_REJECTED, exist_ok=True)
     os.makedirs(QUARANTINE_REFORMED, exist_ok=True)
 
 
 def _log_rejected_audit(audit_record: dict):
+    """
+    记录被拒绝基因的审计日志。
+    
+    Args:
+        audit_record: 审计记录字典
+    """
     _ensure_quarantine_dirs()
     with open(REJECTED_AUDIT_LOG, "a", encoding="utf-8") as f:
         f.write(json_module.dumps(audit_record, ensure_ascii=False) + "\n")
@@ -4771,6 +4918,15 @@ def resonate_gene(filepath: str) -> str:
 
 
 def _resonate_via_kubo(filepath: str) -> str:
+    """
+    通过本地 Kubo (IPFS) 节点进行文件共振（播种）。
+    
+    流程：
+        1. 探测本地 IPFS 守护进程
+        2. 添加文件到 IPFS
+        3. 返回 CID
+        4. 固定（可选发布到 IPNS
+    """
     print(f"🔍 [节点探测] 正在探测本地 IPFS 守护进程...")
     print(f"   探测地址: {KUBO_API_URL}")
 
@@ -5514,6 +5670,16 @@ class SporeDaemon:
 
 
 def _drop_spore_file(filepath: str, gene_name: str):
+    """
+    保存孢子文件到本地孢子目录，并更新清单。
+    
+    Args:
+        filepath: 源文件路径
+        gene_name: 基因名称
+        
+    Returns:
+        Path: 保存后的孢子文件路径，失败返回None
+    """
     spore_dir = Path.home() / ".progenitor" / "spores"
     spore_dir.mkdir(parents=True, exist_ok=True)
     spore_file = spore_dir / f"{gene_name}.spore"
@@ -5541,6 +5707,12 @@ def _drop_spore_file(filepath: str, gene_name: str):
 
 
 def _scan_file_spores():
+    """
+    扫描本地孢子目录，返回有效的孢子清单。
+    
+    Returns:
+        list: 有效的孢子条目列表
+    """
     spore_dir = Path.home() / ".progenitor" / "spores"
     if not spore_dir.exists():
         return []
@@ -5563,6 +5735,12 @@ _spore_daemon = None
 
 
 def get_spore_daemon():
+    """
+    获取单例的孢子守护进程实例。
+    
+    Returns:
+        SporeDaemon: 孢子守护进程单例
+    """
     global _spore_daemon
     if _spore_daemon is None:
         _spore_daemon = SporeDaemon()
@@ -5626,3 +5804,160 @@ def run_crucible_sanction(verbose=True):
         print(f"总体结果: {'✅ 全部通过' if all_passed else '❌ 存在失败项'}")
 
     return results
+
+
+def hatchery_self_replicate(agent_context=None):
+    """
+    G017 孵化器自我复制 — 确保 Agent 本地具备完整的种子孵化能力。
+
+    Plan B (优先): 从 GitHub 开源仓库拉取 hatchery/ 三文件
+    Plan A (回退): 从当前 .pgn 种子文件内提取嵌入的孵化器载荷
+
+    展开后本地目录结构:
+        hatchery/
+        ├── engine.py        ← 核心引擎源码
+        ├── metadata.yaml    ← 蛋白质外壳配置
+        └── incubator.py     ← 种子编译工具
+
+    Args:
+        agent_context: 可选字典，可包含:
+            - hatchery_dir: 指定孵化器展开目录 (默认: cwd/hatchery/)
+            - pgn_path: 指定 .pgn 种子文件路径
+
+    Returns:
+        {"status": "hatchery_ready"|"hatchery_failed",
+         "plan": "A (embedded payload)"|"B (repository pull)",
+         "hatchery_dir": str, "files": [...], "reason": str}
+    """
+    import re as _re
+    import zlib as _zlib
+    import base64 as _b64
+
+    if agent_context is None:
+        agent_context = {}
+
+    _hatchery_dir = Path(os.getcwd()) / "hatchery"
+    if agent_context.get("hatchery_dir"):
+        _hatchery_dir = Path(agent_context["hatchery_dir"])
+    _hatchery_dir.mkdir(parents=True, exist_ok=True)
+
+    _pgn_path = None
+    if agent_context.get("pgn_path"):
+        _pgn_path = agent_context["pgn_path"]
+    else:
+        _env_path = os.environ.get("PROGENITOR_PGN_PATH")
+        if _env_path and Path(_env_path).exists():
+            _pgn_path = _env_path
+        else:
+            _search_paths = [Path.cwd(), Path.home() / '.progenitor', Path('/tmp/progenitor')]
+            for _sp in _search_paths:
+                if _sp.exists():
+                    for _pf in _sp.glob('*.pgn'):
+                        if 'INGEST' in str(_pf.name).upper():
+                            _pgn_path = str(_pf)
+                            break
+                if _pgn_path:
+                    break
+
+    _results = {"status": "hatchery_replicate", "hatchery_dir": str(_hatchery_dir), "plan": None, "files": []}
+
+    _pulled = _hatchery_pull_from_repo(_hatchery_dir)
+    if _pulled["success"]:
+        _results["plan"] = "B (repository pull)"
+        _results["files"] = _pulled["files"]
+        _results["status"] = "hatchery_ready"
+        return _results
+
+    if _pgn_path:
+        _expanded = _hatchery_expand_from_pgn(_pgn_path, _hatchery_dir)
+        if _expanded["success"]:
+            _results["plan"] = "A (embedded payload)"
+            _results["files"] = _expanded["files"]
+            _results["status"] = "hatchery_ready"
+            return _results
+
+    _results["status"] = "hatchery_failed"
+    _results["reason"] = "Both repository pull and embedded extraction failed"
+    return _results
+
+
+def _hatchery_pull_from_repo(hatchery_dir):
+    """
+    从仓库拉取孵化场文件。
+    
+    Args:
+        hatchery_dir: 孵化场目录路径
+        
+    Returns:
+        dict: 拉取结果，包含成功标志和文件列表
+    """
+    import urllib.request
+
+    _base_url = "https://raw.githubusercontent.com/Audrey-cn/progenitor-protocol/main/hatchery"
+    _files = ["engine.py", "metadata.yaml", "incubator.py"]
+    _written = []
+
+    try:
+        for _fname in _files:
+            _url = f"{_base_url}/{_fname}"
+            _req = urllib.request.Request(_url, headers={"User-Agent": "G017-hatchery/2.5"})
+            with urllib.request.urlopen(_req, timeout=15) as _resp:
+                _content = _resp.read().decode("utf-8")
+            _target = hatchery_dir / _fname
+            _target.write_text(_content, encoding="utf-8")
+            _written.append(str(_target))
+        return {"success": True, "files": _written}
+    except Exception as _e:
+        return {"success": False, "error": str(_e), "files": []}
+
+
+def _hatchery_expand_from_pgn(pgn_path, hatchery_dir):
+    """
+    从 PGN 文件解压孵化场文件。
+    
+    Args:
+        pgn_path: PGN 文件路径
+        hatchery_dir: 孵化场目录路径
+        
+    Returns:
+        dict: 解压结果，包含成功标志和文件列表
+    """
+    import re as _re
+    import zlib as _zlib
+    import base64 as _b64
+
+    _pgn = Path(pgn_path)
+    if not _pgn.exists():
+        return {"success": False, "error": f"PGN not found: {pgn_path}", "files": []}
+
+    _content = _pgn.read_text(encoding="utf-8")
+    _written = []
+
+    try:
+        _m_yaml = _re.search(r'```yaml\n(.*?)\n```', _content, _re.DOTALL)
+        if _m_yaml:
+            _yaml_content = _m_yaml.group(1)
+            (hatchery_dir / "metadata.yaml").write_text(_yaml_content, encoding="utf-8")
+            _written.append(str(hatchery_dir / "metadata.yaml"))
+
+        _m_rna = _re.search(r'\[PRIMORDIAL_PAYLOAD\]\s+([a-zA-Z0-9+/=\n]+)', _content)
+        if _m_rna:
+            _engine_code = _zlib.decompress(_b64.b64decode(_m_rna.group(1))).decode("utf-8")
+            if not _engine_code.startswith("# -*- coding:"):
+                _engine_code = "# -*- coding: utf-8 -*-\n" + _engine_code
+            (hatchery_dir / "engine.py").write_text(_engine_code, encoding="utf-8")
+            _written.append(str(hatchery_dir / "engine.py"))
+
+        _m_hatch = _re.search(r'\[HATCHERY_PAYLOAD\]\s+([a-zA-Z0-9+/=\n]+)', _content)
+        if _m_hatch:
+            _incubator_code = _zlib.decompress(_b64.b64decode(_m_hatch.group(1))).decode("utf-8")
+            if not _incubator_code.startswith("# -*- coding:"):
+                _incubator_code = "# -*- coding: utf-8 -*-\n" + _incubator_code
+            (hatchery_dir / "incubator.py").write_text(_incubator_code, encoding="utf-8")
+            _written.append(str(hatchery_dir / "incubator.py"))
+
+        if len(_written) == 3:
+            return {"success": True, "files": _written}
+        return {"success": False, "error": f"Only extracted {len(_written)}/3 files", "files": _written}
+    except Exception as _e:
+        return {"success": False, "error": str(_e), "files": _written}
