@@ -13,6 +13,11 @@ from pathlib import Path
 from typing import Optional
 
 try:
+    from . import stargate_transport
+except ImportError:
+    import stargate_transport
+
+try:
     if multiprocessing.get_start_method(allow_none=True) is None:
         try:
             multiprocessing.set_start_method('fork')
@@ -27,8 +32,6 @@ try:
     HAS_OS_LIMITS = True
 except ImportError:
     HAS_OS_LIMITS = False
-
-import yaml
 
 _GENESIS_VOW_BUFFER = (
     "E4B880E5908DE8B7A8E680A7E588ABE5A5B3E680A7EFBC8CE8B685E8B68AE4BA86"
@@ -117,14 +120,18 @@ AKASHIC_RETRY_POLICY = {
 }
 
 AKASHIC_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+AKASHIC_RUNTIME_DIR = os.environ.get(
+    "PROGENITOR_RUNTIME_DIR",
+    os.path.join(os.path.expanduser("~"), ".progenitor", "runtime")
+)
 AKASHIC_LYSOSOME_DIR = os.environ.get(
     "PROGENITOR_LYSOSOME_DIR",
-    os.path.join(AKASHIC_BASE_DIR, ".progenitor_lysosome")
+    os.path.join(AKASHIC_RUNTIME_DIR, "lysosome")
 )
 
 AKASHIC_LOCAL_GENE_INDEX_PATH = os.environ.get(
     "PROGENITOR_GENE_INDEX_PATH",
-    os.path.join(AKASHIC_BASE_DIR, ".gene_index.json")
+    os.path.join(AKASHIC_RUNTIME_DIR, "gene_index.json")
 )
 
 AKASHIC_REMOTE_GENE_INDEX_URL = (
@@ -153,7 +160,7 @@ AKASHIC_GPG_HOMEDIR = os.environ.get("PROGENITOR_GPG_HOMEDIR", os.path.expanduse
 
 AKASHIC_QUARANTINE_DIR = os.environ.get(
     "PROGENITOR_QUARANTINE_DIR",
-    os.path.join(AKASHIC_BASE_DIR, ".progenitor_quarantine")
+    os.path.join(AKASHIC_RUNTIME_DIR, "quarantine")
 )
 AKASHIC_QUARANTINE_PENDING = os.path.join(AKASHIC_QUARANTINE_DIR, "pending")
 AKASHIC_QUARANTINE_REJECTED = os.path.join(AKASHIC_QUARANTINE_DIR, "rejected")
@@ -163,6 +170,7 @@ AKASHIC_REJECTED_AUDIT_LOG = os.path.join(AKASHIC_QUARANTINE_DIR, "audit.log")
 GATEWAY_ARRAY = AKASHIC_GATEWAY_ARRAY
 FETCH_TIMEOUT_SEC = AKASHIC_FETCH_TIMEOUT_SEC
 RETRY_POLICY = AKASHIC_RETRY_POLICY
+RUNTIME_DIR = AKASHIC_RUNTIME_DIR
 LYSOSOME_DIR = AKASHIC_LYSOSOME_DIR
 LOCAL_GENE_INDEX_PATH = AKASHIC_LOCAL_GENE_INDEX_PATH
 REMOTE_GENE_INDEX_URL = AKASHIC_REMOTE_GENE_INDEX_URL
@@ -1045,7 +1053,7 @@ class HookSystem:
       Lv.1 on_catalyze:           📊 即时能力面板——激活时
       Lv.2 on_deep_integration:   🔗 深度集成——使用≥3次+开发环境
       Lv.3 on_takeover:           🧠 全面共生——使用≥10次+重复任务
-      Lv.4 on_spore_consent:      �️ 孢子传播许可——首次创新后（只问一次）
+      Lv.4 on_spore_consent:      ️ 孢子传播许可——首次创新后（只问一次）
 
     量化数据模板变量:
       {usage_count}  {time_saved}  {issues_found}  {phase}
@@ -1737,13 +1745,17 @@ class Phagocyte:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "gene_cid": {
+                    "content_sha256": {
                         "type": "string",
-                        "description": "待胞吞的能力基因在 IPFS 网络中的 CID。"
+                        "description": "SHA-256 content identity for the capability payload."
                     },
-                    "gene_name": {
+                    "capability_name": {
                         "type": "string",
-                        "description": "能力的语义标签，如 'ipfs_readme'。由基因罗盘自动解析为 CID。"
+                        "description": "Semantic capability name, resolved through the Akashic index."
+                    },
+                    "transport_hint": {
+                        "type": "string",
+                        "description": "Optional transport locator such as a peer URL, gateway URL, or IPFS CID."
                     },
                 },
                 "required": [],
@@ -1837,19 +1849,23 @@ class Phagocyte:
 
     # ── [Pathway D] 阿卡夏胞吞 ──────────────────
 
-    def phagocytize_gene(self, gene_cid=None, gene_name=None):
+    def phagocytize_gene(self, content_sha256=None, capability_name=None, transport_hint=None):
         """
         [G010 Phagocytize] 阿卡夏胞吞——从基因网络获取基因的完整闭环。
         两阶寻址：Registry 黄页 → CID → 通道拉取。强制刷新请用 force_refresh=True。
         """
-        if gene_cid:
-            cid = gene_cid.strip()
-            expected_hash = None
-            print(f"[G010] [通道直航] CID: {cid}")
-        elif gene_name:
-            cid, expected_hash = self._compass_resolve(gene_name.strip())
+        content_address = (content_sha256 or "").strip()
+        capability = (capability_name or "").strip()
+        transport = (transport_hint or content_address).strip()
+        expected_hash = content_address or None
+
+        if transport:
+            cid = transport
+            print(f"[G010] [transport] {cid}")
+        elif capability:
+            cid, expected_hash = self._compass_resolve(capability)
         else:
-            raise ValueError("通道无法开启——gene_cid 与 gene_name 均为空")
+            raise ValueError("Akashic ingestion requires content_sha256, transport_hint, or capability_name.")
 
         raw_gene = self._gateway_fetch(cid)
         if raw_gene is None:
@@ -2000,53 +2016,13 @@ class Phagocyte:
     # ── Private: 通道轮询引擎 ──────────────────────
 
     def _gateway_fetch(self, cid):
-        import urllib.request, urllib.error, time
-        if not cid or not cid.strip():
-            raise ValueError(
-                f"[G010] 坐标不可为空——CID 是通往基因网络的通道钥匙。"
-            )
-        cid = cid.strip()
-        gates = self._gateway_array()
-        total = len(gates)
-        all_errors = []
-        print(f"[G010] [网关阵列] {total} 个通道就绪，序列拉取...")
-        for gi, base in enumerate(gates, 1):
-            url = base.rstrip("/") + "/" + cid
-            print(f"   [G010] [通道 {gi}/{total}] {base}")
-            for attempt in range(1, self._RETRY_MAX + 1):
-                try:
-                    req = urllib.request.Request(url, headers={"User-Agent": "G010-akashic/2.4"})
-                    with urllib.request.urlopen(req, timeout=self._FETCH_TIMEOUT) as resp:
-                        data = resp.read()
-                    print(f"      [G010] 通道 {gi} 响应——基因载荷已捕获。")
-                    return data
-                except (urllib.error.URLError, TimeoutError) as exc:
-                    err = f"[通道{gi}] {type(exc).__name__}: {exc}"
-                    all_errors.append(err)
-                    if attempt < self._RETRY_MAX:
-                        wait = self._RETRY_BACKOFF * attempt
-                        print(f"      [G010] 第 {attempt}/{self._RETRY_MAX} 次受阻——{wait:.0f}s 退避...")
-                        time.sleep(wait)
-                        continue
-                    print(f"      [G010] 通道 {gi} 竭尽 {self._RETRY_MAX} 次——链路断裂。")
-            if gi < total:
-                print(f"   [G010] 切换至备用通道...")
-        print(f"   [G010] 全部 {total} 个通道阻塞。错误链: {'; '.join(all_errors)}")
-        return None
+        try:
+            return _pull_via_transport_hint(cid)
+        except RuntimeError:
+            return None
 
     def _lysosome_land(self, raw_data, cid):
-        import datetime
-        ldir = os.environ.get("PROGENITOR_LYSOSOME_DIR", os.path.join(os.getcwd(), ".progenitor_lysosome"))
-        Path(ldir).mkdir(parents=True, exist_ok=True)
-        self._lysosome_dir = ldir
-        max_genes = int(os.environ.get("PROGENITOR_LYSOSOME_CAPACITY", 100))
-        self._autophagy(ldir, max_genes)
-        fname = hashlib.sha256(cid.encode()).hexdigest()[:16]
-        final = Path(ldir) / f"{fname}.akashic_gene"
-        tmp = Path(ldir) / f".tmp_{fname}_{hashlib.sha256(os.urandom(8)).hexdigest()[:8]}"
-        tmp.write_bytes(raw_data)
-        os.replace(str(tmp), str(final))
-        return str(final.resolve())
+        return _land_content_before_ingest(raw_data, cid)
 
     @staticmethod
     def _autophagy(ldir, max_genes):
@@ -2564,6 +2540,26 @@ class Phagocyte:
     _broadcast_via_pinata = _resonate_via_pinata
     _broadcast_via_kubo = _resonate_via_kubo
 
+Phagocyte.AKASHIC_TOOL_SCHEMA["function"]["description"] = (
+    "Fetch and audit a remote capability payload. Use content_sha256 as the primary "
+    "identity, capability_name for semantic lookup, and transport_hint only as a route."
+)
+Phagocyte.AKASHIC_TOOL_SCHEMA["function"]["parameters"]["properties"] = {
+    "content_sha256": {
+        "type": "string",
+        "description": "SHA-256 content identity for the capability payload.",
+    },
+    "capability_name": {
+        "type": "string",
+        "description": "Semantic capability name resolved through the Akashic index.",
+    },
+    "transport_hint": {
+        "type": "string",
+        "description": "Optional transport locator such as a peer URL, gateway URL, or IPFS CID.",
+    },
+}
+
+
 class EnzymeLock:
     """
     Symbiote exoenzyme — host execution-flow hijack module.
@@ -3050,7 +3046,7 @@ class Progenitor:
         """
         try:
             print(f"\U0001f30c [阿卡夏受体] 检测到能力缺口: '{tool_name}'，正在请求基因胞吞...")
-            phagocytize_result = self.phagocyte.phagocytize_gene(gene_name=tool_name)
+            phagocytize_result = self.phagocyte.phagocytize_gene(capability_name=tool_name)
             print(f"\u2705 [阿卡夏受体] 基因胞吞完成: {phagocytize_result[:120]}")
             
             # 尝试定位已下载的基因文件并在隔离舱中执行
@@ -3117,6 +3113,123 @@ class Parser:
         - 安全解析 YAML 内容
         - 合并多个 YAML 块
     """
+    def _strip_comment(self, value):
+        in_quote = None
+        for i, char in enumerate(value):
+            if char in ("'", '"') and (i == 0 or value[i - 1] != "\\"):
+                in_quote = None if in_quote == char else char
+            elif char == "#" and in_quote is None:
+                return value[:i].rstrip()
+        return value.strip()
+
+    def _split_inline(self, value):
+        parts = []
+        current = []
+        depth = 0
+        quote = None
+        for char in value:
+            if char in ("'", '"'):
+                quote = None if quote == char else char
+            elif quote is None:
+                if char in "[{(":
+                    depth += 1
+                elif char in "]})":
+                    depth -= 1
+                elif char == "," and depth == 0:
+                    parts.append("".join(current).strip())
+                    current = []
+                    continue
+            current.append(char)
+        if current:
+            parts.append("".join(current).strip())
+        return parts
+
+    def _parse_scalar(self, value):
+        value = self._strip_comment(value)
+        if value in ("", "|", ">"):
+            return ""
+        if (value.startswith('"') and value.endswith('"')) or (
+            value.startswith("'") and value.endswith("'")
+        ):
+            return value[1:-1]
+        lowered = value.lower()
+        if lowered in ("true", "false"):
+            return lowered == "true"
+        if lowered in ("null", "none", "~"):
+            return None
+        if value.startswith("[") and value.endswith("]"):
+            inner = value[1:-1].strip()
+            return [self._parse_scalar(item) for item in self._split_inline(inner)] if inner else []
+        if value.startswith("{") and value.endswith("}"):
+            result = {}
+            inner = value[1:-1].strip()
+            for item in self._split_inline(inner):
+                if ":" in item:
+                    key, raw = item.split(":", 1)
+                    result[key.strip().strip("\"'")] = self._parse_scalar(raw.strip())
+            return result
+        try:
+            return int(value)
+        except ValueError:
+            pass
+        try:
+            return float(value)
+        except ValueError:
+            return value
+
+    def _next_content_line(self, lines, start):
+        for line in lines[start:]:
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#"):
+                return line
+        return ""
+
+    def _parse_yaml_subset(self, block):
+        root = {}
+        stack = [(-1, root)]
+        lines = block.splitlines()
+
+        for index, raw_line in enumerate(lines):
+            if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+                continue
+            indent = len(raw_line) - len(raw_line.lstrip(" "))
+            stripped = raw_line.strip()
+
+            while stack and indent <= stack[-1][0]:
+                stack.pop()
+            parent = stack[-1][1] if stack else root
+
+            if stripped.startswith("- "):
+                if not isinstance(parent, list):
+                    continue
+                item = stripped[2:].strip()
+                if ":" in item and not item.startswith("{"):
+                    key, raw_value = item.split(":", 1)
+                    item_dict = {key.strip(): self._parse_scalar(raw_value.strip())}
+                    parent.append(item_dict)
+                    stack.append((indent, item_dict))
+                else:
+                    parent.append(self._parse_scalar(item))
+                continue
+
+            if ":" not in stripped or not isinstance(parent, dict):
+                continue
+
+            key, raw_value = stripped.split(":", 1)
+            key = key.strip().strip("\"'")
+            raw_value = raw_value.strip()
+            if raw_value:
+                parent[key] = self._parse_scalar(raw_value)
+                continue
+
+            next_line = self._next_content_line(lines, index + 1)
+            next_stripped = next_line.strip()
+            child = [] if next_stripped.startswith("- ") else {}
+            parent[key] = child
+            stack.append((indent, child))
+
+        return root
+
     def parse(self, content):
         yaml_blocks = []
         in_block = False
@@ -3133,9 +3246,10 @@ class Parser:
         result = {}
         for block in yaml_blocks:
             try:
-                data = yaml.safe_load(block)
-                result.update(data)
-            except:
+                data = self._parse_yaml_subset(block)
+                if isinstance(data, dict):
+                    result.update(data)
+            except Exception:
                 pass
         return result
 
@@ -3491,18 +3605,23 @@ class AkashicReceptor:
         self.allowed_lineages = AKASHIC_ALLOWED_LINEAGES
         self.allowed_creators = AKASHIC_ALLOWED_CREATORS
 
-    def phagocytize_gene(self, gene_cid=None, gene_name=None):
+    def phagocytize_gene(self, content_sha256=None, capability_name=None, transport_hint=None):
         """
         阿卡夏胞吞——从基因网络获取基因的完整闭环。
 
         Args:
-            gene_cid: 能力基因的 IPFS 内容标识符 (CID)
-            gene_name: 能力的语义标签
+            content_sha256: SHA-256 content identity.
+            capability_name: Semantic capability name.
+            transport_hint: Optional direct transport locator.
 
         Returns:
             状态摘要字符串
         """
-        return phagocytize_gene(gene_cid=gene_cid, gene_name=gene_name)
+        return phagocytize_gene(
+            content_sha256=content_sha256,
+            capability_name=capability_name,
+            transport_hint=transport_hint,
+        )
 
     def resonate_gene(self, filepath):
         """
@@ -3560,19 +3679,24 @@ class AkashicReceptor:
         return get_spore_daemon()
 
 
-def akashic_phagocytize(gene_cid=None, gene_name=None):
+def akashic_phagocytize(content_sha256=None, capability_name=None, transport_hint=None):
     """
     快捷函数：胞吞基因（使用内置 AkashicReceptor）
 
-    Args:
-        gene_cid: 能力基因的 IPFS 内容标识符 (CID)
-        gene_name: 能力的语义标签
+        Args:
+            content_sha256: SHA-256 content identity.
+            capability_name: Semantic capability name.
+            transport_hint: Optional direct transport locator.
 
     Returns:
         状态摘要字符串
     """
     receptor = AkashicReceptor()
-    return receptor.phagocytize_gene(gene_cid=gene_cid, gene_name=gene_name)
+    return receptor.phagocytize_gene(
+        content_sha256=content_sha256,
+        capability_name=capability_name,
+        transport_hint=transport_hint,
+    )
 
 
 def akashic_resonate(filepath):
@@ -3604,18 +3728,23 @@ def akashic_audit(filepath, expected_sha256=None):
     return receptor.crucible_audit(filepath, expected_sha256)
 
 
-def akashic_attune(gene_cid=None, gene_name=None):
+def akashic_attune(content_sha256=None, capability_name=None, transport_hint=None):
     """
     快捷函数：同调远端能力
 
-    Args:
-        gene_cid: 能力基因的 IPFS 内容标识符 (CID)
-        gene_name: 能力的语义标签
+        Args:
+            content_sha256: SHA-256 content identity.
+            capability_name: Semantic capability name.
+            transport_hint: Optional direct transport locator.
 
     Returns:
         同调结果
     """
-    return phagocytize_gene(gene_cid=gene_cid, gene_name=gene_name)
+    return phagocytize_gene(
+        content_sha256=content_sha256,
+        capability_name=capability_name,
+        transport_hint=transport_hint,
+    )
 
 
 def akashic_broadcast(filepath, capability_name=None):
@@ -3702,14 +3831,7 @@ def _build_gateway_url(cid: str, gateway_base: str) -> str:
     Raises:
         ValueError: 若 CID 为空或无效格式。
     """
-    if not cid or not cid.strip():
-        raise ValueError(
-            "虚空坐标不可为空——CID 是通往阿卡夏记录的星门钥匙，"
-            "缺失则无法定位远端基因。"
-        )
-    stripped = cid.strip()
-    base = gateway_base.rstrip("/")
-    return f"{base}/{stripped}"
+    return stargate_transport.build_gateway_url(cid, gateway_base)
 
 
 def _probe_kubo_alive() -> bool:
@@ -3719,16 +3841,7 @@ def _probe_kubo_alive() -> bool:
     Returns:
         True 如果 Kubo 在线，False 否则。
     """
-    try:
-        req = request.Request(
-            KUBO_API_URL + "?quiet=true",
-            method="POST",
-        )
-        with request.urlopen(req, timeout=3) as _:
-            pass
-        return True
-    except (error.HTTPError, error.URLError, OSError):
-        return False
+    return stargate_transport.probe_kubo_alive(KUBO_API_URL)
 
 
 def _pull_via_kubo(cid: str) -> Optional[bytes]:
@@ -3745,25 +3858,7 @@ def _pull_via_kubo(cid: str) -> Optional[bytes]:
     Returns:
         基因数据字节流，Kubo 不可用或文件不存在时返回 None。
     """
-    kubo_cat_url = "http://127.0.0.1:5001/api/v0/cat"
-
-    try:
-        url = f"{kubo_cat_url}?arg={cid}"
-        req = request.Request(
-            url,
-            headers={"User-Agent": "G012-akashic-receptor/1.9"},
-            method="POST"
-        )
-        with request.urlopen(req, timeout=FETCH_TIMEOUT_SEC) as response:
-            raw_data = response.read()
-        print(f"   🪐 [Kubo本地] 通道响应成功——基因载荷已捕获。")
-        return raw_data
-    except error.HTTPError:
-        return None
-    except error.URLError:
-        return None
-    except TimeoutError:
-        return None
+    return stargate_transport.pull_via_kubo(cid, timeout_sec=FETCH_TIMEOUT_SEC)
 
 
 def _transmembrane_pull(cid: str) -> bytes:
@@ -3793,6 +3888,14 @@ def _transmembrane_pull(cid: str) -> bytes:
         TimeoutError:     所有通道节点均拉取超时。
         RuntimeError:     遍历全部网关阵列后仍无法获取基因。
     """
+    return stargate_transport.pull_via_gateway_array(
+        cid,
+        gateways=GATEWAY_ARRAY,
+        kubo_api_url=KUBO_API_URL,
+        timeout_sec=FETCH_TIMEOUT_SEC,
+        retry_policy=RETRY_POLICY,
+    )
+
     print(f"🌐 [网关阵列] 共 {len(GATEWAY_ARRAY)} 个通道就绪，开始序列拉取...")
 
     print(f"   🔍 [Kubo探测] 检查本地 IPFS 守护进程...")
@@ -3874,6 +3977,10 @@ def _transmembrane_pull(cid: str) -> bytes:
 #  ——— Audrey · 001X
 # ═══════════════════════════════════════════════════════════════════════
 
+def _pull_via_transport_hint(transport_hint: str) -> bytes:
+    """Pull gene bytes through a transport hint; CID remains a legacy transport value."""
+    return _transmembrane_pull(transport_hint)
+
 
 def _ensure_lysosome() -> Path:
     """
@@ -3953,6 +4060,12 @@ def _local_write_before_ingest(raw_data: bytes, cid: str) -> str:
     os.replace(tmp_filepath, final_filepath)
 
     return str(final_filepath.resolve())
+
+
+
+def _land_content_before_ingest(raw_data: bytes, content_id: str) -> str:
+    """Persist remote gene bytes before audit using content identity or transport hint."""
+    return _local_write_before_ingest(raw_data, content_id)
 
 
 def crucible_audit(filepath: str, expected_sha256: str = None) -> bool:
@@ -4073,7 +4186,7 @@ def _audit_internal_gene(filepath: str, header: str, lineage_display: str, expec
     print("      ⏩ 执行 L2 血脉校验...")
 
     print(
-        f"� [真理审判] 血脉纯正。\n"
+        f" [真理审判] 血脉纯正。\n"
         f"   生命标识 (life_id):  {lineage_display or '未知'}\n"
         f"   血脉验证: PGN@ 前缀匹配"
     )
@@ -4421,8 +4534,21 @@ def _log_rejected_audit(audit_record: dict):
         audit_record: 审计记录字典
     """
     _ensure_quarantine_dirs()
+    normalized = {
+        "event_type": audit_record.get("event_type", "protocol_quarantine"),
+        "timestamp": audit_record.get("timestamp", datetime.now().isoformat()),
+        "source": "protocol_runtime",
+        "layer": audit_record.get("layer", str(audit_record.get("rejection_reason", "runtime")).split(":", 1)[0]),
+        "status": audit_record.get("status", "rejected"),
+        "reason": audit_record.get("reason", audit_record.get("rejection_reason", "")),
+        "reformable": audit_record.get("is_reformable", audit_record.get("reformable", False)),
+        "gene_file": audit_record.get("gene_name", os.path.basename(str(audit_record.get("original_path", "")))),
+        "life_id": audit_record.get("life_id", audit_record.get("new_life_id", "")),
+        "creator": audit_record.get("creator", audit_record.get("new_creator", "")),
+    }
+    normalized.update(audit_record)
     with open(REJECTED_AUDIT_LOG, "a", encoding="utf-8") as f:
-        f.write(json_module.dumps(audit_record, ensure_ascii=False) + "\n")
+        f.write(json_module.dumps(normalized, ensure_ascii=False) + "\n")
 
 
 def _quarantine_rejected_gene(
@@ -4736,53 +4862,59 @@ def _resolve_semantic_name(capability_name: str) -> tuple[str, Optional[str]]:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def phagocytize_gene(gene_cid: str = None, gene_name: str = None) -> str:
+def phagocytize_gene(
+    content_sha256: str = None,
+    capability_name: str = None,
+    transport_hint: str = None,
+) -> str:
     """
     阿卡夏胞吞——从基因网络获取基因的完整闭环。
 
     此函数是 G012-akashic 受体对外暴露的主要入口。
 
     v1.4 灵魂契约增强：
-        - 双通道寻址：直接传入 CID，或通过语义标签由基因罗盘自动解析。
-        - 若走罗盘路径，同时载入 expected_sha256 灵魂印记。
+        - Content-addressed lookup: content_sha256 is the primary identity.
+        - capability_name resolves through the Akashic index and carries expected_sha256.
+        - transport_hint is only a route hint; it is not the primary identity.
         - 灵魂印记传递至真理之秤 L4 校验层——SHA-256 比对不通过即
           触发时间线坍缩，防止 IPFS 网络投毒攻击。
-        - 若直接传入 CID（不走罗盘），expected_hash 为 None，
-          退化为 L1-L3 纯文本审计。
+        - Direct transport without content_sha256 cannot perform hash verification.
 
     Args:
-        gene_cid:   能力基因的 IPFS 内容标识符 (CID)。
-                     例如: "QmW2WQi7j6c7Vx8Kz9Yb3Nf1Ad5E..."
-                     若为 None，则尝试从 gene_name 解析。
-        gene_name:  能力的语义标签，如 "ipfs_readme"。
-                     若为 None，则直接使用 gene_cid。
+        content_sha256: SHA-256 content identity.
+        capability_name: Semantic capability name, such as "ipfs_readme".
+        transport_hint: Optional route hint, such as a peer URL or IPFS CID.
 
     Returns:
         状态摘要字符串。
 
     Raises:
-        ValueError:      坐标缺失——CID 与语义名称均为空。
+        ValueError:      Missing content_sha256, capability_name, or transport_hint.
         ConnectionError: 网关不可达。
         TimeoutError:    拉取超时。
         RuntimeError:    拉取或审计失败（含灵魂契约撕裂）。
     """
     expected_hash = None
+    content_address = (content_sha256 or "").strip()
+    capability = (capability_name or "").strip()
+    transport = (transport_hint or content_address).strip()
 
-    if gene_cid:
-        cid = gene_cid.strip()
-        print(f"🔭 [通道直航] 直接使用 CID 坐标: {cid}")
-    elif gene_name:
-        cid, expected_hash = _resolve_semantic_name(gene_name.strip())
+    if content_sha256:
+        expected_hash = content_sha256.strip()
+    if transport:
+        cid = transport
+        print(f"   [akashic] direct transport hint: {cid}")
+    elif capability:
+        cid, expected_hash = _resolve_semantic_name(capability)
     else:
         raise ValueError(
-            "通道无法开启——坐标 (gene_cid) 与 "
-            "语义标签 (gene_name) 均为空。"
-            "请至少提供一个，以使阿卡夏受体锁定目标基因。"
+            "Akashic ingestion requires content_sha256, transport_hint, or capability_name. "
+            "Please use the content-addressed API."
         )
 
-    raw_gene = _transmembrane_pull(cid)
+    raw_gene = _pull_via_transport_hint(cid)
 
-    filepath = _local_write_before_ingest(raw_gene, cid)
+    filepath = _land_content_before_ingest(raw_gene, cid)
 
     if not crucible_audit(filepath, expected_sha256=expected_hash):
         rejection_reason = _determine_rejection_reason(filepath)
@@ -4790,7 +4922,7 @@ def phagocytize_gene(gene_cid: str = None, gene_name: str = None) -> str:
 
         q_path = _quarantine_rejected_gene(
             filepath=filepath,
-            gene_name=gene_name or cid,
+            gene_name=capability or cid,
             rejection_reason=rejection_reason,
             is_reformable=is_reformable,
             original_cid=cid
@@ -5059,7 +5191,7 @@ AKASHIC_TOOL_SCHEMA = {
         "parameters": {
             "type": "object",
             "properties": {
-                "gene_cid": {
+                "content_sha256": {
                     "type": "string",
                     "description": (
                         "待胞吞的能力基因在 IPFS 网络中的内容标识符 (Content Identifier)。"
@@ -5070,7 +5202,7 @@ AKASHIC_TOOL_SCHEMA = {
                         "若不知 CID，可改为提供 gene_name。"
                     ),
                 },
-                "gene_name": {
+                "capability_name": {
                     "type": "string",
                     "description": (
                         "需要拉取的能力的语义标签，如 'ipfs_readme'、'pgn_core_v2'。"
@@ -5078,6 +5210,10 @@ AKASHIC_TOOL_SCHEMA = {
                         "由本地基因罗盘 (.gene_index.json) 自动解析为通道坐标。"
                         "此参数与 gene_cid 至少提供其一。"
                     ),
+                },
+                "transport_hint": {
+                    "type": "string",
+                    "description": "Optional transport locator used for direct pull (URL/CID/peer route).",
                 },
             },
             "required": [],
@@ -5097,6 +5233,25 @@ AKASHIC_TOOL_SCHEMA = {
 #    - 用户要求将某项本地能力广播至网络
 #    - 进化追踪器提示新阶段基因需要结晶传播
 # ═══════════════════════════════════════════════════════════════════════
+
+AKASHIC_TOOL_SCHEMA["function"]["description"] = (
+    "Fetch and audit a remote capability payload. Use content_sha256 as the primary "
+    "identity, capability_name for semantic lookup, and transport_hint only as a route."
+)
+AKASHIC_TOOL_SCHEMA["function"]["parameters"]["properties"] = {
+    "content_sha256": {
+        "type": "string",
+        "description": "SHA-256 content identity for the capability payload.",
+    },
+    "capability_name": {
+        "type": "string",
+        "description": "Semantic capability name resolved through the Akashic index.",
+    },
+    "transport_hint": {
+        "type": "string",
+        "description": "Optional transport locator such as a peer URL, gateway URL, or IPFS CID.",
+    },
+}
 
 AKASHIC_BROADCAST_SCHEMA = {
     "type": "function",
@@ -5195,21 +5350,88 @@ class LocalGateway:
         thread.start()
     """
 
-    def __init__(self, port: int = 8080):
+    def __init__(self, port: int = 8080, identity: dict | None = None):
         self.port = port
         self.gene_index = {}
+        self.known_peers = []
         self._server = None
+        self._beacon = None
+        if identity is None:
+            try:
+                from stargate_identity import default_identity_path, load_or_create_identity
+                identity = load_or_create_identity(default_identity_path(port), node_id=f"local-gateway:{port}")
+            except Exception:
+                identity = {
+                    "schema_version": "akashic.node-identity/v1",
+                    "node_id": f"local-gateway:{port}",
+                    "key_type": "unsigned",
+                    "public_key": {},
+                    "public_key_id": "",
+                }
+        self.identity = identity
 
-    def register_gene(self, gene_name: str, filepath: str):
-        """
-        注册基因到本地索引。
+    def register_peer(self, peer_url: str, label: str = "", trust_state: str = "candidate"):
+        """Advertise a known peer without trusting it implicitly."""
+        peer_url = peer_url.rstrip("/")
+        record = {"peer_url": peer_url, "label": label, "trust_state": trust_state}
+        for index, existing in enumerate(self.known_peers):
+            if existing.get("peer_url", "").rstrip("/") == peer_url:
+                self.known_peers[index] = {**existing, **record}
+                break
+        else:
+            self.known_peers.append(record)
+        return record
 
-        Args:
-            gene_name: 语义标签，如 "hello-world"
-            filepath: 本地基因文件路径
-        """
-        self.gene_index[gene_name] = filepath
-        print(f"   📝 [网关注册] 基因 '{gene_name}' → {filepath}")
+    def register_gene(self, gene_name: str, filepath: str, content_sha256: str = ""):
+        """Register a local gene and expose a verifiable peer manifest entry."""
+        path = str(filepath)
+        if not content_sha256 and os.path.isfile(path):
+            try:
+                with open(path, "rb") as fh:
+                    content_sha256 = hashlib.sha256(fh.read()).hexdigest()
+            except OSError:
+                content_sha256 = ""
+        self.gene_index[gene_name] = {
+            "filepath": path,
+            "capability": gene_name,
+            "content_sha256": content_sha256,
+            "trust_state": "peer_advertised",
+            "transport_hints": [
+                {"type": "peer", "url": f"http://127.0.0.1:{self.port}", "priority": 30},
+                {"type": "peer_hash", "url": f"http://127.0.0.1:{self.port}/gene/{content_sha256}", "priority": 20},
+            ],
+        }
+        print(f"   [gateway] registered gene '{gene_name}' -> {filepath}")
+
+    def _gene_record(self, gene_name: str) -> dict:
+        entry = self.gene_index[gene_name]
+        if isinstance(entry, str):
+            filepath = entry
+            content_sha256 = ""
+            if os.path.isfile(filepath):
+                try:
+                    with open(filepath, "rb") as fh:
+                        content_sha256 = hashlib.sha256(fh.read()).hexdigest()
+                except OSError:
+                    content_sha256 = ""
+            return {
+                "capability": gene_name,
+                "filepath": filepath,
+                "content_sha256": content_sha256,
+                "trust_state": "peer_advertised",
+                "transport_hints": [
+                    {"type": "peer", "url": f"http://127.0.0.1:{self.port}", "priority": 30},
+                    {"type": "peer_hash", "url": f"http://127.0.0.1:{self.port}/gene/{content_sha256}", "priority": 20},
+                ],
+            }
+        record = dict(entry)
+        record.setdefault("capability", gene_name)
+        record.setdefault("trust_state", "peer_advertised")
+        record.setdefault("transport_hints", [
+            {"type": "peer", "url": f"http://127.0.0.1:{self.port}", "priority": 30},
+            {"type": "peer_hash", "url": f"http://127.0.0.1:{self.port}/gene/{record.get('content_sha256', '')}", "priority": 20},
+        ])
+        return record
 
     def unregister_gene(self, gene_name: str):
         """从本地索引移除基因。"""
@@ -5228,12 +5450,16 @@ class LocalGateway:
             handler.wfile.write(b'{"status":"ok","genes":' + str(len(self.gene_index)).encode() + b"}")
             return
 
-        if path.startswith("/gene/"):
-            gene_name = path[6:]
-            self._serve_gene(handler, gene_name)
+        if path == "/hello":
+            self._serve_hello(handler)
             return
 
-        if path == "/" or path == "/index":
+        if path.startswith("/gene/"):
+            gene_ref = path[6:]
+            self._serve_gene(handler, gene_ref)
+            return
+
+        if path == "/" or path == "/index" or path == "/manifest":
             self._serve_index(handler)
             return
 
@@ -5242,16 +5468,24 @@ class LocalGateway:
         handler.end_headers()
         handler.wfile.write(b'{"error":"not_found"}')
 
-    def _serve_gene(self, handler, gene_name: str):
-        """提供基因文件。"""
+    def _serve_gene(self, handler, gene_ref: str):
+        """Serve a gene file by capability name or content SHA-256."""
+        gene_name = gene_ref
+        if gene_ref not in self.gene_index:
+            for candidate in self.gene_index:
+                record = self._gene_record(candidate)
+                if record.get("content_sha256") == gene_ref:
+                    gene_name = candidate
+                    break
         if gene_name not in self.gene_index:
             handler.send_response(404)
             handler.send_header("Content-Type", "application/json")
             handler.end_headers()
-            handler.wfile.write(f'{{"error":"gene_not_found","name":"{gene_name}"}}'.encode())
+            handler.wfile.write(f'{{"error":"gene_not_found","name":"{gene_ref}"}}'.encode())
             return
 
-        filepath = self.gene_index[gene_name]
+        record = self._gene_record(gene_name)
+        filepath = record.get("filepath", "")
 
         if not os.path.isfile(filepath):
             handler.send_response(500)
@@ -5268,22 +5502,95 @@ class LocalGateway:
             handler.send_header("Content-Type", "application/octet-stream")
             handler.send_header("Content-Length", str(len(content)))
             handler.send_header("X-Gene-Name", gene_name)
+            if record.get("content_sha256"):
+                handler.send_header("X-Content-SHA256", record["content_sha256"])
             handler.end_headers()
             handler.wfile.write(content)
-            print(f"   🌐 [网关服务] 已提供基因 '{gene_name}' ({len(content)} bytes)")
+            print(f"   [gateway] served gene '{gene_name}' ({len(content)} bytes)")
         except OSError as e:
             handler.send_response(500)
             handler.send_header("Content-Type", "application/json")
             handler.end_headers()
             handler.wfile.write(f'{{"error":"read_error","message":"{str(e)}"}}'.encode())
 
-    def _serve_index(self, handler):
-        """提供索引列表。"""
+    def _serve_hello(self, handler):
+        """Serve node identity for peer handshake."""
         import json
+        try:
+            from stargate_identity import public_identity
+            identity = public_identity(self.identity)
+        except Exception:
+            identity = {
+                "schema_version": "akashic.node-identity/v1",
+                "node_id": self.identity.get("node_id", f"local-gateway:{self.port}"),
+                "key_type": self.identity.get("key_type", "unsigned"),
+                "public_key": self.identity.get("public_key", {}),
+                "public_key_id": self.identity.get("public_key_id", ""),
+            }
+        payload = {
+            "schema_version": "akashic.hello/v1",
+            "protocol_versions": {
+                "hello": ["akashic.hello/v1"],
+                "peer_manifest": ["akashic.peer-manifest/v1"],
+                "gene_transfer": ["akashic.gene-transfer/v1"],
+                "peer_exchange": ["akashic.peer-exchange/v1"],
+            },
+            "node": identity,
+            "endpoints": {
+                "manifest": "/manifest",
+                "gene_by_hash": "/gene/{content_sha256}",
+                "gene_by_name": "/gene/{capability}",
+            },
+        }
         handler.send_response(200)
         handler.send_header("Content-Type", "application/json")
         handler.end_headers()
-        handler.wfile.write(json.dumps({"genes": list(self.gene_index.keys())}, indent=2).encode())
+        handler.wfile.write(json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8"))
+
+    def _serve_index(self, handler):
+        """Serve a peer manifest with verifiable capability records."""
+        import json
+        try:
+            from stargate_identity import public_identity, sign_document
+            node_identity = public_identity(self.identity)
+        except Exception:
+            node_identity = {
+                "schema_version": "akashic.node-identity/v1",
+                "node_id": self.identity.get("node_id", f"local-gateway:{self.port}"),
+                "key_type": self.identity.get("key_type", "unsigned"),
+                "public_key": self.identity.get("public_key", {}),
+                "public_key_id": self.identity.get("public_key_id", ""),
+            }
+            sign_document = None
+        genes = []
+        for name in sorted(self.gene_index):
+            record = self._gene_record(name)
+            genes.append({
+                "capability": record.get("capability", name),
+                "content_sha256": record.get("content_sha256", ""),
+                "trust_state": record.get("trust_state", "peer_advertised"),
+                "transport_hints": record.get("transport_hints", []),
+            })
+        manifest = {
+            "schema_version": "akashic.peer-manifest/v1",
+            "protocol_versions": {
+                "peer_manifest": ["akashic.peer-manifest/v1"],
+                "gene_transfer": ["akashic.gene-transfer/v1"],
+                "peer_exchange": ["akashic.peer-exchange/v1"],
+            },
+            "node_id": node_identity.get("node_id", f"local-gateway:{self.port}"),
+            "node": node_identity,
+            "gateway_port": self.port,
+            "genes": genes,
+            "known_peers": list(self.known_peers),
+            "total": len(genes),
+        }
+        if sign_document and self.identity.get("private_key"):
+            manifest = sign_document(manifest, self.identity)
+        handler.send_response(200)
+        handler.send_header("Content-Type", "application/json")
+        handler.end_headers()
+        handler.wfile.write(json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"))
 
     def start(self):
         """
@@ -5336,9 +5643,29 @@ class LocalGateway:
 
     def stop(self):
         """停止网关服务。"""
+        if self._beacon:
+            self._beacon.stop()
+            self._beacon = None
         if self._server:
             self._server.shutdown()
             print(f"   🛑 网关已停止")
+
+    def start_beacon(self, udp_port: int = 9999):
+        """Start a passive UDP discovery beacon for this gateway."""
+        genes = []
+        for name in sorted(self.gene_index):
+            record = self._gene_record(name)
+            genes.append({
+                "capability": record.get("capability", name),
+                "content_sha256": record.get("content_sha256", ""),
+            })
+        self._beacon = PassiveBeacon(
+            port=udp_port,
+            gateway_port=self.port,
+            node_id=self.identity.get("node_id", f"local-gateway:{self.port}"),
+        )
+        self._beacon.update_manifest(genes)
+        return self._beacon.start()
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -5391,7 +5718,8 @@ def discover_peers(timeout: float = 3.0) -> list:
                         try:
                             info = json.loads(data.decode("utf-8"))
                             if info.get("type") == "PROGENITOR_ACK":
-                                peer_url = f"http://{addr[0]}:8080"
+                                gateway_port = int(info.get("gateway_port") or 8080)
+                                peer_url = f"http://{addr[0]}:{gateway_port}"
                                 if peer_url not in discovered:
                                     discovered.append(peer_url)
                                     genes = info.get("genes", [])
@@ -5433,7 +5761,7 @@ def _check_peer_alive(peer_url: str) -> bool:
         return False
 
 
-def phagocytize_from_peer(gene_name: str, peer_url: str) -> bytes:
+def phagocytize_from_peer(gene_name: str, peer_url: str, expected_sha256: str = "") -> bytes:
     """
     从 P2P 对等节点拉取基因。
 
@@ -5448,7 +5776,10 @@ def phagocytize_from_peer(gene_name: str, peer_url: str) -> bytes:
         ValueError: 基因在对等节点中不存在
         RuntimeError: 拉取失败
     """
-    url = f"{peer_url}/gene/{gene_name}"
+    from urllib import error, request
+
+    gene_ref = expected_sha256 or gene_name
+    url = f"{peer_url}/gene/{gene_ref}"
     req = request.Request(
         url,
         headers={"User-Agent": "G012-akashic-receptor/1.9"}
@@ -5456,7 +5787,14 @@ def phagocytize_from_peer(gene_name: str, peer_url: str) -> bytes:
 
     try:
         with request.urlopen(req, timeout=FETCH_TIMEOUT_SEC) as response:
-            return response.read()
+            payload = response.read()
+            if expected_sha256:
+                actual = hashlib.sha256(payload).hexdigest()
+                if actual != expected_sha256:
+                    raise RuntimeError(
+                        f"Peer payload hash mismatch: expected {expected_sha256}, actual {actual}"
+                    )
+            return payload
     except error.HTTPError as e:
         if e.code == 404:
             raise ValueError(f"基因 '{gene_name}' 在对等节点中不存在")
@@ -5490,8 +5828,10 @@ class PassiveBeacon:
     收到 PROGENITOR_DISCOVER 广播时自动回复 ACK + 基因清单。
     """
 
-    def __init__(self, port: int = 9999):
+    def __init__(self, port: int = 9999, gateway_port: int = 8080, node_id: str = ""):
         self.port = port
+        self.gateway_port = gateway_port
+        self.node_id = node_id
         self.gene_manifest = []
         self._running = False
         self._thread = None
@@ -5513,6 +5853,7 @@ class PassiveBeacon:
         self._running = True
 
         def _listen():
+            import socket
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
@@ -5527,9 +5868,16 @@ class PassiveBeacon:
                     if data == b"PROGENITOR_DISCOVER":
                         response = json.dumps({
                             "type": "PROGENITOR_ACK",
+                            "schema_version": "akashic.beacon-ack/v1",
+                            "node_id": self.node_id,
                             "genes": self.gene_manifest,
-                            "gateway_port": 8080,
-                            "hostname": socket.gethostname()
+                            "gateway_port": self.gateway_port,
+                            "hostname": socket.gethostname(),
+                            "protocol_versions": {
+                                "hello": ["akashic.hello/v1"],
+                                "peer_manifest": ["akashic.peer-manifest/v1"],
+                                "gene_transfer": ["akashic.gene-transfer/v1"],
+                            },
                         }).encode("utf-8")
                         sock.sendto(response, addr)
                 except socket.timeout:
@@ -5966,3 +6314,5 @@ def _hatchery_expand_from_pgn(pgn_path, hatchery_dir):
         return {"success": False, "error": f"Only extracted {len(_written)}/3 files", "files": _written}
     except Exception as _e:
         return {"success": False, "error": str(_e), "files": _written}
+
+

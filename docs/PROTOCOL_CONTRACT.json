@@ -1,0 +1,127 @@
+{
+  "contract": "progenitor-protocol",
+  "version": "1.0.0",
+  "purpose": "Machine-readable contract for the Progenitor Protocol, Registry, and Akashic Stargate review flow.",
+  "principles": {
+    "open_authorship": true,
+    "creator_whitelist_required": false,
+    "stdlib_only": true,
+    "content_addressed_genes": true,
+    "review_before_execution": true,
+    "quarantine_before_reform": true
+  },
+  "repositories": {
+    "protocol": {
+      "role": "Core ingestion, audit, sandbox, packaging, and self-bootstrap engine.",
+      "required_files": [
+        "hatchery/engine.py",
+        "hatchery/stargate_transport.py",
+        "hatchery/stargate_identity.py",
+        "hatchery/incubator.py",
+        "hatchery/metadata.yaml",
+        "INGEST_ME_TO_EVOLVE_pgn-core.pgn"
+      ],
+      "deliverable": "INGEST_ME_TO_EVOLVE_pgn-core.pgn"
+    },
+    "registry": {
+      "role": "Open gene registry and Akashic semantic index.",
+      "required_files": [
+        ".akashic_index.json",
+        ".gene_score_log.json",
+        ".github/workflows/gatekeeper.py",
+        "genes/*"
+      ]
+    },
+    "devkit": {
+      "role": "Local maintenance, validation, testing, logging, and release workflow.",
+      "pushable": false
+    }
+  },
+  "registry_gatekeeper": {
+    "mode": "open_registration_with_verification",
+    "layers": [
+      {
+        "id": "L0",
+        "name": "Rate Limit",
+        "blocking": true,
+        "rule": "Limit submitted gene volume per PR and per creator."
+      },
+      {
+        "id": "L1",
+        "name": "Lineage Prefix",
+        "blocking": true,
+        "rule": "life_id must start with PGN@."
+      },
+      {
+        "id": "L2",
+        "name": "Content Address",
+        "blocking": true,
+        "rule": "Gene file name should be its SHA-256 content hash."
+      },
+      {
+        "id": "L3",
+        "name": "Creator Covenant",
+        "blocking": false,
+        "rule": "Any human or AI creator may contribute; missing creator is normalized to Anonymous."
+      },
+      {
+        "id": "L4",
+        "name": "Quality Gate",
+        "blocking": false,
+        "rule": "Require basic metadata, description, and file size constraints; currently warning-level in registry CI."
+      },
+      {
+        "id": "L5",
+        "name": "Security Scan",
+        "blocking": true,
+        "rule": "Reject obvious dangerous execution patterns and third-party dependencies."
+      }
+    ]
+  },
+  "protocol_runtime_audit": {
+    "entrypoints": [
+      "crucible_audit",
+      "phagocytize_gene",
+      "resonate_gene",
+      "isolated_run",
+      "reform_rejected_gene"
+    ],
+    "required_behaviors": [
+      "Fetch remote gene into local lysosome before ingestion.",
+      "Compare expected_sha256 when semantic registry lookup provides one.",
+      "Reject failed audit before execution.",
+      "Move rejected genes into quarantine.",
+      "Mark L2_no_lineage and L3_unknown_creator as reformable.",
+      "Mark L4/L5 integrity or signature failures as non-reformable.",
+      "Execute dynamic or external logic only through TelomereGuard or isolated subprocess paths."
+    ]
+  },
+  "trust_levels": [
+    {
+      "id": "TRUSTED_CORE",
+      "description": "Core Audrey lineage protocol code and generated pgn deliverable."
+    },
+    {
+      "id": "VERIFIED_REGISTRY",
+      "description": "Registry gene that passed Gatekeeper and can be resolved through Akashic index."
+    },
+    {
+      "id": "QUARANTINED_EXTERNAL",
+      "description": "Fetched or submitted gene that failed runtime audit and has been moved to quarantine."
+    },
+    {
+      "id": "LOCAL_EXPERIMENTAL",
+      "description": "Local unreleased gene or reform candidate; must not be propagated without audit."
+    },
+    {
+      "id": "REJECTED",
+      "description": "Non-reformable malicious, corrupted, or integrity-failed gene."
+    }
+  ],
+  "known_gaps": [
+    "Registry L2 SHA-256 filename verification exists in DevKit precheck but is not explicit in Gatekeeper main flow.",
+    "Registry L4 quality gate currently warns but does not block.",
+    "Registry L5 uses regex scanning; Protocol has stronger AST and subprocess isolation for runtime paths.",
+    "Direct transport_hint ingestion without content_sha256 may lack expected_sha256 and therefore falls back to weaker text audit."
+  ]
+}

@@ -408,11 +408,11 @@ def validate_pgn(pgn_path):
     return True
 
 def validate_pipe_bootstrap(pgn_path):
-    print("\n🌀 [CI Pipe-Bootstrap] Testing pipe-mode self-bootstrap (curl ... | python3)...")
+    print("\n🌀 [CI Pipe-Bootstrap] Testing pipe-mode self-bootstrap with current Python...")
     import subprocess, os
 
     process = subprocess.run(
-        ["python3"],
+        [sys.executable],
         input=pgn_path.read_text(),
         capture_output=True,
         text=True,
