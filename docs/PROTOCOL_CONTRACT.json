@@ -67,8 +67,8 @@
       {
         "id": "L4",
         "name": "Quality Gate",
-        "blocking": false,
-        "rule": "Require basic metadata, description, and file size constraints; currently warning-level in registry CI."
+        "blocking": true,
+        "rule": "Require basic metadata, description, and file size constraints; fail closed by default in registry CI."
       },
       {
         "id": "L5",
@@ -119,8 +119,6 @@
     }
   ],
   "known_gaps": [
-    "Registry L2 SHA-256 filename verification exists in DevKit precheck but is not explicit in Gatekeeper main flow.",
-    "Registry L4 quality gate currently warns but does not block.",
     "Registry L5 uses regex scanning; Protocol has stronger AST and subprocess isolation for runtime paths.",
     "Direct transport_hint ingestion without content_sha256 may lack expected_sha256 and therefore falls back to weaker text audit."
   ]

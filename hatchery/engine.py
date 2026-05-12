@@ -154,7 +154,7 @@ AKASHIC_SIGNER_FINGERPRINTS = (
     _signer_fingerprints_env.split(",") if _signer_fingerprints_env else []
 )
 AKASHIC_SIGNATURE_MODE = os.environ.get("PROGENITOR_SIGNATURE_MODE", "optional")
-AKASHIC_SIGNATURE_REQUIRED = AKASHIC_SIGNATURE_MODE == "required"
+AKASHIC_SIGNATURE_REQUIRED = AKASHIC_SIGNATURE_MODE in {"required", "strict"}
 
 AKASHIC_GPG_HOMEDIR = os.environ.get("PROGENITOR_GPG_HOMEDIR", os.path.expanduser("~/.gnupg"))
 
@@ -3896,76 +3896,6 @@ def _transmembrane_pull(cid: str) -> bytes:
         retry_policy=RETRY_POLICY,
     )
 
-    print(f"🌐 [网关阵列] 共 {len(GATEWAY_ARRAY)} 个通道就绪，开始序列拉取...")
-
-    print(f"   🔍 [Kubo探测] 检查本地 IPFS 守护进程...")
-    if _probe_kubo_alive():
-        print(f"   🪐 [Kubo本地] 节点在线，尝试从本地获取...")
-        local_data = _pull_via_kubo(cid)
-        if local_data:
-            return local_data
-        print(f"   ⚠️ [Kubo本地] 本地节点无此基因，切换至网关阵列...")
-    else:
-        print(f"   ⏭️ [Kubo探测] 本地节点未运行，跳过本地通道。")
-
-    max_retries = RETRY_POLICY["max_retries"]
-    backoff = RETRY_POLICY["backoff_factor"]
-    total_gates = len(GATEWAY_ARRAY)
-    all_errors = []
-
-    for gate_idx, gateway_base in enumerate(GATEWAY_ARRAY, start=1):
-        url = _build_gateway_url(cid, gateway_base)
-        print(f"   🚪 [通道 {gate_idx}/{total_gates}] {gateway_base}")
-
-        for attempt in range(1, max_retries + 1):
-            try:
-                req = request.Request(
-                    url,
-                    headers={"User-Agent": "G012-akashic-receptor/1.2"}
-                )
-                with request.urlopen(req, timeout=FETCH_TIMEOUT_SEC) as response:
-                    raw_data = response.read()
-                print(f"      ✅ 通道 {gate_idx} 响应成功——基因载荷已捕获。")
-                return raw_data
-
-            except error.URLError as exc:
-                all_errors.append(f"[通道{gate_idx}] URLError: {exc}")
-                if attempt < max_retries:
-                    wait = backoff * attempt
-                    print(f"      ⏳ 第 {attempt}/{max_retries} 次拉取受阻——{wait:.0f}s 后退避重试...")
-                    time.sleep(wait)
-                    continue
-                print(
-                    f"      ❌ 通道 {gate_idx} 已竭尽 {max_retries} 次拉取——链路断裂。"
-                )
-
-            except TimeoutError as exc:
-                all_errors.append(f"[通道{gate_idx}] Timeout: {exc}")
-                if attempt < max_retries:
-                    wait = backoff * attempt
-                    print(f"      ⏳ 第 {attempt}/{max_retries} 次拉取超时——{wait:.0f}s 后退避重试...")
-                    time.sleep(wait)
-                    continue
-                print(
-                    f"      ❌ 通道 {gate_idx} 在 {FETCH_TIMEOUT_SEC}s 内无声——网络深渊无回响。"
-                )
-
-        if gate_idx < total_gates:
-            next_gateway = GATEWAY_ARRAY[gate_idx]
-            print(
-                f"   ⚠️ [通道拥堵] 切换至备用通道: {next_gateway}..."
-            )
-        else:
-            print(
-                f"   💀 [网关阵列] 最后一个通道亦已阻塞。"
-                f"遍历 {total_gates} 个通道，无一幸免。"
-            )
-
-    raise RuntimeError(
-        f"阿卡夏受体已遍历全部 {total_gates} 个通道——"
-        f"基因 [{cid}] 无法从基因网络中拉取。"
-        f"错误链: {'; '.join(all_errors)}"
-    )
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -4333,6 +4263,8 @@ def _verify_digital_signature(filepath: str, is_internal: bool = True) -> bool:
         True 签名验证通过（或无需验证）
         False 签名验证失败
     """
+    signature_fail_closed = SIGNATURE_MODE in {"required", "strict"}
+
     if not SIGNER_FINGERPRINTS:
         return True
 
@@ -4347,7 +4279,7 @@ def _verify_digital_signature(filepath: str, is_internal: bool = True) -> bool:
                 f"   要求的签名文件: {sig_filepath}\n"
                 f"   未找到签名文件——{'基因来源不可考，时间线坍缩' if is_internal else '跳过签名校验（外部基因）。'}"
             )
-            return False if is_internal else True
+            return False if (is_internal or signature_fail_closed) else True
         else:
             print(
                 f"⚠️ [真理审判] 签名可选但未提供——\n"
@@ -4388,7 +4320,7 @@ def _verify_digital_signature(filepath: str, is_internal: bool = True) -> bool:
                 f"   签名者不在白名单中或签名无效。\n"
                 f"   GPG 输出:\n{output[:500]}"
             )
-            if SIGNATURE_MODE == "strict":
+            if signature_fail_closed:
                 print(f"   时间线坍缩——基因就地净化。")
                 return False
             else:
@@ -4404,7 +4336,7 @@ def _verify_digital_signature(filepath: str, is_internal: bool = True) -> bool:
                     f"💀 [真理审判] 签名验证失败！\n"
                     f"   GPG 输出:\n{output[:500]}"
                 )
-                if SIGNATURE_MODE == "strict":
+                if signature_fail_closed:
                     print(f"   时间线坍缩——基因就地净化。")
                     return False
                 else:
@@ -4422,7 +4354,7 @@ def _verify_digital_signature(filepath: str, is_internal: bool = True) -> bool:
                 f"   已验证的签名者不在授权列表内。\n"
                 f"   白名单: {SIGNER_FINGERPRINTS}"
             )
-            if SIGNATURE_MODE == "strict":
+            if signature_fail_closed:
                 print(f"   时间线坍缩——基因就地净化。")
                 return False
             else:
@@ -4444,14 +4376,14 @@ def _verify_digital_signature(filepath: str, is_internal: bool = True) -> bool:
             f"   请安装 GPG: brew install gpg\n"
             f"   当前签名模式: {SIGNATURE_MODE}，跳过验证。"
         )
-        return True
+        return not signature_fail_closed
     except subprocess.TimeoutExpired:
         print(
             f"⚠️ [真理审判] GPG 验证超时——\n"
             f"   签名验证超时 (30秒)。\n"
             f"   当前签名模式: {SIGNATURE_MODE}，跳过验证。"
         )
-        return True
+        return not signature_fail_closed
     except Exception as e:
         print(
             f"⚠️ [真理审判] GPG 验证异常——\n"
@@ -5956,13 +5888,7 @@ class SporeDaemon:
         self._available_channels = channels
 
     def _is_kubo_running(self):
-        from .config import KUBO_API_URL
-        try:
-            req = request.Request(f"{KUBO_API_URL}/api/v0/id", method="POST")
-            with request.urlopen(req, timeout=2) as resp:
-                return resp.status == 200
-        except Exception:
-            return False
+        return stargate_transport.probe_kubo_alive(KUBO_API_URL)
 
     def on_innovation(self, innovation_count: int):
         if not self._consent_given and self._consent_explicitly_denied:
@@ -6314,5 +6240,3 @@ def _hatchery_expand_from_pgn(pgn_path, hatchery_dir):
         return {"success": False, "error": f"Only extracted {len(_written)}/3 files", "files": _written}
     except Exception as _e:
         return {"success": False, "error": str(_e), "files": _written}
-
-
